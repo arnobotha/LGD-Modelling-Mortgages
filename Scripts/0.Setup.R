@@ -69,7 +69,7 @@ k <- 6 # Probation period
 # -- Path variables | General
 
 # - Common path for saving big data objects
-genPath <- "C:/Data/LossModelling-FNB_Mortgages_Data/"
+genPath <- "C:/Data/LossModelling-Mortgages_Data/"
 
 # - Common path for importing raw data
 genRawPath <- "C:/Data/"
@@ -79,27 +79,27 @@ genRawPath <- "C:/Data/"
 
 if (Sys.getenv("USERNAME") == "WRQ") {
   # - Custom path where R-scripts are saved
-  path_cust <- "C:/Users/WRQ/OneDrive - FRG/Analytix/Research/LossModelling-FNB_Mortgages/Scripts/"
+  path_cust <- "C:/Users/WRQ/OneDrive - FRG/Analytix/Research/LossModelling-Mortgages/Scripts/"
   
   # - Common path for storing important R-objects as back-up
-  genObjPath <- "C:/Users/WRQ/OneDrive - FRG/Analytix/Research/LossModelling-FNB_Mortgages/Objects/"
+  genObjPath <- "C:/Users/WRQ/OneDrive - FRG/Analytix/Research/LossModelling-Mortgages/Objects/"
   
   # - Common path for saving important analytics (e.g., sampling)
-  genFigPath <- "C:/Users/WRQ/OneDrive - FRG/Analytix/Research/LossModelling-FNB_Mortgages/Figures/"
+  genFigPath <- "C:/Users/WRQ/OneDrive - FRG/Analytix/Research/LossModelling-Mortgages/Figures/"
   
 } else if (Sys.getenv("USERNAME") == "Arno Botha") {
   # - Custom path where R-scripts are saved
   
-  path_cust <- "E:/WorkLife/Analytix/Research/LossModelling-FNB_Mortgages/Scripts/"
+  path_cust <- "E:/WorkLife/Analytix/Research/LossModelling-Mortgages/Scripts/"
   
   # - Common path for storing important R-objects as back-up
-  genObjPath <- "E:/WorkLife/Analytix/Research/LossModelling-FNB_Mortgages/Objects/"
+  genObjPath <- "E:/WorkLife/Analytix/Research/LossModelling-Mortgages/Objects/"
   
   # - Common path for saving important analytics (e.g., sampling)
-  genFigPath <- "E:/WorkLife/Analytix/Research/LossModelling-FNB_Mortgages/Figures/"
+  genFigPath <- "E:/WorkLife/Analytix/Research/LossModelling-Mortgages/Figures/"
   
   # - Common path for saving big data objects
-  genPath <- "E:/DataDump/FNB SLC/LossModelling-FNB_Mortgages_Data/"
+  genPath <- "E:/DataDump/FNB SLC/LossModelling-Mortgages_Data/"
   
   # - Common path for importing raw data
   genRawPath <- "E:/DataDump/FNB SLC/"

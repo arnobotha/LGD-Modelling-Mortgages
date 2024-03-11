@@ -182,7 +182,7 @@ if (diag.real1a > 0) {
 }
 
 # - Cleanup
-rm(test)
+rm(test, test_samp)
 
 
 
