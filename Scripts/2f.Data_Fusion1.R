@@ -83,7 +83,7 @@ pack.ffdf(paste0(genObjPath,"Exclusions-TruEnd-Enriched"), datExclusions);
 
 # - Check the impact of the exclusions from script 2d | RECORD-LEVEL
 (exclusions_credit <- datCredit_real[ExclusionID != 0, .N] / datCredit_real[, .N] * 100)
-# Exclusions' impact: 5.88%
+# Exclusions' impact: 5.92%
 
 # - Now apply the exclusions
 datCredit_real <- subset(datCredit_real, ExclusionID == 0); gc()
@@ -110,17 +110,17 @@ datCredit_real <- subset(datCredit_real,
                          select = -c(Age, #PerfSpell_Key, New_Ind, Max_Counter, Date_Origination, Principal,
                                      AccountStatus, #Instalment, Arrears, 
                                      DelinqState_g0, #DefaultStatus1, DefSpell_Num, TimeInDefSpell,
-                                     DefSpell_LeftTrunc, DefSpell_Event, DefSpell_Censored,
+                                     DefSpell_Event, DefSpell_Censored, # DefSpell_LeftTrunc,
                                      DefSpellResol_TimeEnd, #DefSpell_Age, DefSpellResol_Type_Hist,
-                                     DefSpell_LastStart, ReceiptPV, LossRate_Real, #HasLeftTruncPerfSpell, 
-                                     PerfSpell_LeftTrunc, PerfSpell_Event, PerfSpell_Censored,
+                                     #DefSpell_LastStart, ReceiptPV, LossRate_Real, #HasLeftTruncPerfSpell, 
+                                     PerfSpell_Event, PerfSpell_Censored, # PerfSpell_LeftTrunc, 
                                      PerfSpell_TimeEnd, #PerfSpellResol_Type_Hist,
                                      Account_Censored, #Event_Time, Event_Type, HasLeftTruncDefSpell,
                                      HasTrailingZeroBalances, ZeroBal_Start, NCA_CODE, STAT_CDE, LN_TPE,
                                      #DefSpell_Key, DefSpell_Counter, PerfSpell_Counter,
                                      HasWOff, WriteOff_Amt, HasSettle, EarlySettle_Amt, # HasFurtherLoan, HasRedraw,
                                      HasClosure, CLS_STAMP, Curing_Ind, BOND_IND, Undrawn_Amt, # TreatmentID,
-                                     slc_past_due_amt, WOff_Ind, EarlySettle_Ind, #PerfSpell_Num, PerfSpell_Age,
+                                     slc_past_due_amt, #WOff_Ind, EarlySettle_Ind,
                                      FurtherLoan_Amt, FurtherLoan_Ind, Redraw_Ind, Redrawn_Amt, Repaid_Ind, HasRepaid)); gc()
 
 # - Merge on Date by performing a left-join

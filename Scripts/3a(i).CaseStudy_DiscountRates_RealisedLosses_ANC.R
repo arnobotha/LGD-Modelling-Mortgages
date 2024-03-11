@@ -29,29 +29,39 @@
 # ------ Setup
 
 # --- 1. Load TruEnd-treated data and create lookups
-if (!exists('datCredit_real')) unpack.ffdf(paste0(genPath,"creditdata_final4-TruEnd"), tempPath)
+if (!exists('datCredit_real')) unpack.ffdf(paste0(genPath,"creditdata_final4a"), tempPath)
 
-# - Lookup: 1 default spell
+# - Lookup: First default spell
 lookupID <- datCredit_real[LossRate_Real < 0 & !is.na(DefSpell_Num) & DefSpellResol_Type_Hist != "Censored" & 
                              DefSpell_Counter==1, DefSpell_Key][1]
-lookup <- subset(datCredit_real, DefSpell_Key == lookupID)
-lookup <- subset(lookup, select=c("LoanID", "Date", "DefSpell_Key", "DefSpell_Num", "TimeInDefSpell","DefSpell_Age", 
-                                  "DefSpellResol_Type_Hist", "Principal", "InterestRate_Nom", "Balance", "Instalment", "Receipt_Inf", "Arrears"))
+# Override automated lookup with a known specific case: 138602
+lookupID <- "138602_1"
+lookup <- subset(datCredit_real, DefSpell_Key == lookupID, 
+                 select=c("LoanID", "Date", "DefSpell_Key", "DefSpell_Num", "TimeInDefSpell","DefSpell_Age", 
+                          "DefSpellResol_Type_Hist", "Principal", "InterestRate_Nom", "Balance", "Instalment", "Receipt_Inf", "Arrears"))
+
 # - Lookup: all history
 lookupID2 <- substr(lookupID, 1, str_locate(pattern ='_',lookupID)[1]-1)
-lookup2 <- subset(datCredit_real, LoanID == lookupID2)
-lookup2 <- subset(lookup2, select=c("LoanID", "Date", "DefSpell_Key", "DefSpell_Num", "TimeInDefSpell","DefSpell_Age", 
-                                    "DefSpellResol_Type_Hist", "Principal", "InterestRate_Nom", "Balance", "Instalment", "Receipt_Inf", "Arrears"))
+lookup2 <- subset(datCredit_real, LoanID == lookupID2, 
+                  select=c("LoanID", "Date", "DefSpell_Key", "DefSpell_Num", "TimeInDefSpell","DefSpell_Age", 
+                           "DefSpellResol_Type_Hist", "Principal", "InterestRate_Nom", "Balance", "Instalment", "Receipt_Inf", "Arrears"))
 
-# - save lookups to disk | LoanID: 138602
-write_csv(lookup, paste0( genObjPath, "Example1_DefaultSpell.csv"))
+# - Lookup: Last default spell
+lookup3 <- subset(datCredit_real, LoanID == lookupID2 & DefSpell_Num == max(lookup2$DefSpell_Num, na.rm=T),
+                  select=c("LoanID", "Date", "DefSpell_Key", "DefSpell_Num", "TimeInDefSpell","DefSpell_Age", 
+                           "DefSpellResol_Type_Hist", "Principal", "InterestRate_Nom", "Balance", "Instalment", "Receipt_Inf", "Arrears"))
+
+# - save lookups to disk
+write_csv(lookup, paste0( genObjPath, "Example1_FirstDefaultSpell.csv"))
 write_csv(lookup2, paste0( genObjPath, "Example1_AllHistory.csv"))
+write_csv(lookup3, paste0( genObjPath, "Example1_LastDefaultSpell.csv"))
 
 
 # --- 2. Load example data
 # NOTE: Execute from here if credit data is unavailable
-if (!exists('lookup')) lookup <- read.csv("Example1_DefaultSpell.csv")
+if (!exists('lookup')) lookup <- read.csv("Example1_FirstDefaultSpell.csv")
 if (!exists('lookup2')) lookup2 <- read.csv("Example1_AllHistory.csv")
+if (!exists('lookup3')) lookup3 <- read.csv("Example1_LastDefaultSpell.csv")
 
 
 
@@ -133,9 +143,9 @@ calcIRR(x=c(-4115,1000,1100,1200)); calcIRR(x=c(-4115,1000,1100,1200), method="H
 
 
 
-# ------ Analysis 1: Empirical case study on a single loan across calculated discount rate candidates
+# ------ Analysis 1: Exploratory data analysis on a single loan
 
-# -- Spell-level analysis
+# -- Spell-level analysis: First default spell
 ggplot(lookup, aes(x=Date,y=Balance)) + theme_minimal() + geom_point() + geom_line()
 ggplot(lookup, aes(x=Date,y=InterestRate_Nom)) + theme_minimal() + geom_point() + geom_line()
 ggplot(lookup, aes(x=Date,y=Instalment)) + theme_minimal() + geom_point() + geom_line()
@@ -145,16 +155,26 @@ ggplot(lookup, aes(x=Date,y=Receipt_Inf)) + theme_minimal() + geom_point() + geo
 ggplot(lookup2, aes(x=Date,y=Balance)) + theme_minimal() + geom_point() + geom_line()
 ggplot(lookup2, aes(x=Date,y=Instalment)) + theme_minimal() + geom_point() + geom_line()
 
+# -- Spell-level analysis: Last default spell
+ggplot(lookup3, aes(x=Date,y=Balance)) + theme_minimal() + geom_point() + geom_line()
+ggplot(lookup3, aes(x=Date,y=InterestRate_Nom)) + theme_minimal() + geom_point() + geom_line()
+ggplot(lookup3, aes(x=Date,y=Instalment)) + theme_minimal() + geom_point() + geom_line()
+ggplot(lookup3, aes(x=Date,y=Receipt_Inf)) + theme_minimal() + geom_point() + geom_line()
 
+
+
+# ------ Analysis 2: Empirical case study on a single loan across calculated discount rate candidates
 
 # -- Candidate discount rates
-# - Contract Rate itself, despite drawbacks (see Larney2023)
-discRate1 <- lookup$InterestRate_Nom; mean(lookup$InterestRate_Nom, na.rm=T)
+
+# - Contract Rate itself, despite drawbacks (see Larney2024)
+# NOTE: Last default spell only# NOTE: Last default spell only
+discRate1 <- lookup3$InterestRate_Nom; mean(lookup3$InterestRate_Nom, na.rm=T)
 ### RESULTS: mean: 8.75%
 
 # - Internal rate of return on equating expected instalment vector to default balance
 # NOTE: Last default spell only
-discRate2 <- calcIRR(c(-lookup$Balance[1], lookup$Instalment), method="Halley")
+discRate2 <- calcIRR(c(-lookup3$Balance[1], lookup3$Instalment), method="Halley")
 ### RESULTS: -22.05% IRR
 
 # - Internal rate of return on equating expected instalment vector to principal (1st balance)
@@ -164,29 +184,27 @@ discRate3 <- calcIRR(c(-lookup2$Balance[1], lookup2$Instalment), method="Halley"
 
 # - Internal rate of return on equating expected instalment vector to principal (1st balance)
 # NOTE: All history up to start of last default spell
-lookup3 <- subset(lookup2, DefSpell_Num < max(lookup2$DefSpell_Num, na.rm=T))
-discRate4 <- calcIRR(c(-lookup3$Balance[1], lookup3$Instalment), method="Halley")
+lookup4 <- subset(lookup2, DefSpell_Num < max(lookup2$DefSpell_Num, na.rm=T))
+discRate4 <- calcIRR(c(-lookup4$Balance[1], lookup4$Instalment), method="Halley")
 ### RESULTS: -0.8% IRR
-
 
 
 # -- Calculate realised loss rate (actual LGD) using candidate discount rates
 
-# - Contract Rate
-# realised loss rate
-lossRate1 <- 1 - calcNPV(lookup$Receipt_Inf, discRate1/12)/lookup$Balance[1]; sprintf("%.2f", lossRate1*100)
+# - Contract Rate | Calculated on Last Default Spell
+lossRate1 <- 1 - calcNPV(lookup3$Receipt_Inf, discRate1/12)/lookup3$Balance[1]; sprintf("%.2f", lossRate1*100)
 ### RESULTS: -1.18% loss
 
-# - IRR: Last default spell only
-lossRate2 <- 1 - calcNPV(lookup$Receipt_Inf, discRate2/12)/lookup$Balance[1]; sprintf("%.2f", lossRate2*100)
+# - IRR | Calculated on Last Default Spell
+lossRate2 <- 1 - calcNPV(lookup3$Receipt_Inf, discRate2/12)/lookup3$Balance[1]; sprintf("%.2f", lossRate2*100)
 ### RESULTS: -33.69% loss
 
-# - IRR: All history
-lossRate3 <- 1 - calcNPV(lookup$Receipt_Inf, discRate3/12)/lookup$Balance[1]; sprintf("%.2f", lossRate3*100)
+# - IRR: All history  | Calculated on Last Default Spell
+lossRate3 <- 1 - calcNPV(lookup3$Receipt_Inf, discRate3/12)/lookup3$Balance[1]; sprintf("%.2f", lossRate3*100)
 ### RESULTS: -9.6% loss
 
-# - IRR: All history up to start of last default spell
-lossRate4 <- 1 - calcNPV(lookup$Receipt_Inf, discRate4/12)/lookup$Balance[1]; sprintf("%.2f", lossRate4*100)
+# - IRR: All history up to start of last default spell | Calculated on Last Default Spell
+lossRate4 <- 1 - calcNPV(lookup3$Receipt_Inf, discRate4/12)/lookup3$Balance[1]; sprintf("%.2f", lossRate4*100)
 ### RESULTS: -10.05% loss
 
 
