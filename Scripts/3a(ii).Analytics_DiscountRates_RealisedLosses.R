@@ -1,21 +1,21 @@
 # ============================== Discount Rate Comparison ================================
 # Analyse discount rates and subsequent realised losses across a few calculation methods
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: TruEnd-procedure
+# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha
 # ---------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
 #   - 1.Data_Import.R
 #   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Date_Prepare_Credit_Advanced.R
-#   - 2c(i).Data_Prepare_Credit_TruEnd.R
-#   - 2c(ii).Data_Prepare_Credit_NoTruEnd.R
-#   - 2d(i).Data_Enrich_TruEnd.R
-#   - 2d(ii).Data_Enrich_NoTruEnd.R
+#   - 2b.Date_Prepare_Credit_Advanced1.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
+#   - 2e.Data_Prepare_Macro.R
+#   - 2f.Data_Fusion1.R
 #
 # -- Inputs:
-#   - datCredit_real | Enhanced version of input dataset (script 2b)
+#   - datCredit_real | Enhanced version of input dataset (script 2f)
 #
 # -- Outputs:
 #   - <analytics>

@@ -3,24 +3,26 @@
 # across a few calculation methods for a single loan with multiple default spells
 # TruEnd-procedure applied.
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: TruEnd-procedure
+# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha
 # ---------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
 #   - 1.Data_Import.R
 #   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Date_Prepare_Credit_Advanced.R
-#   - 2c(i).Data_Prepare_Credit_TruEnd.R
-#   - 2d(i).Data_Enrich_TruEnd.R
-#   - 2e(i).Data_Exclusions_TruEnd.R
+#   - 2b.Date_Prepare_Credit_Advanced1.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
+#   - 2e.Data_Prepare_Macro.R
+#   - 2f.Data_Fusion1.R
 #
 # -- Inputs:
-#   - datCredit_real | Enhanced versions of input dataset (script 2e(i))
+#   - datCredit_real | Enhanced versions of input dataset (script 2f)
 #
 # -- Outputs:
-#   - lookup | loan history (1 default spell only) for case study
+#   - lookup | loan history (first default spell only) for case study
 #   - lookup2 | loan history (all history) for case study
+#   - lookup3 | loan history (last default spell only) for case study
 #   - <analytics> | Graph showing influence of discount rate on actual LGD for a single loan
 # =======================================================================================
 
@@ -221,7 +223,7 @@ ggplot(datResults, aes(x=DiscountRate_Mean, y=LossRate)) + theme_minimal() +
 
 
 
-# ------ Analysis 2: Empirical case study on a single loan's LGD across hypothetical discount rates
+# ------ Analysis 3: Empirical case study on a single loan's LGD across hypothetical discount rates
 
 # - Create vector of hypothetical discount rates
 discRates <- seq(-1, 1, by=0.01)
@@ -230,7 +232,7 @@ discRates <- sort(unique(c(discRates, datResults$DiscountRate_Mean)))
 
 # - Calculate corresponding actual LGD-values (realised loss rate), given loan history
 lossRates <- sapply(1:length(discRates), function(i,d) {
-  1 - calcNPV(lookup$Receipt_Inf, d[i]/12)/lookup$Balance[1]
+  1 - calcNPV(lookup3$Receipt_Inf, d[i]/12)/lookup3$Balance[1]
 }, d=discRates)
 
 
@@ -262,9 +264,9 @@ dpi <- 180
 # - Create main graph
 (g0 <- ggplot(datGraph, aes(x=DiscountRate, y=LossRate)) + theme_minimal() + 
   theme(text=element_text(family=chosenFont),legend.position="bottom") + 
-  labs(title=paste0("Actual LGD for written-off LoanID ", lookup$LoanID[1]), 
-       subtitle = paste0("Last default spell starting ", lookup$Date[1], " and ending ", max(lookup$Date,na.rm=T), 
-                         ": ", lookup[,.N], " periods"),
+  labs(title=paste0("Actual LGD for written-off LoanID ", lookup3$LoanID[1]), 
+       subtitle = paste0("Last default spell starting ", lookup3$Date[1], " and ending ", max(lookup3$Date,na.rm=T), 
+                         ": ", lookup3[,.N], " periods"),
        x=bquote("Discount rate (%) "*italic(r[d])), y=bquote("Realised loss rate (%) "*italic(l))) + 
   # Main graph: hypothetical discount rates
   geom_line(linewidth=0.5) + #geom_point(size=0.5) + 
@@ -284,5 +286,9 @@ dpi <- 180
 
 # - Save graph
 ggsave(g0, file=paste0(genFigPath, "CaseStudy1-LossRates_DiscRates.png"), width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
-
 ### RESULTS: As expected, the previous seeming linearity disappeared once the discount rate vector is sufficiently expanded
+
+
+# ------  Cleanup
+rm(datAnnotate, datGraph, datResults, g0, lookup, lookup2, lookup3, lookup4)
+
