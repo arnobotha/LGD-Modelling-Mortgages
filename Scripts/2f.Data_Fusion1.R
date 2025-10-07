@@ -3,7 +3,7 @@
 # engineering some basic features that must precede any (non-clustered) subsampling
 # ---------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha, Marcel Muller
+# SCRIPT AUTHOR(S): Dr Arno Botha, Marcel Muller, Mohammed Gabru
 
 # DESCRIPTION:
 # This script performs the following high-level tasks:
@@ -104,21 +104,21 @@ datCredit_real <- subset(datCredit_real, select = -c(ExclusionID))
 # - Find intersection between fields in the credit dataset and the macroeconomic dataset
 (overlap_flds <- intersect(colnames(datCredit_real), colnames(datMV))) # no overlapping fields except Date
 
-# - Remove fields that will not likely be used in the eventual analysis/modelling of default risk, purely to save memory
+# - Remove fields that will not likely be used in the eventual analysis/modelling of write-off risk, purely to save memory
 names(datCredit_real)
 datCredit_real <- subset(datCredit_real, 
                          select = -c(Age, #PerfSpell_Key, New_Ind, Max_Counter, Date_Origination, Principal,
                                      AccountStatus, #Instalment, Arrears, 
-                                     DelinqState_g0, #DefaultStatus1, DefSpell_Num, TimeInDefSpell,
-                                     DefSpell_Event, DefSpell_Censored, # DefSpell_LeftTrunc,
-                                     DefSpellResol_TimeEnd, #DefSpell_Age, DefSpellResol_Type_Hist,
+                                     #DelinqState_g0, #DefaultStatus1, DefSpell_Num, TimeInDefSpell,
+                                     #DefSpell_Event, DefSpell_Censored, # DefSpell_LeftTrunc,
+                                     #DefSpellResol_TimeEnd, #DefSpell_Age, DefSpellResol_Type_Hist,
                                      #DefSpell_LastStart, ReceiptPV, LossRate_Real, #HasLeftTruncPerfSpell, 
-                                     PerfSpell_Event, PerfSpell_Censored, # PerfSpell_LeftTrunc, 
+                                     #PerfSpell_Event, PerfSpell_Censored, # PerfSpell_LeftTrunc, 
                                      PerfSpell_TimeEnd, #PerfSpellResol_Type_Hist,
                                      Account_Censored, #Event_Time, Event_Type, HasLeftTruncDefSpell,
                                      HasTrailingZeroBalances, ZeroBal_Start, NCA_CODE, STAT_CDE, LN_TPE,
                                      #DefSpell_Key, DefSpell_Counter, PerfSpell_Counter,
-                                     HasWOff, WriteOff_Amt, HasSettle, EarlySettle_Amt, # HasFurtherLoan, HasRedraw,
+                                     HasWOff, #WriteOff_Amt, HasSettle, EarlySettle_Amt, # HasFurtherLoan, HasRedraw,
                                      HasClosure, CLS_STAMP, Curing_Ind, BOND_IND, Undrawn_Amt, # TreatmentID,
                                      slc_past_due_amt, #WOff_Ind, EarlySettle_Ind,
                                      FurtherLoan_Amt, FurtherLoan_Ind, Redraw_Ind, Redrawn_Amt, Repaid_Ind, HasRepaid)); gc()
@@ -237,6 +237,55 @@ datCredit_real[!is.na(PerfSpell_Key) & is.na(PerfSpell_g0_Delinq_SD), PerfSpell_
 cat( ( datCredit_real[is.na(PerfSpell_g0_Delinq_SD),.N]==datCredit_real[is.na(PerfSpell_Key),.N]) %?% 
        'SAFE: New feature [PerfSpell_g0_Delinq_SD] has logical values.\n' %:% 
        'WARNING: New feature [PerfSpell_g0_Delinq_SD] has illogical values \n' )
+
+# --- Create portfolio-level input variables that vary over time
+
+# - Default incidence rate
+# Not the same as the 12-month default rate (a conditional probability)
+
+# Aggregate to monthly level and observe up to given point
+port.aggr <- datCredit_real[, list(DefaultStatus1_Aggr_Prop = sum(DefaultStatus1, na.rm=T)/.N), by=list(Date)]
+# Quick plot for visual inspection
+plot(port.aggr[,1],as.matrix(port.aggr[,2]),type="l",xlab="Date", ylab="Probability", main="Default incidence rate")
+# Merge default incidence to credit dataset by date
+datCredit_real <- merge(datCredit_real, port.aggr, by="Date", all.x=T); Sys.sleep(0.5)
+# [Sanity Check] Check for any missingness in the DefaultStatus1_Aggr_Prop variable
+cat(anyNA(datCredit_real[,DefaultStatus1_Aggr_Prop]) %?% "WARNING: Missingness detected in the DefaultStatus1_Aggr_Prop variable. \n" %:%
+      "SAFE: No Missingness detected in the DefaultStatus1_Aggr_Prop variable. \n")
+
+
+# - Proportion of new loans vs existing portfolio over time
+# NOTE: we therefore measure credit demand within market, underlying market conditions, and the implicit effect of bank policies)
+# Creating an aggregated dataset
+dat_NewLoans_Aggr <- datCredit_real[, list(NewLoans_Aggr_Prop = sum(Age_Adj==1, na.rm=T)/.N), by=list(Date)]
+# Applying various lags
+lags <- c(1,3,4,5) # Lags
+ColNames <- colnames(dat_NewLoans_Aggr)[-1] # Names of the columns
+for (i in seq_along(lags)){ # Looping over the specified lags and applying each to each of the specified columns
+  for (j in seq_along(ColNames)){
+    dat_NewLoans_Aggr[, (paste0(ColNames[j],"_",lags[i])) := fcoalesce(shift(get(ColNames[j]), n=lags[i], type="lag"),get(ColNames[j]))] # Impute NA's with the non lagged value
+  }
+}
+# [SANITY CHECK] Check whether the lags were created correctly
+cat((anyNA(dat_NewLoans_Aggr[,NewLoans_Aggr_Prop_1]) | anyNA(dat_NewLoans_Aggr[,NewLoans_Aggr_Prop_3]) | anyNA(dat_NewLoans_Aggr[,NewLoans_Aggr_Prop_4])
+     | anyNA(dat_NewLoans_Aggr[,NewLoans_Aggr_Prop_5])) %?% "WARNING: Missingness detected, [NewLoans_Aggr_Prop_1], [NewLoans_Aggr_Prop_3], [NewLoans_Aggr_Prop_4], and/or [NewLoans_Aggr_Prop_5] compromised.\n" %:%
+      "SAFE: No missingness, [NewLoans_Aggr_Prop_1], [NewLoans_Aggr_Prop_3], [NewLoans_Aggr_Prop_4], and [NewLoans_Aggr_Prop_5] created successfully.\n")
+### RESULTS: Variables successfully created without any missingness
+
+# Merging the credit dataset with the aggregated dataset
+datCredit_real <- merge(datCredit_real, dat_NewLoans_Aggr, by="Date", all.x=T)
+# Validate merging success by checking for missingness (should be zero)
+list_merge_variables <- list(colnames(dat_NewLoans_Aggr))
+results_missingness <- list()
+for (i in 1:length(list_merge_variables)){
+  output <- sum(is.na(datCredit_real$list_merge_variables[i]))
+  results_missingness[[i]] <- output
+}
+cat( (length(which(results_missingness > 0)) == 0) %?% "SAFE: No missingness, fusion with aggregated data is successful.\n" %:%
+       "WARNING: Missingness in certain aggregated fields detected, fusion compromised.\n")
+#describe(datCredit_real$NewLoans_Aggr_Prop); #plot(unique(datCredit_real$NewLoans_Aggr_Prop), type="b")
+### RESULTS: Variable has mean of 0.008 vs median of 0.007,
+# bounded by [0.003, 0.014] for 5%-95% percentiles; no major outliers
 
 
 
