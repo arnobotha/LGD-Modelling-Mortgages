@@ -141,7 +141,7 @@ NROW(data_grain_check_merge <- datCredit_prep[, list(Freq = .N), by=list(LoanID,
 # success, the data grain check is passed
 
 # - Save intermediary snapshot to disk (zip) for quick disk-based retrieval later
-pack.ffdf(paste0(genPath,"creditdata_final_CDH_prep1b"), datCredit_prep)
+pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1a"), datCredit_prep)
 # - Clean-up
 rm(datInput.raw, data_grain_check, data_grain_check_merge); gc()
 
@@ -220,7 +220,7 @@ cat( ( sum(datCredit_prep$slc_curing_ind == "" | is.na(datCredit_prep$slc_curing
 # - Save to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath, "creditdata_final_CDH_smp1b"), datCredit_prep); gc()
 
-
+sOut <- datCredit_prep[,.N, by=list(slc_curing_ind)]
 # --- 3.3 Missing value treatment (numeric variables)
 # Analyse whether to use mean or median value imputation
 
