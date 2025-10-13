@@ -137,6 +137,23 @@ if (Sys.getenv("USERNAME") == "WRQ") {
   # - Common path for importing raw data
   genRawPath <- "C:/Datadump/"
   
+}else if (Sys.getenv("USERNAME") == "S37596233e") {
+  # - Custom path where R-scripts are saved
+  
+  path_cust <- "C:/Users/gudu/Documents/Repo/LGD-Modelling-Mortgages/Scripts/"
+  
+  # - Common path for storing important R-objects as back-up
+  genObjPath <- "C:/Users/gudu/Documents/Repo/LGD-Modelling-Mortgages/Objects/"
+  
+  # - Common path for saving important analytics (e.g., sampling)
+  genFigPath <- "C:/Users/gudu/Documents/Repo/LGD-Modelling-Mortgages/Figures/"
+  
+  # - Common path for saving big data objects
+  genPath <- "C:/Users/gudu/Documents/Datadump"
+  
+  # - Common path for importing raw data
+  genRawPath <- "H:/bwisas-em-win1/userdata/FNB-DATA-MORTGAGES/"
+  
 } else {
   stop("User-specific paths not set for current user: ", Sys.getenv("USERNAME"), ". Please fix in Setup script (0.Setup.R) before continuing")
 }

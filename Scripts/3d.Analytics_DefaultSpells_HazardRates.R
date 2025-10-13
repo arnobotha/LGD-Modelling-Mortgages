@@ -381,7 +381,7 @@ gsurv_Ft$plot <- gsurv_Ft$plot  +
            vjust=-0.5, hjust=-0.1, color = "black", size = 2.5, family = chosenFont)
 ### RESULTS: Based on survival analysis, about 100% of the dataset was consumed at t=300; We shall henceforth remove outliers purely
 # for graphing purposes
-maxPeriod <- 144
+maxPeriod <- 120
 # - Save graph
 ggsave(gsurv_Ft$plot, file=paste0(genFigPath, "Kaplan-Meier/CumulLifetimeProb_", mainEventName,"_SpellLevel_FirstSpell_LatentComp_InclLeftTrunc.png"), width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
 dpi <- 185 # need to decrease size for risk tables' text

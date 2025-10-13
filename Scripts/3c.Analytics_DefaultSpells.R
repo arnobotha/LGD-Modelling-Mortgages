@@ -121,10 +121,7 @@ vCol <- brewer.pal(9, "Set1")
     geom_line(aes(colour=Sample, linetype=Sample)) + 
     geom_point(aes(colour=Sample, shape=Sample), size=1) + 
     geom_hline(data = datMean, aes(yintercept = meanProp),
-               linetype = "solid", colour = "black")+
-    geom_text( data = datMean, aes(x = x_pos, y = meanProp, label = label),
-      hjust = 1, vjust = -0.25,size = 3, colour = "black" ) +
-    
+               linetype = "solid", colour = "black") +
     facet_wrap(Sample~., scales = "free", nrow=4, strip.position="right") + 
     # scale options
     scale_colour_manual(name="", values=vCol) + 
@@ -245,7 +242,7 @@ vLabels <- c(paste0("a_Default"="Default (", round(Resol_Type.props[1]*100, digi
                    alpha=0.75, linewidth=0.2) + 
     geom_density(aes(colour=Resol_Type, linetype=Resol_Type), linewidth=0.8) + 
     # facets & scale options
-    scale_colour_manual(name=bquote("Resolution Type"*~italic(R)), values=vCol2, labels=vLabels) + 
+    scale_colour_manual(name=bquote("Resolution Type"*~italic(R)), values=vCol, labels=vLabels) + 
     scale_fill_manual(name=bquote("Resolution Type"*~italic(R)), values=vCol, labels=vLabels) + 
     scale_linetype_manual(name=bquote("Resolution Type"*~italic(R)), values=c("solid","dashed", "dotted"), labels=vLabels) + 
     scale_y_continuous(breaks=breaks_pretty(), label=comma) + 
