@@ -148,7 +148,7 @@ rm(datInput.raw, data_grain_check, data_grain_check_merge); gc()
 
 
 
-# ------- 3 Feature engineering for modelling purposes
+# ------- 3. Feature engineering for modelling purposes
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1a"), tempPath)
@@ -324,6 +324,67 @@ hist(datCredit_prep$InterestRate_Margin_imputed_mean, breaks="FD")
 ### RESULTS: Imputation successful, with mean of -0.007 vs median of -0.008,
 # bounded by [-0.02, 0.01] for 5%-95% percentiles; some negative outliers distort shape of distribution
 
+
+# g0_Delinq_SD
+if (doDescribe) describe(datCredit_prep$g0_Delinq_SD_4); hist(datCredit_prep$g0_Delinq_SD_4, breaks="FD")
+datCredit_prep[is.na(g0_Delinq_SD_4), .N] / datCredit_prep[,.N] * 100
+
+datCredit_prep[, g0_Delinq_SD_4 := 
+                  ifelse(is.na(g0_Delinq_SD_4) | g0_Delinq_SD_4 == "", 
+                         
+                         median(g0_Delinq_SD_4, na.rm=TRUE), g0_Delinq_SD_4)]
+cat( ( datCredit_prep[is.na(g0_Delinq_SD_4), .N] == 0) %?% 
+       'SAFE: Treatment successful for [g0_Delinq_SD_4].\n' %:% 
+       'ERROR: Treatment failed for [g0_Delinq_SD_4] \n' )
+
+# Lag 5
+if (doDescribe) describe(datCredit_prep$g0_Delinq_SD_5); hist(datCredit_prep$g0_Delinq_SD_5, breaks="FD")
+datCredit_prep[is.na(g0_Delinq_SD_5), .N] / datCredit_prep[,.N] * 100
+
+datCredit_prep[, g0_Delinq_SD_5 := 
+                 ifelse(is.na(g0_Delinq_SD_5) | g0_Delinq_SD_5 == "", 
+                        
+                        median(g0_Delinq_SD_5, na.rm=TRUE), g0_Delinq_SD_5)]
+cat( ( datCredit_prep[is.na(g0_Delinq_SD_5), .N] == 0) %?% 
+       'SAFE: Treatment successful for [g0_Delinq_SD_5].\n' %:% 
+       'ERROR: Treatment failed for [g0_Delinq_SD_5] \n' )
+
+# Lag 6
+if (doDescribe) describe(datCredit_prep$g0_Delinq_SD_6); hist(datCredit_prep$g0_Delinq_SD_6, breaks="FD")
+datCredit_prep[is.na(g0_Delinq_SD_6), .N] / datCredit_prep[,.N] * 100
+
+datCredit_prep[, g0_Delinq_SD_6 := 
+                 ifelse(is.na(g0_Delinq_SD_6) | g0_Delinq_SD_6 == "", 
+                        
+                        median(g0_Delinq_SD_6, na.rm=TRUE), g0_Delinq_SD_6)]
+cat( ( datCredit_prep[is.na(g0_Delinq_SD_6), .N] == 0) %?% 
+       'SAFE: Treatment successful for [g0_Delinq_SD_6].\n' %:% 
+       'ERROR: Treatment failed for [g0_Delinq_SD_6] \n' )
+
+
+# Lag 9
+if (doDescribe) describe(datCredit_prep$g0_Delinq_SD_9); hist(datCredit_prep$g0_Delinq_SD_9, breaks="FD")
+datCredit_prep[is.na(g0_Delinq_SD_9), .N] / datCredit_prep[,.N] * 100
+
+datCredit_prep[, g0_Delinq_SD_9 := 
+                 ifelse(is.na(g0_Delinq_SD_9) | g0_Delinq_SD_9 == "", 
+                        
+                        median(g0_Delinq_SD_9, na.rm=TRUE), g0_Delinq_SD_9)]
+cat( ( datCredit_prep[is.na(g0_Delinq_SD_9), .N] == 0) %?% 
+       'SAFE: Treatment successful for [g0_Delinq_SD_9].\n' %:% 
+       'ERROR: Treatment failed for [g0_Delinq_SD_9] \n' )
+
+# Lag 12
+if (doDescribe) describe(datCredit_prep$g0_Delinq_SD_12); hist(datCredit_prep$g0_Delinq_SD_12, breaks="FD")
+datCredit_prep[is.na(g0_Delinq_SD_12), .N] / datCredit_prep[,.N] * 100
+
+datCredit_prep[, g0_Delinq_SD_12 := 
+                 ifelse(is.na(g0_Delinq_SD_12) | g0_Delinq_SD_12 == "", 
+                        
+                        median(g0_Delinq_SD_12, na.rm=TRUE), g0_Delinq_SD_12)]
+cat( ( datCredit_prep[is.na(g0_Delinq_SD_12), .N] == 0) %?% 
+       'SAFE: Treatment successful for [g0_Delinq_SD_12].\n' %:% 
+       'ERROR: Treatment failed for [g0_Delinq_SD_12] \n' )
 # - Save to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath, "creditdata_final_CDH_smp1c"), datCredit_prep); gc()
 
