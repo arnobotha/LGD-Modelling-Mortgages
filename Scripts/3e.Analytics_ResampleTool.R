@@ -628,7 +628,7 @@ if (!is.na(resolType2_Val)){
   # - Cap dates for graphing purposes
   sDateMax <- max(datAggr_cohorts$timeVar) %m-% months(1)
   (g5 <- ggplot(datAggr_cohorts[Spell_Resol2==resolType2_Val & timeVar <= sDateMax,], aes(x=timeVar, y=Prop)) + theme_minimal() + 
-      labs(x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s])), y=bquote("Resolution rate (%) of type "*italic(kappa)==1)) +
+      labs(x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s])), y=bquote("Resolution rate (%)")) +
       theme(text=element_text(family=chosenFont),legend.position = "bottom",
             axis.text.x=element_text(angle=90), #legend.text=element_text(family=chosenFont), 
             strip.background=element_rect(fill="snow2", colour="snow2"),

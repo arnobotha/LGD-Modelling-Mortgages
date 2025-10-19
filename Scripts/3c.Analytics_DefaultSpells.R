@@ -24,7 +24,7 @@
 #   - Bar chart of proportion of number fo default spells
 #   - Line char of write-off rate per spell number
 #   - Histogram of censoring rate per spell age
-#   -Histogram and density of resolution over default spell age
+#   - Histogram and density of resolution over default spell age
 # ------------------------------------------------------------------------------------------------------
 
 
@@ -103,7 +103,10 @@ datAggr_cohorts <- merge(datGraph[Date==DefSpellDate_End, list(Sum_Total = .N), 
                          datGraph[Date==DefSpellDate_End, list(Sum_Resol = .N), by=list(Sample,Date,DefSpellResol_Type_Hist)],
                          by=c("Sample", "Date"))[Date >= minDate & Date <= maxDate,]
 datAggr_cohorts[, Prop := Sum_Resol/Sum_Total]
-
+datAggr_wo <- datAggr_cohorts[DefSpellResol_Type_Hist == "WOFF"]
+datMean <- datAggr_wo[, .(meanProp = mean(Prop, na.rm = TRUE)), by = Sample]
+datMean <- datMean[, label:=paste0("TTC mean: ",paste0(round(meanProp*100,2),"%"))]
+                                                
 # - Graphing parameters
 chosenFont <- "Cambria"
 vCol <- brewer.pal(9, "Set1")
@@ -117,6 +120,9 @@ vCol <- brewer.pal(9, "Set1")
     # main line graph with overlaid points
     geom_line(aes(colour=Sample, linetype=Sample)) + 
     geom_point(aes(colour=Sample, shape=Sample), size=1) + 
+    geom_hline(data = datMean, aes(yintercept = meanProp),
+               linetype = "solid", colour = "black") +
+    facet_wrap(Sample~., scales = "free", nrow=4, strip.position="right") + 
     # scale options
     scale_colour_manual(name="", values=vCol) + 
     scale_shape_discrete(name="") + scale_linetype_discrete(name="") + 
@@ -125,8 +131,8 @@ vCol <- brewer.pal(9, "Set1")
 
 
 # - Save graph
-dpi <- 220
-ggsave(g1, file=paste0(genFigPath, "Write-offRate_SpellNumber.png"), width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
+dpi <- 200
+ggsave(g1, file=paste0(genFigPath, "Write-offRate_SpellNumber.png"), width=1200/dpi, height=1800/dpi, dpi=dpi, bg="white")
 
 # - Cleanup
 rm(datAggr_cohorts, datGraph)
@@ -236,7 +242,7 @@ vLabels <- c(paste0("a_Default"="Default (", round(Resol_Type.props[1]*100, digi
                    alpha=0.75, linewidth=0.2) + 
     geom_density(aes(colour=Resol_Type, linetype=Resol_Type), linewidth=0.8) + 
     # facets & scale options
-    scale_colour_manual(name=bquote("Resolution Type"*~italic(R)), values=vCol2, labels=vLabels) + 
+    scale_colour_manual(name=bquote("Resolution Type"*~italic(R)), values=vCol, labels=vLabels) + 
     scale_fill_manual(name=bquote("Resolution Type"*~italic(R)), values=vCol, labels=vLabels) + 
     scale_linetype_manual(name=bquote("Resolution Type"*~italic(R)), values=c("solid","dashed", "dotted"), labels=vLabels) + 
     scale_y_continuous(breaks=breaks_pretty(), label=comma) + 

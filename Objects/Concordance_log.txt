@@ -1,0 +1,2 @@
+New Job: Estimating B-statistic (1-KS) for each variable as a single-factor survival model ..
+	 9) Single-factor survival model failed. 
