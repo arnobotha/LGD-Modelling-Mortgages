@@ -166,7 +166,7 @@ if (Sys.getenv("USERNAME") == "WRQ") {
   genFigPath <- "C:/Users/gudu/Documents/Repo/LGD-Modelling-Mortgages/Figures/"
   
   # - Common path for saving big data objects
-  genPath <- "C:/Users/gudu/Documents/Datadump"
+  genPath <- "C:/Users/gudu/Documents/Datadump/"
   
   # - Common path for importing raw data
   genRawPath <- "H:/bwisas-em-win1/userdata/FNB-DATA-MORTGAGES/"

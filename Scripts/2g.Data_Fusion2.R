@@ -58,7 +58,7 @@ timeVar <- "Date" # calendar time variable over which main event is observed & p
 counter <- "Counter" # subject-level row index variable, used in strata analysis
 
 # Optional field named (stratification)
-stratifiers <-"Event_Type"# First variable should be of type "date"
+stratifiers <-NA# First variable should be of type "date"
 ### NOTE: Assign stratifiers to NA if no stratifiers are desired. Good candidates include: "Event_Type", "LN_TPE", and "HasDefaulted_Ever"
 
 # - Facet specification field names (for graphing purposes of the resolution rates)
@@ -527,7 +527,7 @@ if (doDescribe) describe(datCredit_prep$BalanceToPrincipal); hist(datCredit_prep
 datCredit_prep[, BalanceToPrincipal_adj_WOff := Balance_adj_WOff/Principal]
 
 # [SANITY CHECK] Check new feature for illogical values
-cat( ( datCredit_prep[is.na(BalancePrincipal_adj_WOff), .N] == 0) %?% 
+cat( ( datCredit_prep[is.na(BalanceToPrincipal_adj_WOff), .N] == 0) %?% 
        'SAFE: New feature [BalanceToPrincipal_adj_WOff] has logical values.\n' %:% 
        'WARNING: New feature [BalanceToPrincipal_adj_WOff] has illogical values \n' )
 
@@ -642,7 +642,7 @@ cat( (sum(datCredit_prep[, sum(is.na(InstalmentToBalance_Aggr_Prop)), by=Date][,
 cat( (sum(datCredit_prep[, sum(is.na(ArrearsToBalance_Aggr_Prop_adj_WOff)), by=Date][,2])==0) %?% 
        'SAFE: New feature [ArrearsToBalance_Aggr_Prop_adj_WOff] has logical values.\n' %:% 
        'WARNING: New feature [ArrearsToBalance_Aggr_Prop_adj_WOff] has illogical values \n' )
-cat( (sum(datCredit_prep[, sum(is.na(InstalmentToBalance_Aggr_Propp_adj_WOff)), by=Date][,2])==0) %?% 
+cat( (sum(datCredit_prep[, sum(is.na(InstalmentToBalance_Aggr_Prop_adj_WOff)), by=Date][,2])==0) %?% 
        'SAFE: New feature [InstalmentToBalance_Aggr_Prop_adj_WOff] has logical values.\n' %:% 
        'WARNING: New feature [InstalmentToBalance_Aggr_Prop_adj_WOff] has illogical values \n' )
 if (doDescribe) describe(datCredit_prep$InstalmentToBalance_Aggr_Prop); 
