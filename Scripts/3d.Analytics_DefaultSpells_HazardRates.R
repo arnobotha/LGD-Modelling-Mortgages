@@ -22,7 +22,7 @@
 #   - datCredit_real | Prepared from script 2f.
 #
 # -- Outputs:
-#   - Cumulative baseline hazard rates by performance spells (2 different groupings)
+#   - Cumulative baseline hazard rates by default spells (2 different groupings)
 #   - Event probabilities
 #   - Hazard rates
 #   - Kaplan-Meyer analysis by performance spells
@@ -79,7 +79,7 @@ chosenFont <- "Cambria"
 
 # - Graphing logic: Entire domain of time to event
 gsurv_Ft <- ggsurvplot(km_All, fun="event", conf.int=T, surv.scale = "percent", legend="none", 
-                       break.time.by=round(maxTime)/8, palette=vCol,
+                       break.time.by=100, palette=vCol,
                        xlab = bquote(Discrete~time~italic(t)*" (months) in spell: Multi-spell"),
                        ylab = bquote(CLD~"["*.(mainEventName)*"]"*~italic(F(t))*": Kaplan-Meier (incl. left-truncation)"),
                        xlim=c(0, maxTime+1), censor=F, 
@@ -247,7 +247,7 @@ ggsave(gsurv_ht, file=paste0(genFigPath, "Kaplan-Meier/DiscreteHazard_", mainEve
 # --- Graphing the event density / probability mass function f(t)
 
 # Fitting Locally Estimated Scatterplot Smoothing (LOESS)
-sSpan <- 0.3
+sSpan <- 0.175
 smthEventRate_Act <- loess(datSurv$EventRate ~ datSurv[,list(x=1:.N)]$x, span=sSpan)
 summary(smthEventRate_Act)
 
@@ -315,6 +315,8 @@ pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), datSurv)
 rm(gsurv_Ft, gsurv_Ft2, gsurv_ht, gsurv_ft, km_All, median_survival, datSurv, vlabel, 
    smthEventRate_Act, smthHazard_Act, vPredSmth)
 
+
+
 # -------- 2. Kaplan-Meier analysis on first default spell | Left-truncation included
 
 # - Initialize a dataset with only the first default spell
@@ -357,7 +359,7 @@ chosenFont <- "Cambria"
 dpi <- 190
 # - Graphing logic: Entire domain of time to event
 gsurv_Ft <- ggsurvplot(km_first, fun="event", conf.int=T, surv.scale = "percent", legend="none", 
-                       break.time.by=round(maxTime)/8, palette=vCol,
+                       break.time.by=100, palette=vCol,
                        xlab = bquote(Discrete~time~italic(t)*" (months) in spell: First-spell"),
                        ylab = bquote(CLD~"["*.(mainEventName)*"]"*~italic(F(t))*": Kaplan-Meier (incl. left-truncation)"),
                        xlim=c(0, maxTime+1), censor=F, 
@@ -471,7 +473,7 @@ ggsave(gsurv_ht, file=paste0(genFigPath, "Kaplan-Meier/DiscreteHazard_", mainEve
 # --- Graphing the event density / probability mass function f(t)
 
 # Fitting Locally Estimated Scatterplot Smoothing (LOESS)
-sSpan <- 0.3
+sSpan <- 0.175
 smthEventRate_Act <- loess(datSurv$EventRate ~ datSurv[,list(x=1:.N)]$x, span=sSpan)
 summary(smthEventRate_Act)
 
@@ -622,7 +624,7 @@ vSize <- c(0.2,0.3)
 vLineType <- c("dashed", "solid")
 # - Create main graph 
 (gsurv_ft <- ggplot(datGraph[Time <= sMaxSpellAge_graph,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
-    labs(y=bquote("write-off probability w(t)"), 
+    labs(y=bquote("Write-off probability w(t)"), 
          x=bquote("Default spell age (months)"*~italic(t))
          #subtitle="Term-structures of default risk: Discrete-time hazard models"
     ) + 
@@ -640,7 +642,7 @@ vLineType <- c("dashed", "solid")
     scale_shape_discrete(name="", labels=vLabel2) + 
     scale_y_continuous(breaks=breaks_pretty(), label=percent) + 
     scale_x_continuous(breaks=breaks_pretty(n=8), label=comma) + 
-    guides(color=guide_legend(nrow=2))
+    guides(color=guide_legend(nrow=1))
 )
 
 #Reset the DPI
