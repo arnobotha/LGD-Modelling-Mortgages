@@ -149,7 +149,7 @@ if (Sys.getenv("USERNAME") == "WRQ") {
   genFigPath <- "C:/Users/u17202044/Documents/Repos/LGD-Modelling-Mortgages/Figures/"
   
   # - Common path for saving big data objects
-  genPath <- "C:/DataDump/RetailMortgages-FNB/LGD_TermStructure_Dat/"
+  genPath <- "C:/DataDump/RetailMortgages-FNB/LGD_TermStructure_Data/"
   
   # - Common path for importing raw data
   genRawPath <- "C:/DataDump/RetailMortgages-FNB/"

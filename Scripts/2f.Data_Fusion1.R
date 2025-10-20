@@ -105,23 +105,12 @@ datCredit_real <- subset(datCredit_real, select = -c(ExclusionID))
 (overlap_flds <- intersect(colnames(datCredit_real), colnames(datMV))) # no overlapping fields except Date
 
 # - Remove fields that will not likely be used in the eventual analysis/modelling of write-off risk, purely to save memory
-names(datCredit_real)
-datCredit_real <- subset(datCredit_real, 
-                         select = -c(Age, #PerfSpell_Key, New_Ind, Max_Counter, Date_Origination, Principal,
-                                     AccountStatus, #Instalment, Arrears, 
-                                     #DelinqState_g0, #DefaultStatus1, DefSpell_Num, TimeInDefSpell,
-                                     #DefSpell_Event, DefSpell_Censored, # DefSpell_LeftTrunc,
-                                     #DefSpellResol_TimeEnd, #DefSpell_Age, DefSpellResol_Type_Hist,
-                                     #DefSpell_LastStart, ReceiptPV, LossRate_Real, #HasLeftTruncPerfSpell, 
-                                     #PerfSpell_Event, PerfSpell_Censored, # PerfSpell_LeftTrunc, 
-                                     PerfSpell_TimeEnd, #PerfSpellResol_Type_Hist,
-                                     Account_Censored, #Event_Time, Event_Type, HasLeftTruncDefSpell,
-                                     HasTrailingZeroBalances, ZeroBal_Start, NCA_CODE, STAT_CDE, LN_TPE,
-                                     #DefSpell_Key, DefSpell_Counter, PerfSpell_Counter,
-                                     HasWOff, #WriteOff_Amt, HasSettle, EarlySettle_Amt, # HasFurtherLoan, HasRedraw,
-                                     HasClosure, CLS_STAMP, Curing_Ind, BOND_IND, Undrawn_Amt, # TreatmentID,
-                                     slc_past_due_amt, #WOff_Ind, EarlySettle_Ind,
-                                     FurtherLoan_Amt, FurtherLoan_Ind, Redraw_Ind, Redrawn_Amt, Repaid_Ind, HasRepaid)); gc()
+cols_remove <- c("Age", "AccountStatus", "PerfSpell_TimeEnd", "Account_Censored",
+                 "HasTrailingZeroBalances", "ZeroBal_Start", "NCA_CODE", "STAT_CDE", "LN_TPE",
+                 "HasWOff", "HasClosure", "CLS_STAMP", "Curing_Ind", "BOND_IND", "Undrawn_Amt",
+                 "slc_past_due_amt", "FurtherLoan_Amt", "FurtherLoan_Ind", "Redraw_Ind",
+                 "Redrawn_Amt", "Repaid_Ind", "HasRepaid")
+datCredit_real <- datCredit_real %>% dplyr::select(-all_of(cols_remove)); gc()
 
 # - Merge on Date by performing a left-join
 datCredit_real <- merge(datCredit_real, datMV, by="Date", all.x=T); gc()
