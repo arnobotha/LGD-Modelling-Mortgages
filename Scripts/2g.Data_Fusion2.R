@@ -499,6 +499,44 @@ if (doDescribe) describe(datCredit_prep$Instalment_Real); hist(datCredit_prep$In
 # [Instalment_Real]: Highly right-skewed distribution, with mean of 9.2k vs median of 8.2k
 #                 bounded by [497, 21k] for 5%-95% percentiles; severe outliers to the right: 20m; left: 0
 
+
+# --- 3.7. Featuring Engineering: Arrears and Balance to deal with 0 values on Write-off
+
+if (doDescribe) describe(datCredit_prep$Balance); hist(datCredit_prep$Balance)
+### RESULTS: Highly right-skewed distribution as expected
+
+# Create another variable for balanced to account for these
+datCredit_prep[, Balance_adj_WOff := Balance]
+datCredit_prep[Balance==0&DefSpell_Event==1, Balance_adj_WOff := WriteOff_Amt ]
+
+# [SANITY CHECK] Check new feature for illogical values
+cat( ( datCredit_prep[is.na(Balance_adj_WOff), .N] == 0) %?% 
+       'SAFE: New feature [Balance_adj_WOff] has logical values.\n' %:% 
+       'WARNING: New feature [Balance_adj_WOff] has illogical values \n' )
+
+if (doDescribe) describe(datCredit_prep$BalanceToPrincipal); hist(datCredit_prep$BalanceToPrincipal)
+### RESULTS: Highly right-skewed distribution as expected
+
+# Create another variable for balanced to account for these
+datCredit_prep[, BalanceToPrincipal_adj_WOff := Balance_adj_WOff/Principal]
+
+# [SANITY CHECK] Check new feature for illogical values
+cat( ( datCredit_prep[is.na(BalancePrincipal_adj_WOff), .N] == 0) %?% 
+       'SAFE: New feature [BalanceToPrincipal_adj_WOff] has logical values.\n' %:% 
+       'WARNING: New feature [BalanceToPrincipal_adj_WOff] has illogical values \n' )
+
+if (doDescribe) describe(datCredit_prep$Balance_Real); hist(datCredit_prep$Balance_Real)
+### RESULTS: Highly right-skewed distribution as expected
+
+# Create another variable for balanced to account for these
+datCredit_prep[, Balance_Real_adj_WOff := Balance_adj_WOff*Inf_Factor]
+
+# [SANITY CHECK] Check new feature for illogical values
+cat( ( datCredit_prep[is.na(Balance_Real_adj_WOff), .N] == 0) %?% 
+       'SAFE: New feature [Balance_Real_adj_WOff] has logical values.\n' %:% 
+       'WARNING: New feature [Balance_Real_adj_WOff] has illogical values \n' )
+
+
 # - Save to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath, "creditdata_final_CDH_smp1d"), datCredit_prep); gc()
 
@@ -583,8 +621,10 @@ if (doDescribe) describe(datCredit_prep$DefaultStatus1_Aggr_Prop_Lag_12); hist(d
 # NOTE: These portfolio-level aggregated variables are engineered to capture/ aggregate information only for accounts that are in a performance spell
 # The resulting aggregated dataset can be fused to the full dataset
 dat_Aggr <- data.table(datCredit_prep[DefaultStatus1==1, list(sum(Arrears, na.rm=T)/sum(Balance, na.rm=T)), by=list(Date)], # [ArrearsToBalance_Aggr]
-                       datCredit_prep[DefaultStatus1==1, list(sum(Instalment, na.rm=T)/sum(Balance)), by=list(Date)][,2]) # [InstalmentToBalance_Aggr]
-colnames(dat_Aggr) <- c("Date", "ArrearsToBalance_Aggr_Prop", "InstalmentToBalance_Aggr_Prop")
+                       datCredit_prep[DefaultStatus1==1, list(sum(Instalment, na.rm=T)/sum(Balance)), by=list(Date)][,2], # [InstalmentToBalance_Aggr]
+                       datCredit_prep[DefaultStatus1==1, list(sum(Arrears, na.rm=T)/sum(Balance_adj_WOff)), by=list(Date)][,2],# [ArrearsToBalance_Aggr_adj_WOff]
+                       datCredit_prep[DefaultStatus1==1, list(sum(Instalment, na.rm=T)/sum(Balance_adj_WOff)), by=list(Date)][,2]) # [InstalmentToBalance_Aggr_adj_WOff]
+colnames(dat_Aggr) <- c("Date", "ArrearsToBalance_Aggr_Prop", "InstalmentToBalance_Aggr_Prop","ArrearsToBalance_Aggr_Prop_adj_WOff", "InstalmentToBalance_Aggr_Prop_adj_WOff")
 # Fusing the aggregated dataset to the full dataset
 datCredit_prep <- merge(datCredit_prep, dat_Aggr, by="Date", all.x=T)
 # [SANITY CHECK] Check new feature for illogical values
@@ -594,10 +634,20 @@ cat( (sum(datCredit_prep[, sum(is.na(ArrearsToBalance_Aggr_Prop)), by=Date][,2])
 cat( (sum(datCredit_prep[, sum(is.na(InstalmentToBalance_Aggr_Prop)), by=Date][,2])==0) %?% 
        'SAFE: New feature [InstalmentToBalance_Aggr_Prop] has logical values.\n' %:% 
        'WARNING: New feature [InstalmentToBalance_Aggr_Prop] has illogical values \n' )
+cat( (sum(datCredit_prep[, sum(is.na(ArrearsToBalance_Aggr_Prop_adj_WOff)), by=Date][,2])==0) %?% 
+       'SAFE: New feature [ArrearsToBalance_Aggr_Prop_adj_WOff] has logical values.\n' %:% 
+       'WARNING: New feature [ArrearsToBalance_Aggr_Prop_adj_WOff] has illogical values \n' )
+cat( (sum(datCredit_prep[, sum(is.na(InstalmentToBalance_Aggr_Propp_adj_WOff)), by=Date][,2])==0) %?% 
+       'SAFE: New feature [InstalmentToBalance_Aggr_Prop_adj_WOff] has logical values.\n' %:% 
+       'WARNING: New feature [InstalmentToBalance_Aggr_Prop_adj_WOff] has illogical values \n' )
 if (doDescribe) describe(datCredit_prep$InstalmentToBalance_Aggr_Prop); 
 plot(unique(datCredit_prep$Date),unique(datCredit_prep$InstalmentToBalance_Aggr_Prop), type="b")
 if (doDescribe) describe(datCredit_prep$ArrearsToBalance_Aggr_Prop); 
 plot(unique(datCredit_prep$ArrearsToBalance_Aggr_Prop), type="b")
+if (doDescribe) describe(datCredit_prep$InstalmentToBalance_Aggr_Prop_adj_WOff); 
+plot(unique(datCredit_prep$Date),unique(datCredit_prep$InstalmentToBalance_Aggr_Prop_adj_WOff), type="b")
+if (doDescribe) describe(datCredit_prep$ArrearsToBalance_Aggr_Prop_adj_WOff); 
+plot(unique(datCredit_prep$ArrearsToBalance_Aggr_Prop_adj_WOff), type="b")
 ### RESULTS [InstalmentToBalance_Aggr_Prop]: Variable has high volatility around 2010 as seen through the graphical plot. Mean of 0.01228 vs median of 0.012,
 #            bounded by [0.01088, 0.01422] for 5%-95% percentiles; no outliers
 # [ArrearsToBalance_Aggr_Prop]: Variable has  mean of 0.0006134 vs median of 0.0004895,
@@ -679,6 +729,42 @@ suppressWarnings(rm(dat_IRM_Aggr, dat_IRM_Aggr_Check1, list_merge_variables, res
                     varSLC_Info_Num, varCredit_Info_Cat, varCredit_Info_Num, check.fuse1, check.fuse3, check.fuse4, lookup_IDs,
                     Covariate_Info, lookup, lookup2, dat_g0_Delinq_Aggr, dat_DefaultRate, dat_Aggr)); gc()
 
+
+# --- 3.7. Featuring Engineering: Arrears and Balance to deal with 0 values on Write-off
+
+if (doDescribe) describe(datCredit_prep$Balance); hist(datCredit_prep$Balance)
+### RESULTS: Highly right-skewed distribution as expected
+
+# Create another variable for balanced to account for these
+datCredit_prep[, Balance_adj_WOff := Balance]
+datCredit_prep[Balance==0&DefSpell_Event==1, Balance_adj_WOff := WriteOff_Amt ]
+
+# [SANITY CHECK] Check new feature for illogical values
+cat( ( datCredit_prep[is.na(Balance_adj_WOff), .N] == 0) %?% 
+       'SAFE: New feature [Balance_adj_WOff] has logical values.\n' %:% 
+       'WARNING: New feature [Balance_adj_WOff] has illogical values \n' )
+
+if (doDescribe) describe(datCredit_prep$BalanceToPrincipal); hist(datCredit_prep$BalanceToPrincipal)
+### RESULTS: Highly right-skewed distribution as expected
+
+# Create another variable for balanced to account for these
+datCredit_prep[, BalanceToPrincipal_adj_WOff := Balance_adj_WOff/Principal]
+
+# [SANITY CHECK] Check new feature for illogical values
+cat( ( datCredit_prep[is.na(BalanceToPrincipal_adj_WOff), .N] == 0) %?% 
+       'SAFE: New feature [BalanceToPrincipal_adj_WOff] has logical values.\n' %:% 
+       'WARNING: New feature [BalanceToPrincipal_adj_WOff] has illogical values \n' )
+
+if (doDescribe) describe(datCredit_prep$Balance_Real); hist(datCredit_prep$Balance_Real)
+### RESULTS: Highly right-skewed distribution as expected
+
+# Create another variable for balanced to account for these
+datCredit_prep[, Balance_Real_adj_WOff := Balance_adj_WOff*Inf_Factor]
+
+# [SANITY CHECK] Check new feature for illogical values
+cat( ( datCredit_prep[is.na(Balance_Real_adj_WOff), .N] == 0) %?% 
+       'SAFE: New feature [Balance_Real_adj_WOff] has logical values.\n' %:% 
+       'WARNING: New feature [Balance_Real_adj_WOff] has illogical values \n' )
 
 # --- 3.8. Macroeconomic feature engineering
 

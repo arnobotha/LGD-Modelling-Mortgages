@@ -35,8 +35,7 @@ datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 # remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
-# remove previous objects from memory
-rm(datCredit_prep); gc()
+
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
@@ -45,7 +44,7 @@ modLR_base2 <- glm(DefSpell_Event ~ log(TimeInDefSpell)*DefSpell_Num_binned,
                    data=datCredit_train, family="binomial")
 # Insight interactively mined from modelling theme 2a-b was used in fitting this model.
 
-
+doDescribe=F
 
 
 # ------ 2. Embedding the baseline hazard h_0(t)
@@ -235,41 +234,10 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 ### CONCLUSION
 # Choose: slc_past_due_amt_imputed_med, Arrears, slc_acct_dir_3, slc_curing_ind, TimeInDelinqState
 # These variables performed significantly better than the rest with th lowest AIC 
-# values and Harrell's c values gretaer than 0.87
+# values and Harrell's c values greater than 0.87
 
 
 # ------ 4.6 Combining insights: delinquency-themed variables
-
-datCredit_train[, g0_Delinq_SD_4 := 
-                 ifelse(is.na(g0_Delinq_SD_4) | g0_Delinq_SD_4 == "", 
-                        
-                        median(g0_Delinq_SD_4, na.rm=TRUE), g0_Delinq_SD_4)]
-datCredit_train[, g0_Delinq_SD_5 := 
-                  ifelse(is.na(g0_Delinq_SD_5) | g0_Delinq_SD_5 == "", 
-                         
-                         median(g0_Delinq_SD_5, na.rm=TRUE), g0_Delinq_SD_5)]
-datCredit_train[, g0_Delinq_SD_6 := 
-                  ifelse(is.na(g0_Delinq_SD_6) | g0_Delinq_SD_6 == "", 
-                         
-                         median(g0_Delinq_SD_6, na.rm=TRUE), g0_Delinq_SD_6)]
-datCredit_train[, g0_Delinq_SD_9 := 
-                  ifelse(is.na(g0_Delinq_SD_9) | g0_Delinq_SD_9 == "", 
-                         
-                         median(g0_Delinq_SD_9, na.rm=TRUE), g0_Delinq_SD_9)]
-datCredit_train[, g0_Delinq_SD_12 := 
-                  ifelse(is.na(g0_Delinq_SD_12) | g0_Delinq_SD_12 == "", 
-                         
-                         median(g0_Delinq_SD_12, na.rm=TRUE), g0_Delinq_SD_12)]
-
-# - Initialize variables to be tested
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
-          # Portfolio-level (Delinquency-themed)
-          "g0_Delinq_SD_4", "g0_Delinq_SD_5","g0_Delinq_SD_6",
-          "g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1","g0_Delinq_Any_Aggr_Prop_Lag_5",
-          "DefaultStatus1_Aggr_Prop_Lag_12", "DefaultStatus1_Aggr_Prop_Lag_9", "DefaultStatus1_Aggr_Prop_Lag_6",
-          "g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop","CuringEvents_Aggr_Prop","slc_acct_arr_dir_3" , "Arrears", "TimeInDelinqState"
-          , "slc_past_due_amt_imputed_med")
-
 
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
@@ -277,6 +245,9 @@ modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = "
 summary(modLR_full);
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC:   23,365; McFadden R^2:  55.26%; AUC:  98.65%.
+# Including g0_Delinq_SD_4,g0_Delinq_SD_5,g0_Delinq_SD_6 caused the model to not converge
+# and quasi complete separation so exclude them. Only consider one that being lag 4
+# Arrears also causes quasi complete separation so from expret judgement remove it
 
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base2, scope = list(lower = ~ log(TimeInDefSpell)*DefSpell_Num_binned, 
@@ -289,16 +260,30 @@ proc.time() - ptm # IGNORE: elapsed runtime; 147m
 # - Domain expertise
 # Remove g0_Delinq_SD_5 and g0_Delinq_SD_6 since g0_Delinq_SD_4 is already present
 
-# - Final variables
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_SD_4", "Arrears", 
+# - Final variables (expert judgement)
+# Arrears removed and TimeInDelinqState as it cuased the model to not converge
+# Included curing ind
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "Arrears", 
           "TimeInDelinqState", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
-          "g0_Delinq_Any_Aggr_Prop_Lag_1"
-          ,"ArrearsToBalance_Aggr_Prop")
+          "g0_Delinq_Any_Aggr_Prop_Lag_1")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial")
 summary(modLR);
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC:   23,978; McFadden R^2:  54.05%; AUC:  98.56%.
+# Remove g0_Delinq_SD_4 as it causes quasi complete separation
+
+
+
+# - Final variables 
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
+          "g0_Delinq_Any_Aggr_Prop_Lag_1","slc_curing_ind")
+modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
+              data=datCredit_train, family="binomial")
+summary(modLR);
+evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC:   23,978; McFadden R^2:  54.05%; AUC:  98.56%.
+# Remove g0_Delinq_SD_4 as it causes quasi complete separation
 
 
 
@@ -346,10 +331,8 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 # ------ 5.3 Combining insights: Delinquency-themed and portfolio-level variables
 
 # - Initialize variables to be tested
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_SD_4", "Arrears", 
-          "TimeInDelinqState", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
-          "g0_Delinq_Any_Aggr_Prop_Lag_1",
-          "ArrearsToBalance_Aggr_Prop", "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop",
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
+          "g0_Delinq_Any_Aggr_Prop_Lag_1","slc_curing_ind", "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop",
            "InterestRate_Margin_Aggr_Med_9","InterestRate_Margin_Aggr_Med")
 
 # - Full model | Stepwise forward selection procedure
@@ -370,11 +353,9 @@ proc.time() - ptm # IGNORE: elapsed runtime; 73m
 ### RESULTS: AIC:   23,958; McFadden R^2:  54,09%; AUC:  98.56%.
 
 # Final variables
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_SD_4", "Arrears"
-          ,"TimeInDelinqState", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
-          "g0_Delinq_Any_Aggr_Prop_Lag_1"
-          ,"ArrearsToBalance_Aggr_Prop"
-          , "InstalmentToBalance_Aggr_Prop")
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
+          "g0_Delinq_Any_Aggr_Prop_Lag_1","slc_curing_ind",
+          "InterestRate_Margin_Aggr_Med_9")
 
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial")
@@ -395,9 +376,10 @@ vars <- c("Principal_Real", "Principal", "InterestRate_Margin",
 # - Correlation analysis towards obtaining clusters of correlated variables
 corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 ### RESULTS:
-# Absolute corr of 86% between Principal and Balance
-# Absolute corr of 72% between Balance and BalanceToPrincipal
-# Absolute corr of -69% between AgeToTerm and BalanceToPrincipal
+# Absolute correlations of  88%  found for  Principal  and  Balance 
+# Absolute correlations of  -60%  found for  Balance  and  AgeToTerm 
+# Absolute correlations of  72%  found for  Balance  and  BalanceToPrincipal 
+# Absolute correlations of  -70%  found for  AgeToTerm  and  BalanceToPrincipal 
 
 # - Initialize variables to be tested
 vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean", "pmnt_method_grp",
@@ -410,7 +392,7 @@ aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genP
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
 ### RESULTS: Best AIC-results: BalanceToPrincipal, Balance_Real, Balance, InterestRate_Nom, InterestRate_Margin , etc
-# Best C-statistics: BalancetoPrincipal, Balance, InterestRate_Nom, Balance_Real, InterestTaye_Margin.
+# Best C-statistics: BalancetoPrincipal, Balance, InterestRate_Nom, Balance_Real, InterestRate_Margin.
 # ALL of the have very low AIC and good Harell's c values>0 
 # Choose these 5
 
@@ -418,10 +400,11 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 # ------ 6.2 Combining insights: Delinquency-themed, portfolio-level, and account-level variables
 
 # - Initialize variables to be tested
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_SD_4", "Arrears"
-          ,"TimeInDelinqState", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
-          "g0_Delinq_Any_Aggr_Prop_Lag_1"
-          ,"ArrearsToBalance_Aggr_Prop", "BalanceToPrincipal","InterestRate_Nom", "InterestRate_Margin_imputed_mean")
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
+          "g0_Delinq_Any_Aggr_Prop_Lag_1",
+          "BalanceToPrincipal", "InterestRate_Nom","InterestRate_Margin_Aggr_Med_9")
+
+### RESULTS:
 
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
@@ -443,16 +426,14 @@ proc.time() - ptm
 
 # All variables remained thus keep as is
 # - Final variables
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_SD_4", "Arrears"
-          ,"TimeInDelinqState", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
-          "g0_Delinq_Any_Aggr_Prop_Lag_1"
-          ,"ArrearsToBalance_Aggr_Prop", "BalanceToPrincipal","InterestRate_Nom", "InterestRate_Margin_imputed_mean")
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned"
+          , "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
+          "g0_Delinq_Any_Aggr_Prop_Lag_1", "BalanceToPrincipal","InterestRate_Nom", "Arrears")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial")
 summary(modLR);
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC:   8,676; McFadden R^2:  76.33%; AUC:  99.70%.
-
 
 
 
@@ -581,6 +562,7 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 
 # ------ 7.7 Combining insights: Macroeconomic variables
 
+
 # - Initialize variables to be tested
 vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
           "M_Repo_Rate", "M_Repo_Rate_1", "M_Repo_Rate_2", 
@@ -607,6 +589,7 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 proc.time() - ptm # IGNORE: elapsed runtime; 34m
 ### RESULTS: AIC:   35,313;   McFadden R^2:  3.34%; AUC:  67.98%.
 
+
 # - Final variables
 vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
           "M_RealIncome_Growth_9", "M_Inflation_Growth","M_DTI_Growth_12")
@@ -617,6 +600,97 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 ### RESULTS: AIC:   35,318;   McFadden R^2:  3.34%; AUC:  67.98%.
 
 
+# - Final variables (Expert Judgement)
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
+          "M_RealIncome_Growth_9", "M_Inflation_Growth","M_DTI_Growth_12","M_Repo_Rate")
+modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
+              data=datCredit_train, family="binomial")
+summary(modLR);
+evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC:   35,311;   McFadden R^2:  3.37%; AUC:  67.98%.
+# Included the Repo rate as it is vital. GDP growth and emp growth have a negative effect
+# They increase the AIC and R^2 values
+
+
+# ------ 7.8 Combining insights: Delinquency-themed, portfolio-level, account-level, and macroeconomic variables
+
+# - Initialize variables to be tested
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
+          "g0_Delinq_Any_Aggr_Prop_Lag_1",
+          "BalanceToPrincipal", "InterestRate_Nom","InterestRate_Margin_Aggr_Med_9"
+          ,"M_RealIncome_Growth_9", "M_Inflation_Growth","M_DTI_Growth_12","M_Repo_Rate")
+
+
+# - Full model | Stepwise forward selection procedure
+modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
+                   data=datCredit_train, family="binomial")
+summary(modLR_full);
+evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC:   26,003;   McFadden R^2:  85.41%; AUC:  99.91%.
+
+# - Stepwise forward selection using BIC
+ptm <- proc.time() # for runtime calculations (ignore)
+modLR_step <- stepAIC(modLR_base2, scope = list(lower = ~ log(TimeInDefSpell)*DefSpell_Num_binned, 
+                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
+                      direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+summary(modLR_step)
+evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+proc.time() - ptm # IGNORE: elapsed runtime; 117m
+### RESULTS: AIC:  26,008;  McFadden R^2:  85.41%; AUC:  99.91%.
+
+# - Domain expertise
+# Exchange log(TimeInDefSpell) with Time_Binned for final modelling iteration
+
+
+
+# ------ 6. Final model
+
+# - Confirm prepared datasets are loaded into memory
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
+if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+
+# - Use only default spells
+datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
+datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
+# remove previous objects from memory
+rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+
+# - Weigh default cases heavier. as determined interactively based on calibration success (script 6e)
+#datCredit_train[, Weight := ifelse(DefaultStatus1==1,10,1)]
+
+# - Fit an "empty" model as a performance gain, used within some diagnostic functions
+modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
+
+# - Final variables
+vars <- c("Time_Binned*DefSpell_Num_binned", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
+          "g0_Delinq_Any_Aggr_Prop_Lag_1",
+          "BalanceToPrincipal", "InterestRate_Nom","InterestRate_Margin_Aggr_Med_9"
+          ,"M_RealIncome_Growth_9", "M_Inflation_Growth","M_DTI_Growth_12","M_Repo_Rate")
+modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
+              data=datCredit_train, family="binomial")
+summary(modLR);
+# Robust (sandwich) standard errors
+robust_se <- vcovHC(modLR, type="HC0")
+# Summary with robust SEs
+coeftest(modLR, vcov.=robust_se)
+
+# - Other diagnostics
+evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC:  86,046;  McFadden R^2:  51.70%; AUC:  99.94%.
+
+# - Test goodness-of-fit using AIC-measure over single-factor models
+aicTable_CoxDisc <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+# Top variables: g0_Delinq_SD_4, g0_Delinq_Lag_1, slc_acct_arr_dir_3, slc_acct_roll_ever_24_imputed_mean, pmnt_method_grp, Time_Binned*PerfSpell_Num_binned
+
+# Test accuracy using c-statistic over single-factor models
+concTable_CoxDisc <- concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+# Top variables: g0_Delinq_SD_4, g0_Delinq_Lag_1, slc_acct_arr_dir_3, slc_acct_roll_ever_24_imputed_mean, pmnt_method_grp, Time_Binned*PerfSpell_Num_binned
+
+# - Combine results into a single object
+Table_CoxDisc <- concTable_CoxDisc[,1:2] %>% left_join(aicTable_CoxDisc, by ="Variable")
+
+# Save objects
+pack.ffdf(paste0(genObjPath,"CoxDisc_advanced_fits"), Table_CoxDisc)
 
 
 
