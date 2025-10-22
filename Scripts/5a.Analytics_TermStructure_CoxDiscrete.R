@@ -39,13 +39,13 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 # - Weigh default cases heavier. as determined interactively based on calibration success (script 6e)
-datCredit_train[, Weight := ifelse(DefSpell_Event==1,10,1)]
-datCredit_valid[, Weight := ifelse(DefSpell_Event==1,10,1)] # for merging purposes
+datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
+datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)] # for merging purposes
 
 # ---  Basic discrete-time hazard model
 # - Initialize variables
-vars_basic <- c("log(TimeInDefSpell):DefSpell_Num_binned",
-                 "InterestRate_Nom", "M_Inflation_Growth_6")
+vars_basic <- c("log(TimeInDefSpell)",
+                  "M_Repo_Rate","DefaultStatus1_Aggr_Prop_Lag_12","BalanceToPrincipal_adj_WOff")
 
 # - Fit discrete-time hazard model with selected variables
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
@@ -55,9 +55,9 @@ modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, colla
 
 # ---  Advanced discrete-time hazard model
 # - Initialize variables
-vars <- c("Time_Binned*DefSpell_Num_binned", "DefaultStatus1_Aggr_Prop_Lag_12","slc_acct_arr_dir_3", 
+vars <- c("Time_Binned", "log(TimeInDefSpell*DefSpell_Num_binned)", "DefaultStatus1_Aggr_Prop_Lag_12", 
           "g0_Delinq_Any_Aggr_Prop_Lag_1",
-          "BalanceToPrincipal", "InterestRate_Nom","InterestRate_Margin_Aggr_Med_9"
+          "BalanceToPrincipal_adj_WOff", "InterestRate_Nom","InterestRate_Margin_Aggr_Med_9"
           ,"M_RealIncome_Growth_9", "M_Inflation_Growth","M_DTI_Growth_12","M_Repo_Rate")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial", weights= Weight)
