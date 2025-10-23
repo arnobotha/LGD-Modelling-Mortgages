@@ -45,7 +45,7 @@ datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)] # for merging purpose
 # ---  Basic discrete-time hazard model
 # - Initialize variables
 vars_basic <- c("log(TimeInDefSpell)*DefSpell_Num_binned","M_DTI_Growth_12",
-                "Balance_adj_WOff","InterestRate_Nom")
+                "Balance_adj_WOff","g0_Delinq_Lag_1")
 
 # - Fit discrete-time hazard model with selected variables
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),

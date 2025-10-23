@@ -87,7 +87,7 @@ modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + ")
 # NOTE: Uses the superior Nearest Neighbour Estimator (NNE) method for S(t) with a 0/1-kernelNNE-kernel for S(t)
 # NOTE2: Assume dependence (by specifying ID-field) amongst certain observations clustered around ID-values
 ptm <- proc.time() #IGNORE: for computation time calculation;
-predictTime <- 3
+predictTime <- 6
 objROC1_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_basic, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                         fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                         graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
