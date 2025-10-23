@@ -1,7 +1,7 @@
 # ============================== TERM-STUCTURE: Cox Discrete-time Hazard ===============================
 # Construct and compare empirical and expected term-structures of default risk
 # ------------------------------------------------------------------------------------------------------
-# PROJECT TITLE: Default survival modelling
+# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -32,7 +32,7 @@
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
-# - Use only performance spells
+# - Use only default spells
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 # remove previous objects from memory
@@ -44,8 +44,8 @@ datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)] # for merging purpose
 
 # ---  Basic discrete-time hazard model
 # - Initialize variables
-vars_basic <- c("log(TimeInDefSpell)",
-                  "M_Repo_Rate","DefaultStatus1_Aggr_Prop_Lag_12","BalanceToPrincipal_adj_WOff")
+vars_basic <- c("log(TimeInDefSpell)*DefSpell_Num_binned","M_DTI_Growth_12",
+                "Balance_adj_WOff","InterestRate_Nom")
 
 # - Fit discrete-time hazard model with selected variables
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
@@ -55,10 +55,11 @@ modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, colla
 
 # ---  Advanced discrete-time hazard model
 # - Initialize variables
-vars <- c("Time_Binned", "log(TimeInDefSpell*DefSpell_Num_binned)", "DefaultStatus1_Aggr_Prop_Lag_12", 
-          "g0_Delinq_Any_Aggr_Prop_Lag_1",
-          "BalanceToPrincipal_adj_WOff", "InterestRate_Nom","InterestRate_Margin_Aggr_Med_9"
-          ,"M_RealIncome_Growth_9", "M_Inflation_Growth","M_DTI_Growth_12","M_Repo_Rate")
+vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
+           "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "g0_Delinq_Lag_1",
+          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
+          "Balance_adj_WOff","pmnt_method_grp","Principal",
+          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial", weights= Weight)
 
@@ -198,11 +199,11 @@ datGraph <- rbind(datSurv_sub[,list(Time, EventRate, Type="a_Actual")],
 # - Create different groupings for graphing purposes
 datGraph[Type %in% c("a_Actual","c_Expected_bas", "e_Expected_adv"), EventRatePoint := EventRate ]
 datGraph[Type %in% c("b_Actual_spline","d_Expected_spline_bas", "f_Expected_spline_adv"), EventRateLine := EventRate ]
-datGraph[, FacetLabel := "Prentice-Williams-Peterson (PWP) spell-time"]
+datGraph[, FacetLabel := "Term-structure of write-off risk"]
 
 # - Aesthetic engineering
 chosenFont <- "Cambria"
-mainEventName <- "Default"
+mainEventName <- "Write-off"
 
 # - Calculate MAE between event rates
 datFusion <- merge(datSurv_sub[Time <= sMaxSpellAge], 
@@ -221,7 +222,7 @@ vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid")
 
 # - Create main graph 
 (gsurv_ft <- ggplot(datGraph[Time <= sMaxSpellAge_graph,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
-    labs(y=bquote(plain(Event~probability~~italic(f(t))*" ["*.(mainEventName)*"]"*"")), 
+    labs(y=bquote(plain(Event~probability~~italic(w(t))*" ["*.(mainEventName)*"]"*"")), 
          x=bquote("Default spell age (months)"*~italic(t))
          #subtitle="Term-structures of default risk: Discrete-time hazard models"
     ) + 

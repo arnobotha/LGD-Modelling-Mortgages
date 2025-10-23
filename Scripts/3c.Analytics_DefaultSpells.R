@@ -225,13 +225,13 @@ datSurv$DefSpellResol_Type_Hist %>% table() %>% prop.table()
 # - Graphing Parameters
 chosenFont <- "Cambria"
 vCol <- brewer.pal(10, "Paired")[c(10,6,4, 2,1,8)]
-vLabels <- c(paste0("a_Default"="Default (", round(Resol_Type.props[1]*100, digits=1), "%)"), # Need to round to the first decimal place to ensure that the prior add up to one
+vLabels <- c(paste0("a_Written-off"="Written-off (", round(Resol_Type.props[1]*100, digits=1), "%)"), # Need to round to the first decimal place to ensure that the prior add up to one
              paste0("b_Right-censored"="Right-censored (", round(Resol_Type.props[2]*100, digits=1), "%)"),
-             paste0("c_Competing_risk"="Competing Risks (", round(Resol_Type.props[3]*100, digits=1), "%)"))
+             paste0("c_Cured"="Cured (", round(Resol_Type.props[3]*100, digits=1), "%)"))
 
 # - Densities of resolution types overlaid
 (g1_Densities_Resol_Type <- ggplot(datSurv[DefSpell_Age<=120,], aes(x=DefSpell_Age, group=Resol_Type)) + theme_minimal() + 
-    labs(y=bquote(plain('Empirical histogram & density ')~italic(f(t))), 
+    labs(y=bquote(plain('Empirical histogram & density ')), 
          x=bquote("Default spell age (months)"*~italic(t))) + 
     theme(text=element_text(family=chosenFont),legend.position.inside=c(0.785,0.2), 
           strip.background=element_rect(fill="snow2", colour="snow2"),

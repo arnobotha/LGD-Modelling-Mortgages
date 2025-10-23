@@ -358,7 +358,7 @@ proc.time() - ptm # IGNORE: elapsed runtime; 36m
 # Included InterestRate_Margin_Med_9
 vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq", 
           "slc_curing_ind", "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
-         "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop")
+         "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","g0_Delinq_Any_Aggr_Prop_Lag_1")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial")
 summary(modLR);
@@ -660,17 +660,17 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 # - Weigh default cases heavier. as determined interactively based on calibration success (script 6e)
-#datCredit_train[, Weight := ifelse(DefaultStatus1==1,10,1)]
+datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
 
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Final variables
-vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq", 
-          "slc_curing_ind", "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
+vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
+          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "g0_Delinq_Lag_1",
           "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff","Principal","pmnt_method_grp",
-          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12")
+          "Balance_adj_WOff","pmnt_method_grp","Principal",
+          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial")
 summary(modLR);
@@ -681,7 +681,7 @@ coeftest(modLR, vcov.=robust_se)
 
 # - Other diagnostics
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:  48,908;  McFadden R^2:  77.98%; AUC:  99.39%.
+### RESULTS: AIC:  79,503;  McFadden R^2:  64.18%; AUC:  98.55%.
 
 # - Test goodness-of-fit using AIC-measure over single-factor models
 aicTable_CoxDisc <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
