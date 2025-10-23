@@ -181,6 +181,9 @@ if (Sys.getenv("USERNAME") == "WRQ") {
 # - Load all custom functions defined in a separate R-script
 source(paste0(path_cust,"0b.CustomFunctions_General.R"))
 source(paste0(path_cust,"0c.Custom_Functions_VarSelect.R"))
+source(paste0(path_cust,"0d.Custom_Functions_tROC.R"))
+source(paste0(path_cust,"0e.Custom_Functions_tBrierScore.R"))
+
 # - Compile Delinquency Calculation Functions (CD, MD/DoD)
 source(paste0(path_cust,'DelinqM.R'))
 
