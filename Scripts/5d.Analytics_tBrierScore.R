@@ -60,8 +60,8 @@ datCredit_valid[, Sample := "Validation"]
 
 # ------ Basic discrete-time hazard model
 # - Initialize variables
-vars_basic <- c("log(TimeInDefSpell)*DefSpell_Num_binned","M_DTI_Growth_12",
-                "Balance_adj_WOff","g0_Delinq_Lag_1")
+vars_basic <- c("log(TimeInDefSpell)",
+                "InterestRate_Nom","Balance_adj_WOff","M_Repo_Rate_12")
 
 # - Fit discrete-time hazard model with selected variables
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
