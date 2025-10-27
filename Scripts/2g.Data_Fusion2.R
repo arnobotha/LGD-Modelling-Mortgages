@@ -870,7 +870,7 @@ if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_
 if (!exists('datKeys')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_keys"), tempPath)
 
 # - Implement the clustered (possibly stratified) resampling scheme by first randomly selecting loan IDs 
-# using the given sampling fraction
+### NOTE: The specified sampling fraction in section 1 is referenced here
 set.seed(1, kind="Mersenne-Twister")
 if (all(!is.na(stratifiers))){ # enforce Stratifiers
   dat_train_keys <- datKeys %>% group_by(across(all_of(stratifiers))) %>% slice_sample(prop=smp_frac) %>% as.data.table() 
@@ -879,8 +879,8 @@ if (all(!is.na(stratifiers))){ # enforce Stratifiers
 }
 
 # - Extract the entire loan histories into the training set for those randomly select subject IDs
-# Select only the first default spell (given the model definition), while 
-# the validation set deliberately includes multiple spells to test certain modelling assumptions
+### NOTE: Select only the first default spell (given the model definition), while 
+###       the validation set deliberately includes multiple spells to test certain modelling assumptions
 if (timeDef_TFD) {
   datCredit_train_TFD <- copy(datCredit_prep[get(clusVar) %in% dat_train_keys[, get(clusVar)],]) %>% 
     subset(DefSpell_Num == 1)
@@ -888,14 +888,13 @@ if (timeDef_TFD) {
   datCredit_train_CDH <- copy(datCredit_prep[get(clusVar) %in% dat_train_keys[, get(clusVar)],])
 }
 
-
 # - Extract unique LoanIDs from training keys
 train_ids <- unique(dat_train_keys[[clusVar]])
 
 # - Extract full list of LoanIDs from datKeys
 all_ids <- unique(datKeys[[clusVar]])
 
-# - Identify validation LoanIDs (those not in training)
+# - Identify validation LoanIDs (those not in the training set)
 valid_ids <- setdiff(all_ids, train_ids)
 
 # - Filter full dataset to get validation set
@@ -904,18 +903,18 @@ gc()
 
 # - [SANITY CHECKS]
 if (timeDef_TFD) {
-  # Can subsample be reconstituted?
+  # Can the subsample be reconstituted?
   check.1 <- datCredit_prep[,.N] == datCredit_train_TFD[,.N] + datCredit_valid_TFD[,.N] + datCredit_prep[get(clusVar_Spell) %in% vSpellKeys_MultiSpell,.N] # Should be TRUE
-  # Does training set contain only first-time spells?
+  # Does the training set contain only first-time spells?
   check.2 <- datCredit_train_TFD[get(spellNum) == 1,.N] == datCredit_train_TFD[,.N] # Should be TRUE
-  # Does validation spell contain spell numbers other than 1?
+  # Does the validation spell contain spell numbers other than 1?
   (check.3 <- datCredit_valid_TFD[get(spellNum) != 1,.N] > 0) # Should be TRUE
 } else {
-  # Can subsample be reconstituted?
+  # Can the subsample be reconstituted?
   check.1 <- datCredit_prep[,.N] == datCredit_train_CDH[,.N] + datCredit_valid_CDH[,.N]
-  # Does training set contain only first-time spells?
+  # Does the training set contain only first-time spells?
   check.2 <- T # Irrelevant for this time definition, so assign default
-  # Does validation spell contain spell numbers other than 1?
+  # Does the validation spell contain spell numbers other than 1?
   check.3 <- T # Irrelevant for this time definition, so assign default
 }
 cat((check.1 %?% "SAFE: Training and validation datasets succcessfully reconstitute the subsampled dataset. \n" %:% 
