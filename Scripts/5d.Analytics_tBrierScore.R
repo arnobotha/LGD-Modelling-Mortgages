@@ -60,8 +60,8 @@ datCredit_valid[, Sample := "Validation"]
 
 # ------ Basic discrete-time hazard model
 # - Initialize variables
-vars_basic <- c("log(TimeInDefSpell)",
-                "InterestRate_Nom","Balance_adj_WOff","M_Repo_Rate_12")
+vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned", "g0_Delinq_Lag_1",
+                "slc_acct_arr_dir_3","M_Inflation_Growth_9","g0_Delinq_Any_Aggr_Prop_Lag_1")
 
 # - Fit discrete-time hazard model with selected variables
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
@@ -72,7 +72,7 @@ modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, colla
 # ------ Advanced discrete-time hazard model
 # - Initialize variables
 vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "g0_Delinq_Lag_1",
+          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "g0_Delinq",
           "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
           "Balance_adj_WOff","pmnt_method_grp","Principal",
           "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
@@ -135,9 +135,9 @@ vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5) + 
     # Annotations
-    annotate(geom="text", x=50, y=20, label=paste0("IBS (Basic): ", round(objCoxDisc_bas$IBS,3)), 
+    annotate(geom="text", x=95, y=20, label=paste0("IBS (Basic): ", round(objCoxDisc_bas$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=43, y=13, label=paste0("IBS (Advanced): ", round(objCoxDisc_adv$IBS,3)), 
+    annotate(geom="text", x=91, y=18, label=paste0("IBS (Advanced): ", round(objCoxDisc_adv$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +     
     # Facets & scales
     facet_grid(FacetLabel ~ .) +  
@@ -162,9 +162,9 @@ vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5, show.legend = F) + 
     # Annotations
-    annotate(geom="text", x=50, y=0.85, label=paste0("IBS (Basic): ", round(ibs_bas,3)), 
+    annotate(geom="text", x=20, y=0.6, label=paste0("IBS (Basic): ", round(ibs_bas,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=45, y=0.7, label=paste0("IBS (Advanced): ", round(ibs_adv,3)), 
+    annotate(geom="text", x=17, y=0.45, label=paste0("IBS (Advanced): ", round(ibs_adv,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +   
     # Facets & scales
     scale_colour_manual(name="", values=vCol, labels=vLabel) + 
@@ -174,7 +174,7 @@ vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
 )
 
 # - Combining the two above plots onto a single graph
-(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=0, xmax=210, ymin=30, ymax=100))
+(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=10, xmax=90, ymin=5, ymax=15))
 
 # - Save plot
 dpi <- 280

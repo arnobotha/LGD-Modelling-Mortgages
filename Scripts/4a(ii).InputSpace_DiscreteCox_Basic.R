@@ -47,8 +47,8 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Final variables
 # Selection based on expert judgement alone, where the initial list being based on thematic selection
-vars_basic <- c("log(TimeInDefSpell)",
-                "InterestRate_Nom","Balance_adj_WOff","M_Repo_Rate_12")
+vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned", "g0_Delinq_Lag_1",
+                "slc_acct_arr_dir_3","M_Inflation_Growth_9","g0_Delinq_Any_Aggr_Prop_Lag_1")
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
                     data=datCredit_train, family="binomial", weights = Weight)
 #summary(modLR);
@@ -59,7 +59,7 @@ coeftest(modLR_basic, vcov.=robust_se)
 
 # - Other diagnostics
 evalLR(modLR_basic, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:  92,407;  McFadden R^2:  58.33%; AUC:  98.15%.
+### RESULTS: AIC:  137,910;  McFadden R^2:  37.82%; AUC:  92.31%.
 
 # - Test goodness-of-fit using AIC-measure over single-factor models
 aicTable_CoxDisc_basic <- aicTable(datCredit_train, vars_basic, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
