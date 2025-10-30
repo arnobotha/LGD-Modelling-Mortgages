@@ -47,8 +47,7 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Final variables
 # Selection based on expert judgement alone, where the initial list being based on thematic selection
-vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned", "g0_Delinq_Lag_1",
-                "slc_acct_arr_dir_3","M_Inflation_Growth_9","g0_Delinq_Any_Aggr_Prop_Lag_1")
+vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned")
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
                     data=datCredit_train, family="binomial", weights = Weight)
 #summary(modLR);

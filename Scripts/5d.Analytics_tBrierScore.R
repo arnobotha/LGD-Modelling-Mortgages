@@ -60,8 +60,7 @@ datCredit_valid[, Sample := "Validation"]
 
 # ------ Basic discrete-time hazard model
 # - Initialize variables
-vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned", "g0_Delinq_Lag_1",
-                "slc_acct_arr_dir_3","M_Inflation_Growth_9","g0_Delinq_Any_Aggr_Prop_Lag_1")
+vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned")
 
 # - Fit discrete-time hazard model with selected variables
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
@@ -72,9 +71,9 @@ modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, colla
 # ------ Advanced discrete-time hazard model
 # - Initialize variables
 vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "g0_Delinq",
+          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "g0_Delinq_Lag_1",
           "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff","pmnt_method_grp","Principal",
+          "Balance_1","pmnt_method_grp","Principal",
           "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
 
 # - Fit discrete-time hazard model with selected variables

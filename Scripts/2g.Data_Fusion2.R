@@ -506,7 +506,7 @@ if (doDescribe) describe(datCredit_prep$Instalment_Real); hist(datCredit_prep$In
 #                 bounded by [497, 21k] for 5%-95% percentiles; severe outliers to the right: 20m; left: 0
 
 
-# --- 3.7. Featuring Engineering: Arrears and Balance to deal with 0 values on Write-off
+# --- 3.7. Featuring Engineering:  Balance and lagged Balance to deal with 0 values on Write-off
 
 if (doDescribe) describe(datCredit_prep$Balance); hist(datCredit_prep$Balance)
 ### RESULTS: Highly right-skewed distribution as expected
@@ -541,6 +541,33 @@ datCredit_prep[, Balance_Real_adj_WOff := Balance_adj_WOff*Inf_Factor]
 cat( ( datCredit_prep[is.na(Balance_Real_adj_WOff), .N] == 0) %?% 
        'SAFE: New feature [Balance_Real_adj_WOff] has logical values.\n' %:% 
        'WARNING: New feature [Balance_Real_adj_WOff] has illogical values \n' )
+
+# Createing a lagged verision of Balance
+datCredit_prep[, Balance_1 := fcoalesce(shift(Balance, 1, type = "lag"), Balance), by = LoanID]
+
+# [SANITY CHECK] Check new feature for illogical values
+cat( ( datCredit_prep[is.na(Balance_1), .N] == 0) %?% 
+       'SAFE: New feature [Balance_1] has logical values.\n' %:% 
+       'WARNING: New feature [Balance_1] has illogical values \n' )
+
+# Create another variable for balanced to account for these
+datCredit_prep[, BalanceToPrincipal_1 := Balance_1/Principal]
+
+# [SANITY CHECK] Check new feature for illogical values
+cat( ( datCredit_prep[is.na(BalanceToPrincipal_1), .N] == 0) %?% 
+       'SAFE: New feature [BalanceToPrincipal_1] has logical values.\n' %:% 
+       'WARNING: New feature [BalanceToPrincipal_1] has illogical values \n' )
+
+if (doDescribe) describe(datCredit_prep$Balance_Real); hist(datCredit_prep$Balance_Real)
+### RESULTS: Highly right-skewed distribution as expected
+
+# Create another variable for balanced to account for these
+datCredit_prep[, Balance_Real_1 := Balance_1*Inf_Factor]
+
+# [SANITY CHECK] Check new feature for illogical values
+cat( ( datCredit_prep[is.na(Balance_Real_1), .N] == 0) %?% 
+       'SAFE: New feature [Balance_Real_1] has logical values.\n' %:% 
+       'WARNING: New feature [Balance_Real_1] has illogical values \n' )
 
 
 # - Save to disk (zip) for quick disk-based retrieval later
@@ -935,7 +962,6 @@ pack.ffdf(paste0(genPath,"creditdata_train_CDH"), datCredit_train_CDH)
 
 # - Validation dataset
 pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
-
 
 # --- 4.3 Clean up
 suppressWarnings(rm(dat_keys_smp_perf, dat_keys_smp_perf,  dat_train_keys_perf, dat_train_keys_def, datCredit_train_perf, datCredit_train_def,  datCredit_valid_perf, datCredit_valid_def,

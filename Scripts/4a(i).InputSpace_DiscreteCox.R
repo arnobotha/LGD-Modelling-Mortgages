@@ -262,8 +262,8 @@ proc.time() - ptm # IGNORE: elapsed runtime; 70m
 # Remove g0_Delinq_SD_5 and g0_Delinq_SD_6 since g0_Delinq_SD_4 is already present
 
 # - Final variables (expert judgement)
-# Arrears removed and TimeInDelinqState as it cuased the model to not converge
-# Included curing ind
+# Arrears removed and TimeInDelinqState as it caused the model to not converge
+
 vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq", 
           "slc_curing_ind", "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
           "g0_Delinq_Any_Aggr_Prop_Lag_1")
@@ -371,30 +371,30 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 # ------ 6.1 How do various non-delinquency account-level variables fare as single-factor models?
 
 vars <- c("Principal_Real", "Principal", "InterestRate_Margin", 
-          "Balance_Real_adj_WOff", "Balance_adj_WOff", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
-          "BalanceToPrincipal_adj_WOff", "slc_acct_pre_lim_perc_imputed_med")
+          "Balance_Real_1", "Balance_1", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
+          "BalanceToPrincipal_1", "slc_acct_pre_lim_perc_imputed_med")
 
 # - Correlation analysis towards obtaining clusters of correlated variables
 corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 ### RESULTS:
-#Absolute correlations of  97%  found for  Principal_Real  and  Principal 
-#Absolute correlations of  89%  found for  Principal_Real  and  Balance_Real_adj_WOff 
-#Absolute correlations of  85%  found for  Principal  and  Balance_Real_adj_WOff 
-#Absolute correlations of  87%  found for  Principal_Real  and  Balance_adj_WOff 
-#Absolute correlations of  88%  found for  Principal  and  Balance_adj_WOff 
-#Absolute correlations of  98%  found for  Balance_Real_adj_WOff  and  Balance_adj_WOff 
-#Absolute correlations of  89%  found for  Principal_Real  and  Instalment_Real 
-#Absolute correlations of  86%  found for  Principal  and  Instalment_Real 
-#Absolute correlations of  93%  found for  Balance_Real_adj_WOff  and  Instalment_Real 
-#Absolute correlations of  91%  found for  Balance_adj_WOff  and  Instalment_Real 
-#Absolute correlations of  79%  found for  Balance_Real_adj_WOff  and  BalanceToPrincipal_adj_WOff 
-#Absolute correlations of  74%  found for  Balance_adj_WOff  and  BalanceToPrincipal_adj_WOff 
-#Absolute correlations of  66%  found for  Instalment_Real  and  BalanceToPrincipal_adj_WOff 
+# Absolute correlations of  97%  found for  Principal_Real  and  Principal 
+# Absolute correlations of  91%  found for  Principal_Real  and  Balance_Real_1 
+# Absolute correlations of  87%  found for  Principal  and  Balance_Real_1 
+# Absolute correlations of  90%  found for  Principal_Real  and  Balance_1 
+# Absolute correlations of  90%  found for  Principal  and  Balance_1 
+# Absolute correlations of  98%  found for  Balance_Real_1  and  Balance_1 
+# Absolute correlations of  89%  found for  Principal_Real  and  Instalment_Real 
+# Absolute correlations of  86%  found for  Principal  and  Instalment_Real 
+# Absolute correlations of  93%  found for  Balance_Real_1  and  Instalment_Real 
+# Absolute correlations of  92%  found for  Balance_1  and  Instalment_Real 
+# Absolute correlations of  75%  found for  Balance_Real_1  and  BalanceToPrincipal_1 
+# Absolute correlations of  72%  found for  Balance_1  and  BalanceToPrincipal_1 
+# Absolute correlations of  63%  found for  Instalment_Real  and  BalanceToPrincipal_1
 
 # - Initialize variables to be tested
 vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean", "pmnt_method_grp",
-          "Balance_Real_adj_WOff", "Balance_adj_WOff", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
-          "BalanceToPrincipal_adj_WOff", "slc_acct_pre_lim_perc_imputed_med")
+          "Balance_Real_1", "Balance_1", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
+          "BalanceToPrincipal_1", "slc_acct_pre_lim_perc_imputed_med")
 
 # - Single-factor modelling results
 # Goodness-of-fit
@@ -410,10 +410,10 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 # ------ 6.2 Combining insights: Delinquency-themed, portfolio-level, and account-level variables
 
 # - Initialize variables to be tested
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq", 
-          "slc_curing_ind", "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_Lag_1", 
+          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
           "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff","Principal","InterestRate_Margin_imputed_mean","pmnt_method_grp")
+          "Balance_1","Principal","InterestRate_Margin_imputed_mean","pmnt_method_grp")
 
 ### RESULTS:
 
@@ -436,10 +436,10 @@ proc.time() - ptm
 ### RESULTS: AIC:   49,780; McFadden R^2:  77.57%; AUC:  99.39%.
 
 # - Final variables
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq", 
-          "slc_curing_ind", "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_Lag_1", 
+          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
           "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff","Principal","pmnt_method_grp")
+          "Balance_1","Principal","pmnt_method_grp")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial")
 summary(modLR);
@@ -617,10 +617,10 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 # ------ 7.8 Combining insights: Delinquency-themed, portfolio-level, account-level, and macroeconomic variables
 
 # - Initialize variables to be tested
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq", 
-          "slc_curing_ind", "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_Lag_1", 
+           "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "g0_Delinq_Any_Aggr_Prop_Lag_1",
           "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff","Principal","pmnt_method_grp",
+          "Balance_1","Principal","pmnt_method_grp",
           "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12")
 
 
@@ -629,7 +629,7 @@ modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = "
                    data=datCredit_train, family="binomial")
 summary(modLR_full);
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   49,576;   McFadden R^2:  77.66%; AUC:  99.40%.
+### RESULTS: AIC:   80,968;   McFadden R^2:  63.51%; AUC:  99.40%.
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
@@ -666,9 +666,9 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Final variables
 vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "slc_acct_arr_dir_3",
+          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave",
           "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff","pmnt_method_grp","Principal","g0_Delinq_Lag_1",
+          "Balance_1","pmnt_method_grp","Principal","g0_Delinq_Lag_1",
           "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial")
@@ -680,7 +680,7 @@ coeftest(modLR, vcov.=robust_se)
 
 # - Other diagnostics
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:  62,235;  McFadden R^2:  71.97%; AUC:  99.19%.
+### RESULTS: AIC:  78,767;  McFadden R^2:  64.52%; AUC:  98.59%.
 
 # - Test goodness-of-fit using AIC-measure over single-factor models
 aicTable_CoxDisc <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
