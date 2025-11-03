@@ -60,7 +60,8 @@ datCredit_valid[, Sample := "Validation"]
 
 # ------ Basic discrete-time hazard model
 # - Initialize variables
-vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned")
+vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned", "g0_Delinq_Lag_1",
+                "M_Inflation_Growth_9","g0_Delinq_Any_Aggr_Prop_Lag_1")
 
 # - Fit discrete-time hazard model with selected variables
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
@@ -82,12 +83,11 @@ modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + ")
 
 
 
-
 # ----------------- 3. Calculate time-dependent Brier scores across survival models
 
 # - Create pointer to the appropriate data object 
 datCredit <- rbind(datCredit_train, datCredit_valid)
-
+datCredit_LR <- rbind(datCredit_train_LR, datCredit_valid_LR)
 
 # --- Basic discrete-time hazard model
 
@@ -100,7 +100,6 @@ objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_basic, predType="respons
 objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                               fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                               fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist")
-
 
 
 # ----------------- 4. Graph tBS-values across models

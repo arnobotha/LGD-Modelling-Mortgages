@@ -977,3 +977,86 @@ evalLR <- function(model, model_base, datGiven, targetFld, predClass) {
   # - Cleanup, if run interactively
   rm(result1, result2, matPred, actuals, result3, objResults, model, model_base, datGiven, targetFld, predClass)
 }
+
+
+
+# --- AUC By Date Function 
+# - This function computes the AUC and its confidence interval for each unique date in the datatable.
+### INPUT:
+# - DataSet: A dataset in datatable format containing 1)Dates; 2) a Target Variable; 3) Probability Scores
+# - DateName: Character String containing the name of the DATE column in the dataset
+# - Target: Character String containing the name of the TARGET column in the dataset
+# - Predictions: Character String containing the name of the PROBABILITY SCORES column in the dataset
+
+### OUTPUT: 
+# - A datatable which has columns --> Date: Unique Dates; AUC_Val: Estimated AUC values; AUC_LowerCI: Estimated 
+#   lower CI values of the AUC values; AUC_UpperCI: Estimated upper CI values of the AUC values
+
+AUC_overTime <- function(DataSet, DateName, Target, Predictions){
+  
+  # Safety check for missing values
+  if(anyNA(DataSet[, .(get(DateName), get(Target), get(Predictions))])){
+    stop("Missing values detected. Exiting function...")
+  }
+  
+  # Prepare table to store results
+  UDates <- unique(DataSet[, .(Date = get(DateName))])
+  UDates[, `:=`(AUC_Val = NA_real_, AUC_LowerCI = NA_real_, AUC_UpperCI = NA_real_)]
+  
+  # Loop over each spell stop
+  counter <- 1
+  for(k in UDates$Date){
+    TempDat <- DataSet[get(DateName) == k, .(
+      target_var = get(Target),
+      predicted_var = get(Predictions)
+    )]
+    
+    # Skip if only one class
+    if(length(unique(TempDat$target_var)) < 2){
+      counter <- counter + 1
+      next
+    }
+    
+    # Ensure target is factor
+    TempDat[, target_var := factor(target_var, levels = c(0,1))]
+    
+    # Compute ROC safely
+    TempObj <- tryCatch(
+      roc(response = TempDat$target_var,
+          predictor = TempDat$predicted_var,
+          ci = TRUE,
+          ci.method = "delong",
+          conf.level = 0.95,
+          percent = TRUE,
+          quiet = TRUE),
+      error = function(e) NULL
+    )
+    
+    # Store results
+    if(!is.null(TempObj)){
+      UDates[counter, `:=`(
+        AUC_Val = TempObj$auc,
+        AUC_LowerCI = TempObj$ci[1],
+        AUC_UpperCI = TempObj$ci[3]
+      )]
+    }
+    
+    counter <- counter + 1
+  }
+  
+  return(UDates[order(Date)])
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
