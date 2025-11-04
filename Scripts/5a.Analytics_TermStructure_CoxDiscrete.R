@@ -42,6 +42,20 @@ rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
 datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)] # for merging purposes
 
+
+# - Create subset of performing spells towards modelling each spell as a single record | Classical PD-modelling
+datTrain_classic <- subset(datCredit_train, DefSpell_Counter==1)
+datValid_classic <- subset(datCredit_valid, DefSpell_Counter==1)
+
+# - Assign target/response field for the classical PD-model
+datTrain_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
+datValid_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
+
+# - Create a copy of DefSpell_Age to serve as an input into the classical LGD-model
+datTrain_classic[, DefSpell_Age2 := DefSpell_Age]
+datValid_classic[, DefSpell_Age2 := DefSpell_Age]
+
+
 # ---  Basic discrete-time hazard model
 # - Initialize variables
 vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned")
@@ -61,6 +75,24 @@ vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned",
           "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial", weights= Weight)
+
+# ------ Classical Logistic Regression model
+
+# - Initialize variables
+vars_classic <- c("g0_Delinq_Any_Aggr_Prop_Lag_12","DefaultStatus1_Aggr_Prop",
+                  "CuringEvents_Aggr_Prop","PrevDefaults",
+                  "DefSpell_Age2", "g0_Delinq_Num", "Arrears",
+                  "slc_past_due_amt_imputed_med", "DefSpell_Num_binned",
+                  "InterestRate_Margin_Aggr_Med", "AgeToTerm_Aggr_Mean", "AgeToTerm",
+                  "BalanceToPrincipal", "pmnt_method_grp",
+                  "M_RealIncome_Growth_12", "M_Inflation_Growth_3","M_DTI_Growth_6","M_Repo_Rate_2")
+
+# - Fit logistic regression model onto entire spell, similar to application credit scoring with an open-ended outcome window
+modLR_classic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_classic, collapse = " + "))),
+                      data=datTrain_classic, family="binomial")
+summary(modLR_classic)
+roc(response=datTrain_classic$Defaulted, 
+    predictor=predict(modLR_classic, datTrain_classic, type="response")) # 80% AUC
 
 # ------ 2. Kaplan-Meier estimation towards constructing empirical term-structure of default risk
 
@@ -134,11 +166,16 @@ datCredit[, EventRate_bas := shift(Survival_bas, type="lag", n=1, fill=1) - Surv
 # - Remove added rows
 datCredit <- subset(datCredit, Counter > 0)
 
+# - Score using classical PD-model each instance of TimeInPerfSpell as PerfSpell_Age
+datCredit[, DefSpell_Age2 := TimeInDefSpell]
+datCredit[!is.na(DefSpell_Num), Hazard_PD := predict(modLR_classic, newdata=.SD[], type = "response")]
+datCredit[!is.na(DefSpell_Num), Survival_PD := cumprod(1-Hazard_PD), by=list(DefSpell_Key)]
+datCredit[!is.na(DefSpell_Num), EventRate_PD := shift(Survival_PD, type="lag", n=1, fill=1) - Survival_PD, by=list(DefSpell_Key)]
 
 # --- Period-level aggregation
 
 # - Aggregate to period-level towards plotting key survival quantities
-datSurv_exp <- datCredit[,.(EventRate_bas = mean(EventRate_bas, na.rm=T),
+datSurv_exp <- datCredit[,.(EventRate_bas = mean(EventRate_bas, na.rm=T),EventRate_PD = mean(EventRate_PD, na.rm=T),
                             EventRate_adv = mean(EventRate_adv, na.rm=T), EventRate_Emp = sum(DefSpell_Event)/.N,
                             EventRate_IPCW = sum(Weight*DefSpell_Event)/sum(Weight)),
                          by=list(TimeInDefSpell)]
@@ -146,14 +183,17 @@ setorder(datSurv_exp, TimeInDefSpell)
 datSurv_exp[, Survival_bas := 1 - cumsum(coalesce(EventRate_bas,0))]
 datSurv_exp[, Survival_adv := 1 - cumsum(coalesce(EventRate_adv,0))]
 datSurv_exp[, Survival_IPCW := 1 - cumsum(coalesce(EventRate_IPCW,0))]
-
+datSurv_exp[, Survival_PD := 1 - cumsum(coalesce(EventRate_PD,0))]
 
 # -- Graphing survival quantities
 # - Confirm prepared datasets are loaded into memory : actual term-structure of full-sample
 #if (!exists('datSurv')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), tempPath);gc()
 
 
-
+plot(datSurv_exp[TimeInPerfSpell <= 120, EventRate], type="b")
+lines(datSurv_exp[TimeInPerfSpell <= 120, EventRate_adv], type="b", col="red")
+lines(datSurv_exp[TimeInPerfSpell <= 120, EventRate_bas], type="b", col="blue")
+lines(datSurv_exp[TimeInPerfSpell <= 120, EventRate_PD], type="b", col="cyan")
 
 # ------ 4. Graphing the event density / probability mass function f(t)
 
