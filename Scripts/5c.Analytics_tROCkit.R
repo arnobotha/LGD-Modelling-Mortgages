@@ -276,7 +276,7 @@ chosenFont <- "Cambria"
     theme(text = element_text(family=chosenFont), legend.position="inside", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
-          legend.position.inside = c(0.55,0.45),
+          legend.position.inside = c(0.725,0.25),
           legend.background = element_rect(fill="snow2", color="black",
                                            linetype="solid", linewidth=0.1)) +
     labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
@@ -379,3 +379,127 @@ suppressWarnings( rm(gg, vLabels, vLabels_F, vecTROC, datGraph, dat,
                      objROC1_CDH_CoxDisc_bas, objROC2_CDH_CoxDisc_bas, objROC3_CDH_CoxDisc_bas, objROC4_CDH_CoxDisc_bas,
                      datCredit_train_CDH, datCredit_valid_CDH, datCredit_train, datCredit_valid
 ) )
+
+
+
+
+
+# ------ Advanced discrete-time hazard model
+
+# --- Package: tROCkit() | custom "package"/function
+# NOTE: Using custom tROC()-function from script 0b(iii) under the CD-approach with an NN-estimator and 0/1-kernel
+
+# -- Multi-threaded calculation of the # AUC from given start up to given prediction time 3 in following the CD-approach
+# NOTE: Uses the superior Nearest Neighbour Estimator (NNE) method for S(t) with a 0/1-kernelNNE-kernel for S(t)
+# NOTE2: Assume dependence (by specifying ID-field) amongst certain observations clustered around ID-values
+ptm <- proc.time() #IGNORE: for computation time calculation;
+predictTime <- 44
+objROC1_LR <- tROC.multi(datGiven=datValid_classic, modGiven=modLR_classic, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+                                      fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="DefSpell_Age",
+                                      graphName="WOffLRModel-ROC_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                      caseStudyName=paste0("LR_", predictTime), numThreads=12, logPath=genPath, 
+                                      predType="response")
+objROC1_LR$AUC; objROC1_LR$ROC_graph
+proc.time() - ptm
+### RESULTS: AUC up to t: 94.66%, achieved in 1659.32 secs
+
+
+ptm <- proc.time() #IGNORE: for computation time calculation;
+
+predictTime <- 44
+objROC5_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+                                      fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                                      graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                      caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
+                                      predType="response")
+objROC5_CDH_CoxDisc_adv$AUC; objROC5_CDH_CoxDisc_adv$ROC_graph
+proc.time() - ptm
+### RESULTS: AUC up to t: 96.82%, achieved in 3847.32  secs
+
+ptm <- proc.time() #IGNORE: for computation time calculation;
+predictTime <- 44
+objROC5_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_basic, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+                                      fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                                      graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                      caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
+                                      predType="response")
+objROC5_CDH_CoxDisc_bas$AUC; objROC5_CDH_CoxDisc_bas$ROC_graph
+proc.time() - ptm
+
+
+
+# - Set ROC-parameters and initialize data structures
+vecPercTimepoint <- c(44,44,44)
+vecTROC <- list(objROC5_CDH_CoxDisc_adv, objROC5_CDH_CoxDisc_bas ,objROC1_LR)
+vLabels <- vector("list", length=length(vecPercTimepoint))
+vmodel <- c("Survival Analysis(Advanced)","Survival Analysis(Basic)", "Logistic Regression")
+
+# -- Create a combined data object for plotting purposes
+for (i in 1:length(vecPercTimepoint)) {
+  # i <-1 # testing condition
+  
+  # datGraph <- data.frame(x = vFPR[-(nThresh+1)], y=vTPR[-1])
+  
+  # - Create a data object for the current prediction time
+  if (i == 1) {
+    datGraph <- data.table(PredictTime=paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
+                           x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR)
+    
+  } else {
+    datGraph <- rbind(datGraph, 
+                      data.table(PredictTime= paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
+                                 x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR))
+  }
+  vLabels[[i]] <- bquote(.(vmodel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$AUC * 100, format = "f", digits = 2)) * "%")
+  
+}
+
+
+# -- Graph a combined ROC-graph across prediction times t
+# - Aesthetic parameters
+datGraph[, FacetLabel := "ROC(italic(t))~'Prediction time t=44'"]
+
+vCol <- brewer.pal(6,"Set1")
+vLabels_F <- setNames(vLabels, paste0(letters[1:length(vecPercTimepoint)],"_", vecPercTimepoint))
+chosenFont <- "Cambria"
+
+# - Create ROC-graph
+(gg <- ggplot(datGraph, aes(x=x,y=y,group=PredictTime)) + theme_minimal() + 
+    theme(text = element_text(family=chosenFont), legend.position="inside", 
+          strip.background=element_rect(fill="snow2", colour="snow2"),
+          strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
+          legend.position.inside = c(0.65,0.2),
+          legend.background = element_rect(fill="snow2", color="black",
+                                           linetype="solid", linewidth=0.1)) +
+    labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
+           bquote("True Positive Rate "*italic(T^"+"))) + 
+    # Add 45-degree line
+    geom_segment(x = 0, y = 0, xend = 1, yend = 1, color = "grey", linewidth=0.2) +
+    # Main line graph
+    geom_step(aes(x=x, y=y, linetype=PredictTime, colour=PredictTime), linewidth=0.5) + 
+    #geom_point(aes(x=x, y=y, shape=PredictTime, colour=PredictTime), size=0.25) +
+    # Facets and scales
+    facet_grid(FacetLabel ~ .) +  
+    facet_wrap(~FacetLabel, labeller = label_parsed, strip.position = "right")+
+    scale_color_manual(name=bquote("ROC"*(italic(t))), values=vCol, labels=vLabels) + 
+    scale_linetype_discrete(name=bquote("ROC"*(italic(t))), labels=vLabels) + 
+    scale_shape_discrete(name=bquote("ROC"*(italic(t))), labels=vLabels) + 
+    scale_y_continuous(label=percent) + scale_x_continuous(label=percent))
+
+
+# - Save graph
+dpi <- 300
+ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffModel-Combined.png")), 
+       width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
+
+
+
+
+
+
+
+
+
+
+
+

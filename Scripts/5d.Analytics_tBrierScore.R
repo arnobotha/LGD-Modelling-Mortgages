@@ -53,8 +53,15 @@ datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)] # for merging purpose
 datCredit_train[, Sample := "Training"]
 datCredit_valid[, Sample := "Validation"]
 
+# Validation set
+datTrain_classic <- subset(datCredit_train, DefSpell_Counter==1)
+datValid_classic <- subset(datCredit_valid, DefSpell_Counter==1)
 
-
+# - Assign target/response field for the classical PD-model
+datTrain_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
+datValid_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
+datTrain_classic[, Start := DefSpell_Age - 1]
+datValid_classic[, Start := DefSpell_Age - 1]
 # ----------------- 2b. Fit a discrete-time hazard model on the resampled prepared data
 
 
@@ -81,13 +88,25 @@ vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned",
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial", weights = Weight)
 
+vars_classic <- c("g0_Delinq_Any_Aggr_Prop_Lag_12","DefaultStatus1_Aggr_Prop",
+                  "CuringEvents_Aggr_Prop","PrevDefaults",
+                  "DefSpell_Age", "g0_Delinq_Num", "Arrears",
+                  "slc_past_due_amt_imputed_med", "DefSpell_Num_binned",
+                  "InterestRate_Margin_Aggr_Med", "AgeToTerm_Aggr_Mean", "AgeToTerm",
+                  "BalanceToPrincipal", "pmnt_method_grp",
+                  "M_RealIncome_Growth_12", "M_Inflation_Growth_3","M_DTI_Growth_6","M_Repo_Rate_2")
 
+# - Fit logistic regression model onto entire spell, similar to application credit scoring with an open-ended outcome window
+modLR_classic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_classic, collapse = " + "))),
+                      data=datTrain_classic, family="binomial")
+summary(modLR_classic)
 
 # ----------------- 3. Calculate time-dependent Brier scores across survival models
 
 # - Create pointer to the appropriate data object 
 datCredit <- rbind(datCredit_train, datCredit_valid)
-datCredit_LR <- rbind(datCredit_train_LR, datCredit_valid_LR)
+datCredit_LR <- rbind(datTrain_classic, datValid_classic)
+
 
 # --- Basic discrete-time hazard model
 
@@ -100,6 +119,7 @@ objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_basic, predType="respons
 objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                               fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                               fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist")
+
 
 
 # ----------------- 4. Graph tBS-values across models
@@ -181,6 +201,47 @@ ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_CoxDisc.png"),width=1350/
 
 # -- Cleanup
 rm(gInner, datGraph, gOuter, objCoxDisc_adv,objCoxDisc_bas ,plot.full)
+
+tBS_Adv <- objCoxDisc_adv$tBS
+tBS_Bas <- objCoxDisc_bas$tBS
+tBS_Adv <- tBS_Adv[TimeInDefSpell==44,]
+tBS_Bas <- tBS_Bas[TimeInDefSpell==44,]
+tBrier_Adv <- tBS_Adv$Brier
+tBrier_Bas <- tBS_Bas$Brier
+
+
+
+TimePeriod <- 44
+
+
+datCredit_LR[, prob_LR := predict(modLR_classic, newdata= datCredit_LR ,type = "response")]
+datCredit_LR[, S_hat   := 1 - prob_LR]                     # Pr(survive past t)
+datCredit_LR[, y_t     := as.integer(DefSpell_Age > TimePeriod)]
+
+datCredit_LR[, cens := as.integer(DefSpell_Event == 0)]
+
+
+km_cens <- survfit(Surv(DefSpell_Age, cens) ~ 1, data = datCredit_LR)
+eval_times <- sort(unique(c(datCredit_LR$DefSpell_Age, TimePeriod)))
+cens_sum   <- summary(km_cens, times = eval_times)
+
+G_TimePeriod <- approx(cens_sum$time, cens_sum$surv, xout = TimePeriod, rule = 2)$y
+datCredit_LR[, G_Ti := approx(cens_sum$time, cens_sum$surv, xout = DefSpell_Age, rule = 2)$y]
+
+datCredit_LR[, weight := fcase(
+  DefSpell_Event == 1 & DefSpell_Age <= TimePeriod, 1 / G_Ti,
+  DefSpell_Age > TimePeriod,                         1 / G_TimePeriod,
+  default = 0
+)]
+datCredit_LR[, weight := pmin(weight, 10)]  # ??? REQUIRED for R²
+
+
+datCredit_LR[, SE := (y_t - S_hat)^2]
+
+
+brier <- weighted.mean(datCredit_LR$SE, datCredit_LR$weight, na.rm = TRUE)
+
+
 
 
 

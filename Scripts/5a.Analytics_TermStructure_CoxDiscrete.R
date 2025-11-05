@@ -58,7 +58,8 @@ datValid_classic[, DefSpell_Age2 := DefSpell_Age]
 
 # ---  Basic discrete-time hazard model
 # - Initialize variables
-vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned")
+vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned", "g0_Delinq_Lag_1",
+                "M_Inflation_Growth_9","g0_Delinq_Any_Aggr_Prop_Lag_1")
 
 # - Fit discrete-time hazard model with selected variables
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
@@ -91,8 +92,8 @@ vars_classic <- c("g0_Delinq_Any_Aggr_Prop_Lag_12","DefaultStatus1_Aggr_Prop",
 modLR_classic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_classic, collapse = " + "))),
                       data=datTrain_classic, family="binomial")
 summary(modLR_classic)
-roc(response=datTrain_classic$Defaulted, 
-    predictor=predict(modLR_classic, datTrain_classic, type="response")) # 80% AUC
+roc(response=datTrain_classic$DefSpell_Event, 
+    predictor=predict(modLR_classic, datTrain_classic, type="response")) # 87.1% AUC
 
 # ------ 2. Kaplan-Meier estimation towards constructing empirical term-structure of default risk
 
@@ -166,7 +167,7 @@ datCredit[, EventRate_bas := shift(Survival_bas, type="lag", n=1, fill=1) - Surv
 # - Remove added rows
 datCredit <- subset(datCredit, Counter > 0)
 
-# - Score using classical PD-model each instance of TimeInPerfSpell as PerfSpell_Age
+# - Score using classical PD-model each instance of TimeInDefSpell as DefSpell_Age
 datCredit[, DefSpell_Age2 := TimeInDefSpell]
 datCredit[!is.na(DefSpell_Num), Hazard_PD := predict(modLR_classic, newdata=.SD[], type = "response")]
 datCredit[!is.na(DefSpell_Num), Survival_PD := cumprod(1-Hazard_PD), by=list(DefSpell_Key)]
@@ -179,6 +180,7 @@ datSurv_exp <- datCredit[,.(EventRate_bas = mean(EventRate_bas, na.rm=T),EventRa
                             EventRate_adv = mean(EventRate_adv, na.rm=T), EventRate_Emp = sum(DefSpell_Event)/.N,
                             EventRate_IPCW = sum(Weight*DefSpell_Event)/sum(Weight)),
                          by=list(TimeInDefSpell)]
+datSurv_exp$EventRate_PD[datSurv_exp$EventRate_PD>0.02] <- NA
 setorder(datSurv_exp, TimeInDefSpell)
 datSurv_exp[, Survival_bas := 1 - cumsum(coalesce(EventRate_bas,0))]
 datSurv_exp[, Survival_adv := 1 - cumsum(coalesce(EventRate_adv,0))]
@@ -190,10 +192,10 @@ datSurv_exp[, Survival_PD := 1 - cumsum(coalesce(EventRate_PD,0))]
 #if (!exists('datSurv')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), tempPath);gc()
 
 
-plot(datSurv_exp[TimeInPerfSpell <= 120, EventRate], type="b")
-lines(datSurv_exp[TimeInPerfSpell <= 120, EventRate_adv], type="b", col="red")
-lines(datSurv_exp[TimeInPerfSpell <= 120, EventRate_bas], type="b", col="blue")
-lines(datSurv_exp[TimeInPerfSpell <= 120, EventRate_PD], type="b", col="cyan")
+plot(datSurv_exp[TimeInDefSpell <= 120, EventRate_Emp], type="b")
+lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_adv], type="b", col="red")
+lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_bas], type="b", col="blue")
+lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_PD], type="b", col="cyan")
 
 # ------ 4. Graphing the event density / probability mass function f(t)
 
@@ -214,17 +216,23 @@ sDf_Act <- 12; sDf_Exp <- 12
 smthEventRate_Act <- lm(EventRate ~ ns(Time, df=sDf_Act), data=datSurv_sub[Time <= sMaxSpellAge,])
 smthEventRate_Exp_bas <- lm(EventRate_bas ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
 smthEventRate_Exp_adv <- lm(EventRate_adv ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
-summary(smthEventRate_Act); summary(smthEventRate_Exp_bas); summary(smthEventRate_Exp_adv)
+smthEventRate_Exp_classic <- lm(EventRate_PD ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
+
+summary(smthEventRate_Act); summary(smthEventRate_Exp_bas); summary(smthEventRate_Exp_adv); summary(smthEventRate_Exp_classic)
 
 # - Render predictions based on fitted smoother, with standard errors for confidence intervals
 vPredSmth_Act <- predict(smthEventRate_Act, newdata=datSurv_sub, se=T)
 vPredSmth_Exp_bas <- predict(smthEventRate_Exp_bas, newdata=datSurv_exp, se=T)
 vPredSmth_Exp_adv <- predict(smthEventRate_Exp_adv, newdata=datSurv_exp, se=T)
+vPredSmth_Exp_classic <- predict(smthEventRate_Exp_classic, newdata=datSurv_exp, se=T)
+
 
 # - Add smoothed estimate to graphing object
 datSurv_sub[, EventRate_spline := vPredSmth_Act$fit]
 datSurv_exp[, EventRate_spline_bas := vPredSmth_Exp_bas$fit]
 datSurv_exp[, EventRate_spline_adv := vPredSmth_Exp_adv$fit]
+datSurv_exp[, EventRate_spline_classic := vPredSmth_Exp_classic$fit]
+
 
 # - Create graphing data object
 datGraph <- rbind(datSurv_sub[,list(Time, EventRate, Type="a_Actual")],
@@ -232,12 +240,14 @@ datGraph <- rbind(datSurv_sub[,list(Time, EventRate, Type="a_Actual")],
                   datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_bas, Type="c_Expected_bas")],
                   datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_bas, Type="d_Expected_spline_bas")],
                   datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_adv, Type="e_Expected_adv")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_adv, Type="f_Expected_spline_adv")]
+                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_adv, Type="f_Expected_spline_adv")],
+                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_PD, Type="g_Expected_LR")],
+                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_classic, Type="h_Expected_spline_LR")]
 )
 
 # - Create different groupings for graphing purposes
-datGraph[Type %in% c("a_Actual","c_Expected_bas", "e_Expected_adv"), EventRatePoint := EventRate ]
-datGraph[Type %in% c("b_Actual_spline","d_Expected_spline_bas", "f_Expected_spline_adv"), EventRateLine := EventRate ]
+datGraph[Type %in% c("a_Actual","c_Expected_bas", "e_Expected_adv", "g_Expected_LR"), EventRatePoint := EventRate ]
+datGraph[Type %in% c("b_Actual_spline","d_Expected_spline_bas", "f_Expected_spline_adv", "h_Expected_spline_LR"), EventRateLine := EventRate ]
 datGraph[, FacetLabel := "Term-structure of write-off risk"]
 
 # - Aesthetic engineering
@@ -246,18 +256,21 @@ mainEventName <- "Write-off"
 
 # - Calculate MAE between event rates
 datFusion <- merge(datSurv_sub[Time <= sMaxSpellAge], 
-                   datSurv_exp[TimeInDefSpell <= sMaxSpellAge,list(Time=TimeInDefSpell, EventRate_bas, EventRate_adv)], by="Time")
+                   datSurv_exp[TimeInDefSpell <= sMaxSpellAge,list(Time=TimeInDefSpell, EventRate_bas, EventRate_adv, EventRate_PD)], by="Time")
 MAE_eventProb_bas <- mean(abs(datFusion$EventRate - datFusion$EventRate_bas), na.rm=T)
 MAE_eventProb_adv <- mean(abs(datFusion$EventRate - datFusion$EventRate_adv), na.rm=T)
+MAE_eventProb_classic <- mean(abs(datFusion$EventRate - datFusion$EventRate_PD), na.rm=T)
+
 
 # - Graphing parameters
-vCol <- brewer.pal(10, "Paired")[c(3,4,5,6,1,2)]
+vCol <- brewer.pal(10, "Paired")[c(3,4,5,6,1,2,7,8)]
 vLabel2 <- c("b_Actual_spline"=paste0("Actual spline"), 
              "d_Expected_spline_bas"=paste0("Exp spline: Basic"),
              "f_Expected_spline_adv"=paste0("Exp spline: Advanced"),
-             "a_Actual"="Actual", "c_Expected_bas"="Exp: Basic", "e_Expected_adv"="Exp: Advanced")
-vSize <- c(0.2,0.3,0.2,0.3,0.2,0.3)
-vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid")
+             "h_Expected_spline_LR"=paste0("Exp spline: Logistic Regression"),
+             "a_Actual"="Actual", "c_Expected_bas"="Exp: Basic", "e_Expected_adv"="Exp: Advanced","g_Expected_LR"="Exp: Logistic Regression")
+vSize <- c(0.2,0.3,0.2,0.3,0.2,0.3, 0.2, 0.3)
+vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid","dashed", "solid")
 
 # - Create main graph 
 (gsurv_ft <- ggplot(datGraph[Time <= sMaxSpellAge_graph,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
@@ -272,10 +285,12 @@ vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid")
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
     # Annotations
-    annotate("text", y=0.015,x=100, label=paste0("MAE (basic): ", percent(MAE_eventProb_bas, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.03,x=100, label=paste0("MAE (basic): ", percent(MAE_eventProb_bas, accuracy=0.0001)), family=chosenFont,
              size = 3) + 
-    annotate("text", y=0.0125,x=100, label=paste0("MAE (advanced): ", percent(MAE_eventProb_adv, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.0275,x=100, label=paste0("MAE (advanced): ", percent(MAE_eventProb_adv, accuracy=0.0001)), family=chosenFont,
              size = 3) + 
+    annotate("text", y=0.025,x=100, label=paste0("MAE (logistic regression): ", percent(MAE_eventProb_classic, accuracy=0.0001)), family=chosenFont,
+             size = 3)+
     # Scales and options
     facet_grid(FacetLabel ~ .) + 
     scale_colour_manual(name="", values=vCol, labels=vLabel2) + 
@@ -290,7 +305,7 @@ vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid")
 # - Save plot
 dpi <- 280 # reset
 ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_CoxDisc.png"),
-       width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+       width=1800/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
 # --- Cleanup

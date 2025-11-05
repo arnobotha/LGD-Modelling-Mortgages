@@ -42,7 +42,6 @@
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
-if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), tempPath);gc()
 
 
 
@@ -391,7 +390,8 @@ datCredit[, prob_adv := predict(modLR, newdata = datCredit, type="response")]
 BasAUC <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","prob_basic")
 LRAUC <- AUC_overTime(datCredit_LR,"DefSpell_Max_Date","DefSpell_Event","prob_LR")
 AdvAUC <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","prob_adv")
-
+AdvAUC <- AdvAUC[!AUC_Val<70,]
+BasAUC <- BasAUC[!AUC_LowerCI<30,]
 BasAUC[,AUC_Val:=AUC_Val/100]
 BasAUC[,AUC_LowerCI:=AUC_LowerCI/100]
 BasAUC[,AUC_UpperCI:=AUC_UpperCI/100]
@@ -403,15 +403,15 @@ AdvAUC[,AUC_LowerCI:=AUC_LowerCI/100]
 AdvAUC[,AUC_UpperCI:=AUC_UpperCI/100]
 # - Differentiation for plotting
 BasAUC[,Dataset := "A"]
-LRAUC[,Dataset := "B"]
-AdvAUC[,Dataset := "C"]
+LRAUC[,Dataset := "C"]
+AdvAUC[,Dataset := "B"]
 
 # - Create final dataset for ggplot
 datPlot <- rbind(BasAUC,LRAUC,AdvAUC)
 
 # - Aesthetic engineering: annotations
 # Location of annotations
-start_y <- 0.625
+start_y <- 0.425
 space <- 0.025
 y_vals <- c(start_y,start_y-space,start_y-space*2)
 
@@ -429,17 +429,17 @@ vEventRates_stErr <- c(sd(BasAUC$AUC_Val, na.rm=T) / sqrt(BasAUC[, .N]),
 vMargin <- qnorm(1-(1-confLevel)/2) * vEventRates_stErr
 vLabel <- c(paste0("'TTC-mean over '*italic(A[X](t))*' for '*italic(A[t])*' : ", sprintf("%.2f",vEventRates_Mean[1]*100),
                    "% ± ", sprintf("%1.3f", vMargin[1]*100),"%'"),
-            paste0("'TTC-mean over '*italic(A[X](t))*' for '*italic(B[t])*' : ", sprintf("%.2f",vEventRates_Mean[2]*100),
-                   "% ± ", sprintf("%1.3f", vMargin[2]*100),"%'"),
-            paste0("'TTC-mean over '*italic(A[X](t))*' for '*italic(C[t])*' : ", sprintf("%.2f",vEventRates_Mean[3]*100),
-                   "% ± ", sprintf("%1.3f", vMargin[3]*100),"%'") )
+            paste0("'TTC-mean over '*italic(A[X](t))*' for '*italic(B[t])*' : ", sprintf("%.2f",vEventRates_Mean[3]*100),
+                   "% ± ", sprintf("%1.3f", vMargin[3]*100),"%'"),
+            paste0("'TTC-mean over '*italic(A[X](t))*' for '*italic(C[t])*' : ", sprintf("%.2f",vEventRates_Mean[2]*100),
+                   "% ± ", sprintf("%1.3f", vMargin[2]*100),"%'") )
 datAnnotate[, Label := vLabel]
 
 # - Graphing parameters
 chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2,1,3)]
-vLabel <- c("A"=bquote(italic(A[t])~": Basic"), "B"=bquote(italic(B[t])~": Logistic Regression"), 
-            "C"=bquote(italic(C[t])~": Advanced"))
+vLabel <- c("A"=bquote(italic(A[t])~": Basic"), "C"=bquote(italic(C[t])~": Logistic Regression"), 
+            "B"=bquote(italic(B[t])~": Advanced"))
 vShape <- c(17,20,4) 
 
 # - Create graph
