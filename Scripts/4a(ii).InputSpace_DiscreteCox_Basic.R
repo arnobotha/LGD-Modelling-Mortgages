@@ -71,5 +71,8 @@ concTable_CoxDisc_basic <- concTable(datCredit_train, datCredit_valid, vars_basi
 # - Combine results into a single object
 Table_CoxDisc_basic <- concTable_CoxDisc_basic[,1:2] %>% left_join(aicTable_CoxDisc_basic, by ="Variable")
 
+GoF_CoxSnell_KS(modLR_basic, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Basic",
+                fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Bas", ".png"), dpi=280)
+
 # Save objects
 pack.ffdf(paste0(genObjPath,"CoxDisc_basic_fits"), Table_CoxDisc_basic)

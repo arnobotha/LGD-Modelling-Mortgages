@@ -655,6 +655,8 @@ if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid
 # - Use only default spells
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
+datCredit_train <- datCredit_train[,DefSpell_ExitInd:= ifelse(DefSpell_Age==TimeInDefSpell,1,0)]
+datCredit_valid <- datCredit_valid[,DefSpell_ExitInd:= ifelse(DefSpell_Age==TimeInDefSpell,1,0)]
 # remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
@@ -681,7 +683,6 @@ coeftest(modLR, vcov.=robust_se)
 # - Other diagnostics
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC:  78,767;  McFadden R^2:  64.52%; AUC:  98.59%.
-
 # - Test goodness-of-fit using AIC-measure over single-factor models
 aicTable_CoxDisc <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
 # Top variables: g0_Delinq_SD_4, g0_Delinq_Lag_1, slc_acct_arr_dir_3, slc_acct_roll_ever_24_imputed_mean, pmnt_method_grp, Time_Binned*PerfSpell_Num_binned
@@ -693,6 +694,8 @@ concTable_CoxDisc <- concTable(datCredit_train, datCredit_valid, vars, TimeDef=c
 # - Combine results into a single object
 Table_CoxDisc <- concTable_CoxDisc[,1:2] %>% left_join(aicTable_CoxDisc, by ="Variable")
 
+GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Advanced",
+                fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Adv", ".png"), dpi=280)
 # Save objects
 pack.ffdf(paste0(genObjPath,"CoxDisc_advanced_fits"), Table_CoxDisc)
 

@@ -60,9 +60,12 @@ datValid_classic <- subset(datCredit_valid, DefSpell_Counter==1)
 # - Assign target/response field for the classical PD-model
 datTrain_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
 datValid_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
-datTrain_classic[, Start := DefSpell_Age - 1]
-datValid_classic[, Start := DefSpell_Age - 1]
+
+# - Create a copy of DefSpell_Age to serve as an input into the classical LGD-model
+datTrain_classic[, DefSpell_Age2 := DefSpell_Age]
+datValid_classic[, DefSpell_Age2 := DefSpell_Age]
 # ----------------- 2b. Fit a discrete-time hazard model on the resampled prepared data
+
 
 
 # ------ Basic discrete-time hazard model
@@ -90,7 +93,7 @@ modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + ")
 
 vars_classic <- c("g0_Delinq_Any_Aggr_Prop_Lag_12","DefaultStatus1_Aggr_Prop",
                   "CuringEvents_Aggr_Prop","PrevDefaults",
-                  "DefSpell_Age", "g0_Delinq_Num", "Arrears",
+                  "DefSpell_Age2", "g0_Delinq_Num", "Arrears",
                   "slc_past_due_amt_imputed_med", "DefSpell_Num_binned",
                   "InterestRate_Margin_Aggr_Med", "AgeToTerm_Aggr_Mean", "AgeToTerm",
                   "BalanceToPrincipal", "pmnt_method_grp",
@@ -106,7 +109,7 @@ summary(modLR_classic)
 # - Create pointer to the appropriate data object 
 datCredit <- rbind(datCredit_train, datCredit_valid)
 datCredit_LR <- rbind(datTrain_classic, datValid_classic)
-
+datCredit[, DefSpell_Age2 := TimeInDefSpell]
 
 # --- Basic discrete-time hazard model
 
@@ -120,6 +123,11 @@ objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR, predType="response", sp
                               fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                               fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist")
 
+# --- Advanced discrete-time hazard model
+
+objLR <- tBrierScore_classic(datCredit, modGiven=modLR_classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
+                              fldStart="Start", fldStop="DefSpell_Age2",fldCensored="DefSpell_Censored", 
+                              fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist")
 
 
 # ----------------- 4. Graph tBS-values across models
@@ -199,47 +207,74 @@ dpi <- 280
 ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_CoxDisc.png"),width=1350/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
-# -- Cleanup
-rm(gInner, datGraph, gOuter, objCoxDisc_adv,objCoxDisc_bas ,plot.full)
+
 
 tBS_Adv <- objCoxDisc_adv$tBS
 tBS_Bas <- objCoxDisc_bas$tBS
+tBS_LR <- objLR$tBS
 tBS_Adv <- tBS_Adv[TimeInDefSpell==44,]
 tBS_Bas <- tBS_Bas[TimeInDefSpell==44,]
+tBS_LR <- tBS_LR[DefSpell_Age2==44,]
 tBrier_Adv <- tBS_Adv$Brier
 tBrier_Bas <- tBS_Bas$Brier
+tBrier_LR <- tBS_LR$Brier
+
+# - Create a single table containing the three R^2 measures for each of the models
+brier_Table <- data.table(
+  Model = c("Survival Analysis(Basic)","Survival Analysis(Advanced)", "Logistic Regression" ),
+  Brier = c(tBrier_Bas, tBrier_Adv, tBrier_LR)
+)
+# - Save table to specified path
+pack.ffdf(paste0(genObjPath,"brier_Table"), brier_Table)
+
+datPlot<-data.table(Statistic=rep(c("Models "),
+                                  each=3),Model=rep(c("a_Basic","b_Advanced", "c_Logistic_Regression"),times=1),Value=
+                      as.numeric(sub("%","",c(brier_Table$Brier)))/100)
+
+# - Aesthetic engineering
+datPlot[, Label:=paste0(sprintf("%.2f", Value*100),"%")]
 
 
+chosenFont <- "Cambria"
+vCol1 <- c(
+  "a_Basic" = brewer.pal(9, "BuGn")[5],
+  "b_Advanced" = brewer.pal(9, "BuGn")[7],
+  "c_Logistic_Regression" = brewer.pal(9, "BuGn")[9]
+)
+vCol2 <- vCol1 
+vCol3 <- rep("white", 3)  
+vLabel <- list(
+  "a_Basic" = "Survival Analysis(Basic)",
+  "b_Advanced" = "Survival Analysis(Advanced)",
+  "c_Logistic_Regression" = "Logistic Regression"
+)
+gPlot <- ggplot(datPlot, aes(x = Statistic, y = Value, group = Model)) + 
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    text = element_text(family = chosenFont),
+    axis.title.x = element_text(margin = margin(t = 5))
+  ) +
+  labs(y=bquote("Time-dependent Brier Score "*italic(B)[s](italic(t))), x="") +
+  geom_col(aes(colour = Model, fill = Model), position = position_dodge(width = 0.9)) +
+  geom_label(
+    aes(label = Label),
+    fill = vCol2,
+    colour = vCol3,
+    position = position_dodge(width = 0.9),
+    size = 3,
+    label.padding = unit(0.15, "lines")
+  ) +
+  scale_colour_manual(name = "Model:", values = vCol1, labels = vLabel) +
+  scale_fill_manual(name = "Model:", values = vCol1, labels = vLabel) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
 
-TimePeriod <- 44
+# Saving the graph to specified path
+dpi <- 180
+ggsave(gPlot, file=paste0(genFigPath, "BrierPlot_V2.png"), width=1200/dpi, height=1000/dpi, dpi=400, bg="white")
 
-
-datCredit_LR[, prob_LR := predict(modLR_classic, newdata= datCredit_LR ,type = "response")]
-datCredit_LR[, S_hat   := 1 - prob_LR]                     # Pr(survive past t)
-datCredit_LR[, y_t     := as.integer(DefSpell_Age > TimePeriod)]
-
-datCredit_LR[, cens := as.integer(DefSpell_Event == 0)]
-
-
-km_cens <- survfit(Surv(DefSpell_Age, cens) ~ 1, data = datCredit_LR)
-eval_times <- sort(unique(c(datCredit_LR$DefSpell_Age, TimePeriod)))
-cens_sum   <- summary(km_cens, times = eval_times)
-
-G_TimePeriod <- approx(cens_sum$time, cens_sum$surv, xout = TimePeriod, rule = 2)$y
-datCredit_LR[, G_Ti := approx(cens_sum$time, cens_sum$surv, xout = DefSpell_Age, rule = 2)$y]
-
-datCredit_LR[, weight := fcase(
-  DefSpell_Event == 1 & DefSpell_Age <= TimePeriod, 1 / G_Ti,
-  DefSpell_Age > TimePeriod,                         1 / G_TimePeriod,
-  default = 0
-)]
-datCredit_LR[, weight := pmin(weight, 10)]  # ??? REQUIRED for R²
-
-
-datCredit_LR[, SE := (y_t - S_hat)^2]
-
-
-brier <- weighted.mean(datCredit_LR$SE, datCredit_LR$weight, na.rm = TRUE)
+# -- Cleanup
+rm(gInner, datGraph, gOuter, objCoxDisc_adv,objCoxDisc_bas ,plot.full)
 
 
 

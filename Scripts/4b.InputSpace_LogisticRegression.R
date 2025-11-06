@@ -631,6 +631,9 @@ concTable_LR <- concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox
 # - Combine results into a single object
 Table_LR <- concTable_LR[,1:2] %>% left_join(aicTable_LR, by ="Variable")
 
+GoF_CoxSnell_KS(modLR_classic, datTrain_classic, GraphInd=TRUE, ,legPos=c(0.6,0.4), panelTitle="Logistic Regression",
+                fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_LR", ".png"), dpi=280,fldLstRowInd="DefSpell_Counter")
+
 # Save objects
 pack.ffdf(paste0(genObjPath,"LR_fits"), Table_LR)
 
