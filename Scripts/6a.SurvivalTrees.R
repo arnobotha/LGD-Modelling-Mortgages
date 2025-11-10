@@ -35,8 +35,9 @@ if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid
 
 # ------ 2. Growing trees using the MST-package
 # --- 2.1 Prepare the training and validation data
-### NOTE: The data structure is identical to a discrete time survival model,
-###       i.e., a panel dataset containing all observations over a loan's lifetime
+### NOTE: - The data structure is identical to a discrete time survival model,
+###         i.e., a panel dataset containing all observations over a loan's lifetime
+###       - These trees take considerable time to fit
 
 # - Training data
 datTrain_MST <- copy(datCredit_train_CDH)
