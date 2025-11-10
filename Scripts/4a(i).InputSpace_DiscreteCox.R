@@ -1,5 +1,5 @@
 # ======================================= INPUT SPACE: DISCRETE COX ADVANCED============================
-# Divide data into thematic groups and perform data analysis on them to compile an input space for 
+# Partition data into thematic groups and perform data analysis on them to compile an input space for 
 # and advanced discrete-time hazard model.
 # ------------------------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
@@ -25,117 +25,142 @@
 
 # ------ 1. Preliminaries
 
+# --- 1.1 Load and subset data
 # - Confirm prepared datasets are loaded into memory
-# - Confirm prepared datasets are loaded into memory
+# Training
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
+# Validation
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
 # - Use only default spells
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
-# remove previous objects from memory
+
+# - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
+
+# --- 1.2 Fit prelimanary models
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Fit a baseline model for stepwise forward selection
 modLR_base2 <- glm(DefSpell_Event ~ log(TimeInDefSpell)*DefSpell_Num_binned, 
                    data=datCredit_train, family="binomial")
-# Insight interactively mined from modelling theme 2a-b was used in fitting this model.
+### NOTE: Insight interactively mined from modelling theme 2a-b was used in fitting this model.
 
 
-# ------ 2. Embedding the baseline hazard h_0(t)
+
+
+# ------ 2. Embedding the baseline hazard h_0(t) | Part I
 # Which of the following methods is the best to embed the baseline hazard
 # The are done in order from least onerous to most onerous
 
-
 # --- 2.1 Single time variable (raw duration time)
+# - Fit model
 modLR <- glm(DefSpell_Event ~  TimeInDefSpell,
              data = datCredit_train, family="binomial")
+
+# - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 51,881; McFadden R^2: 0.47%; AUC: 64.62%
+### RESULTS: AIC: 220 783; McFadden R^2: 0.44%; AUC: 65.76%
 
 
 # --- 2.2 Single time variable: Function of raw duration time (log transform)
+# - Fit model
 modLR <- glm(DefSpell_Event ~  log(TimeInDefSpell),
              data = datCredit_train, family="binomial")
+
+# - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### Results: AIC: 51,077; McFadden R^2: 2.01%; AUC: 64.62%
-# The log transform produces a better goodness of fit with the AUC remaining the
-# same
+### Results: AIC: 216 493; McFadden R^2: 2.38%; AUC: 65.76%
+### CONCLUSION: The log transform produces a better goodness of fit with the AUC remaining the
+###             same
 
 
 # --- 2.3 Single time variable: Spline
+# - Fit model
 modLR <- glm(DefSpell_Event ~  ns(TimeInDefSpell,df=8),# DF was set by trial and error
              data = datCredit_train, family="binomial")
+
+# - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 ### Results: AIC: 50,548; McFadden R^2: 3,05%; AUC: 65.55%
-# Splines seem to improve the results significantly
-# With each metric seeming to perform better
+### CONCLUSION: Splines seem to improve the results significantly,
+###             with each metric seeming to perform better than the other time variant models
 
 
-# ---2.4 Single time variable: Single time variable binned
+# --- 2.4 Single time variable: Single time variable binned
+# - Analyse data to inform on model inputs
 table(datCredit_train$Time_Binned) %>% prop.table()
-### RESULTS: Between 1% and 15% of observations in each bin; deemed appropriate, particulalarly in
-# as the eralier bins cover a vast majority of the data
+### RESULTS: Between 1% and 15% of observations in each bin; deemed appropriate, particularly in
+###         the lower bins that cover the majority of the data
 
+# - Fit model
 modLR <- glm(DefSpell_Event ~  Time_Binned,
              data = datCredit_train, family="binomial")
+
+# - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### Results: AIC: 50,704; McFadden R^2: 2,78%; AUC: 65.25%
-# Substantially outperforms  2.1 and 2.2
-# Binning done so bins have enough data points
+### Results: AIC: 214 314; McFadden R^2: 3.38%; AUC: 66.56%
+### CONCLUSION: Model substantially outperforms models in 2.1 and 2.2
 
-### Conclusion: Binning and splines prove to be the best. The baseline hazard has 
-# nonlinearities so these allow for this
-
+### OVERALL Conclusion: Binning and splines prove to be the best. The baseline hazard has 
+###                     non-linearities, hence the stronger performance by the time-binned model
 
 
 
-# ------ 3. Embedding the baseline hazard h_0(t): Further model improvements
-# Here the inetraction between TimeInDefSpell and and Defspell_num
-# This is done as each spell will have its own baseline and slope
 
+# ------ 3. Embedding the baseline hazard h_0(t) | Part II
+### NOTE: Here an interaction between [TimeInDefSpell] and [Defspell_num] is enforced
+###       This is done since each spell will have its own baseline and slope
 
 # --- 3.1 Single-factor models: Single time variable (transform)
+# - Fit model
 modLR <- glm(DefSpell_Event ~  log(TimeInDefSpell)*DefSpell_Num_binned,
              data = datCredit_train, family="binomial")
+
+# - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 50,967; McFadden R^2: 2.23%; AUC: 65.54%
-# The inclusion of this interaction improves performance significantly across all 
-# of the metrics
+### RESULTS: AIC: 216 078; McFadden R^2: 2.57%; AUC: 66.24%
+### CONCLUSION: The inclusion of this interaction improves performance significantly across all 
+###             of the metrics
 
 
-# ---3.2 Single-factor models: Binned Variable plus interaction
+# --- 3.2 Single-factor models: Binned Variable plus interaction
+# - Fit model
 modLR <- glm(DefSpell_Event ~  Time_Binned + log(TimeInDefSpell):DefSpell_Num_binned,
              data = datCredit_train, family="binomial")
+
+# - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 50,577; McFadden R^2: 3.04%; AUC: 66.19%
-# Binning improves the performance as shown in 2.4
+### RESULTS: AIC: 213 963; McFadden R^2: 3.53%; AUC: 67.14%
+### CONCLUSION: Binning improves the performance, as previously shown in 2.4
 
 
-# ---3.3 Single-factor models: Spline plus interaction
+# --- 3.3 Single-factor models: Spline plus interaction
 modLR <- glm(DefSpell_Event ~  ns(TimeInDefSpell,df=8) + log(TimeInDefSpell):DefSpell_Num_binned,
              data = datCredit_train, family="binomial")
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC: 50,400; McFadden R^2: 3.34%; AUC: 66.80%
-# Splines improve the performance as shown in 2.3
+### CONCLUSION: Splines improve the performance as shown in 2.3
 
 
 
 
 # ------ 4. Delinquency-themed variables
 
-
-# ------ 4.1 Which time window length is the best in calculating delinquency volatility?
+# --- 4.1 Selection of the best version of delinquency-volatility variables
+### NOTE: These variables are calcualted using various time time window lengths.
+###       E.g., [g0_Delinq_SD_4] is the volatility of a loan's delinquency on a 4-month
+###       rolling window
 
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_SD_4", "g0_Delinq_SD_5", "g0_Delinq_SD_6", "g0_Delinq_SD_9", "g0_Delinq_SD_12")
@@ -145,16 +170,19 @@ vars <- c("g0_Delinq_SD_4", "g0_Delinq_SD_5", "g0_Delinq_SD_6", "g0_Delinq_SD_9"
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: g0_Delinq_SD_4, g0_Delinq_SD_5, g0_Delinq_SD_6, g0_Delinq_SD_9, g0_Delinq_SD_12
-# Best Harrell's C-statistics: g0_Delinq_SD_4, g0_Delinq_SD_5, g0_Delinq_SD_6. Other two below 0.8 reducing discrimination power
-# All of them are significant on their own
+### RESULTS: Best AIC-results: [g0_Delinq_SD_4], [g0_Delinq_SD_5], [g0_Delinq_SD_6], [g0_Delinq_SD_9], [g0_Delinq_SD_12]
+###          Best Harrell's C-statistics: [g0_Delinq_SD_4], [g0_Delinq_SD_5], [g0_Delinq_SD_6.] Other two variables are below 0.8
+###          All of the statistics are significant
 
-### Conclusion: The Harell's C-statistic decreases with a linear trend 
-# g0_Delinq_SD_4 seems to perform the best but also include g0_Delinq_SD_5 and g0_Delinq_SD_6
+### CONCLUSION: The model's AIC decreases with shorter rolling windows on which an account's delinquency volatility is calculated
+###             In contrast, Harell's C-statistic decreases with larger rolling windows
+###             [g0_Delinq_SD_4] performs the best but also includes [g0_Delinq_SD_5] and [g0_Delinq_SD_6]
 
 
-#----- 4.2 Which lag order is the best in calculating the portfolio-level fraction of the defaulted proportion with any delinquency?
-# indicates the lag order of past data that should be included  when assessing an account
+#----- 4.2 Selection of the best version of portfolio-level delinquency variables
+### NOTE: These variables are calculated on a portfolio-level
+###       E.g., [g0_Delinq_Any_Aggr_Prop_Lag_1] is the proportion of accounts that are at
+###       least one month in arrears one month ago
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq_Any_Aggr_Prop_Lag_2",
           "g0_Delinq_Any_Aggr_Prop_Lag_3", "g0_Delinq_Any_Aggr_Prop_Lag_4", "g0_Delinq_Any_Aggr_Prop_Lag_5",
@@ -165,16 +193,20 @@ vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: g0_Delinq_Any_Aggr_Prop, g0_Delinq_Any_Aggr_Prop_Lag_1, g0_Delinq_Any_Aggr_Prop_Lag_12, g0_Delinq_Any_Aggr_Prop_Lag_9
-# , g0_Delinq_Any_Aggr_Prop_Lag_6
-# Best C-statistics: g0_Delinq_Any_Aggr_Prop, g0_Delinq_Any_Aggr_Prop_Lag_12, g0_Delinq_Any_Aggr_Prop_Lag_1, g0_Delinq_Any_Aggr_Prop_Lag_9
+### RESULTS: Best AIC-results: [g0_Delinq_Any_Aggr_Prop], [g0_Delinq_Any_Aggr_Prop_Lag_1], [g0_Delinq_Any_Aggr_Prop_Lag_12], [g0_Delinq_Any_Aggr_Prop_Lag_9],
+###                            [g0_Delinq_Any_Aggr_Prop_Lag_6]
+###          Best C-statistics: [g0_Delinq_Any_Aggr_Prop], [g0_Delinq_Any_Aggr_Prop_Lag_12], [g0_Delinq_Any_Aggr_Prop_Lag_1], [g0_Delinq_Any_Aggr_Prop_Lag_9]
+###          All statistics are significant
 
-# Conclusion: The differences in AIC and Harell's C-statiistic are minor
-# Choose the overall top 3 performing variables g0_Delinq_Any_Aggr_Prop, g0_Delinq_Any_Aggr_Prop_Lag_12, g0_Delinq_Any_Aggr_Prop_Lag_1
-# All are above 50% 
+### CONCLUSION: The differences in AIC and Harell's C-statistic are minor
+###             Choose the overall top 3 performing variables:
+###               [g0_Delinq_Any_Aggr_Prop]; [g0_Delinq_Any_Aggr_Prop_Lag_12]; and [g0_Delinq_Any_Aggr_Prop_Lag_1]
 
 
-# ------ 4.3 Which lag order is the best in calculating the portfolio-level fraction of defaulted accounts during the default spell?
+# --- 4.3 Selection of the best version of portfolio-level default variables
+### NOTE: These variables are calculated on a portfolio-level
+###       E.g., [DefaultStatus1_Aggr_Prop_Lag_1] is the proportion of accounts that are at
+###       least one month in arrears one month ago
 vars <- c("DefaultStatus1_Aggr_Prop", "DefaultStatus1_Aggr_Prop_Lag_1", "DefaultStatus1_Aggr_Prop_Lag_2",
           "DefaultStatus1_Aggr_Prop_Lag_3", "DefaultStatus1_Aggr_Prop_Lag_4", "DefaultStatus1_Aggr_Prop_Lag_5",
           "DefaultStatus1_Aggr_Prop_Lag_6", "DefaultStatus1_Aggr_Prop_Lag_9", "DefaultStatus1_Aggr_Prop_Lag_12" )
@@ -184,18 +216,18 @@ vars <- c("DefaultStatus1_Aggr_Prop", "DefaultStatus1_Aggr_Prop_Lag_1", "Default
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: DefaultStatus1_Aggr_Prop_Lag_12, DefaultStatus1_Aggr_Prop_Lag_9, DefaultStatus1_Aggr_Prop_Lag_6, 
-# This decreases from the highest lag to lowest lag in decreasing order
-# Differences are not that major
-# Best C-statistics: DefaultStatus1_Aggr_Prop_Lag_12, DefaultStatus1_Aggr_Prop_Lag_9, DefaultStatus1_Aggr_Prop_Lag_6, 
-# Similar trend as to AIC
-# Opposite of PD side
+### RESULTS: Best AIC-results: [DefaultStatus1_Aggr_Prop_Lag_12], [DefaultStatus1_Aggr_Prop_Lag_9], [DefaultStatus1_Aggr_Prop_Lag_6], 
+###          This decreases from the highest lag to lowest lag in decreasing order and the differences are minscule
+###          Best C-statistics: [DefaultStatus1_Aggr_Prop_Lag_12], [DefaultStatus1_Aggr_Prop_Lag_9], [DefaultStatus1_Aggr_Prop_Lag_6], 
+###          Similar trend as to AIC
 
-### CONCLUSION: Later is better, though the AIC-differences were minuscule. Concordance-differences were slightly bigger than the AIC values
-# Top 3 varibales: DefaultStatus1_Aggr_Prop_Lag_12, DefaultStatus1_Aggr_Prop_Lag_9, DefaultStatus1_Aggr_Prop_Lag_6
+### CONCLUSION: Longer lags are better, though the AIC-differences were minuscule. 
+###             Concordance-differences were slightly bigger than the AIC values
+###             Top 3 variables:
+###               [DefaultStatus1_Aggr_Prop_Lag_12]; [DefaultStatus1_Aggr_Prop_Lag_9]; and [DefaultStatus1_Aggr_Prop_Lag_6]
 
 
-# ------ 4.4 How do other portfolio-level delinquency-themed variables fare as single-factor models?
+# --- 4.4 Selection of other portfolio-level delinquency-themed variables as single-factor models
 
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop", "CuringEvents_Aggr_Prop" )
@@ -205,17 +237,15 @@ vars <- c("g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop", "CuringEvents_Aggr_Prop
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: ArrearsToBalance_Aggr_Prop, g0_Delinq_Ave, CuringEvents_Aggr_Prop
-# However they aren't that big with their being a e00 difference between the lowest and highest
-# Best C-statistics: g0_Delinq_Ave, ArrearsToBalance_Aggr_Prop, CuringEvents_Aggr_Prop
-# Similar trend with all being significant here with 0.58 for ArrearsToBalance_Aggr_Prop and 0.52 for 
-# CuringEvent_Aggr_prop
+### RESULTS: Best AIC-results: [g0_Delinq_Ave], [ArrearsToBalance_Aggr_Prop], [CuringEvents_Aggr_Prop]
+###          However, the differences are small, no more than ~1 500 in AICs
+###          Best C-statistics: [g0_Delinq_Ave], [ArrearsToBalance_Aggr_Prop], [CuringEvents_Aggr_Prop]
+###          All statistics are significant
 
-### Conclusion: All are significant include all 3 of them, curing event is relevant
+### Conclusion: Include all 3 of the variables
 
 
-# ------ 4.5 How do account-level delinquency-themed variables fare as single-factor models?
-
+# --- 4.5 Selection of account-level delinquency-themed variables as single-factor models
 # - Initialize variables to be tested
 vars <- c("TimeInDefSpell", "g0_Delinq_fac", "g0_Delinq", "g0_Delinq_Lag_1", "slc_acct_arr_dir_3_Change_Ind",
           "g0_Delinq_Num", "slc_acct_arr_dir_3", "slc_acct_roll_ever_24_imputed_mean", "Arrears", "PrevDefaults","TimeInDelinqState"
@@ -226,29 +256,37 @@ vars <- c("TimeInDefSpell", "g0_Delinq_fac", "g0_Delinq", "g0_Delinq_Lag_1", "sl
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: g0_Delinq_fac, g0_Delinq, slc_past_due_amt_imputed_med, Arrears, slc_curing_ind, slc_acct_dir_3, TimeInDelinqState, slc_acct_arr_dir_3_Change_Ind, PrevDefaults 
-# Best C-statistics: g0_Delinq_fac, g0_Delinq, slc_past_due_amt_imputed_med, Arrears, slc_acct_arr_dir_3, slc_curing_ind,  slc_acct_arr_dir_3_Change_Ind
-# Do not include g0_Delinq and g0_Delinq_fac as these would lead to unstable models
-### CONCLUSION
-# Choose: slc_past_due_amt_imputed_med, Arrears, slc_acct_dir_3, slc_curing_ind, TimeInDelinqState
-# These variables performed significantly better than the rest with th lowest AIC 
-# values and Harrell's c values greater than 0.87
+### RESULTS: Best AIC-results: [g0_Delinq_fac], [g0_Delinq], [Arrears], [slc_past_due_amt_imputed_med], [slc_curing_ind],
+###                            [slc_acct_arr_dir_3], [TimeInDelinqState], [slc_acct_arr_dir_3_Change_Ind], [PrevDefaults]
+###          Best C-statistics: [g0_Delinq_fac], [g0_Delinq], [Arrears], [slc_past_due_amt_imputed_med], [TimeInDelinqState], [slc_curing_ind],
+###                            [slc_acct_arr_dir_3], [slc_acct_arr_dir_3_Change_Ind], [PrevDefaults]
+### CONCLUSION: Do not include [g0_Delinq] and [g0_Delinq_fac] as these would lead to unstable models
+###            Select:
+###              [slc_past_due_amt_imputed_med]; [Arrears]; [slc_acct_dir_3]; [slc_curing_ind]; and [TimeInDelinqState]
+###            These variables performed significantly better than the rest with th lowest AIC 
+###            values and Harrell's c values greater than 0.87
 
-# ------ 4.6 Combining insights: delinquency-themed variables
+### NOTE: Exclude [g0_Delinq] and [g0_Delinq_fac] since they may result in quasi-complete seperation
+
+
+# --- 4.6 Combining insights: delinquency-themed variables
 # - Initialize variables to be tested
 vars <- c( "slc_curing_ind","slc_acct_arr_dir_3","g0_Delinq",
            "g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop_adj_WOff", "CuringEvents_Aggr_Prop",
            "DefaultStatus1_Aggr_Prop_Lag_6", "DefaultStatus1_Aggr_Prop_Lag_9", "DefaultStatus1_Aggr_Prop_Lag_12",
            "g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq_Any_Aggr_Prop_Lag_12")
+
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
                    data=datCredit_train, family="binomial")
+
+# - Evaluate model
 summary(modLR_full);
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   124,656; McFadden R^2:  43.80%; AUC:  96.75%.
-# Including g0_Delinq_SD_4,g0_Delinq_SD_5,g0_Delinq_SD_6 caused the model to not converge
-# and quasi complete separation so exclude them. Only consider one that being lag 4
-# Arrears also causes quasi complete separation so from expret judgement remove it
+### RESULTS: AIC: 124,656; McFadden R^2:  43.80%; AUC:  96.75%.
+### CONCLUSION: Including [g0_Delinq_SD_4], [g0_Delinq_SD_5],g0_Delinq_SD_6 caused the model to not converge
+###             and quasi complete separation so exclude them. Only consider one that being lag 4
+### Arrears also causes quasi complete separation so from expret judgement remove it
 
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
