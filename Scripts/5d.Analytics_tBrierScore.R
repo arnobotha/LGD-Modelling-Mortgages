@@ -161,9 +161,9 @@ vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5) + 
     # Annotations
-    annotate(geom="text", x=95, y=20, label=paste0("IBS (Basic): ", round(objCoxDisc_bas$IBS,3)), 
+    annotate(geom="text", x=76, y=20, label=paste0("IBS (Basic): ", round(objCoxDisc_bas$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=91, y=18, label=paste0("IBS (Advanced): ", round(objCoxDisc_adv$IBS,3)), 
+    annotate(geom="text", x=72, y=18, label=paste0("IBS (Advanced): ", round(objCoxDisc_adv$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +     
     # Facets & scales
     facet_grid(FacetLabel ~ .) +  
@@ -188,9 +188,9 @@ vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5, show.legend = F) + 
     # Annotations
-    annotate(geom="text", x=20, y=0.6, label=paste0("IBS (Basic): ", round(ibs_bas,3)), 
+    annotate(geom="text", x=20, y=1.5, label=paste0("IBS (Basic): ", round(ibs_bas,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=17, y=0.45, label=paste0("IBS (Advanced): ", round(ibs_adv,3)), 
+    annotate(geom="text", x=17, y=1, label=paste0("IBS (Advanced): ", round(ibs_adv,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +   
     # Facets & scales
     scale_colour_manual(name="", values=vCol, labels=vLabel) + 
