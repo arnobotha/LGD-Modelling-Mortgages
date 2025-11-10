@@ -1,0 +1,64 @@
+
+	 1) Single-factor model failed. 
+	 4) Single-factor model failed. 
+	 2) Single-factor model failed. 
+	 3) Single-factor model failed. 
+	 6) Single-factor model failed. 
+	 5) Single-factor model failed. 
+	 9) Single-factor model failed. 
+	 7) Single-factor model failed. 
+	 8) Single-factor model failed. 
+	 1) Single-factor model failed. 
+	 5) Single-factor model failed. 
+	 3) Single-factor model failed. 
+	 4) Single-factor model failed. 
+	 2) Single-factor model failed. 
+	 6) Single-factor model failed. 
+	 7) Single-factor model failed. 
+	 9) Single-factor model failed. 
+	 8) Single-factor model failed. 
+	 6) Single-factor model failed. 
+	 1) Single-factor model failed. 
+	 4) Single-factor model failed. 
+	 2) Single-factor model failed. 
+	 3) Single-factor model failed. 
+	 5) Single-factor model failed. 
+	 9) Single-factor model failed. 
+	 8) Single-factor model failed. 
+	 7) Single-factor model failed. 
+	 3) Single-factor model failed. 
+	 1) Single-factor model failed. 
+	 4) Single-factor model failed. 
+	 5) Single-factor model failed. 
+	 2) Single-factor model failed. 
+	 6) Single-factor model failed. 
+	 9) Single-factor model failed. 
+	 7) Single-factor model failed. 
+	 8) Single-factor model failed. 
+	 4) Single-factor model failed. 
+	 1) Single-factor model failed. 
+	 2) Single-factor model failed. 
+	 3) Single-factor model failed. 
+	 6) Single-factor model failed. 
+	 5) Single-factor model failed. 
+	 7) Single-factor model failed. 
+	 9) Single-factor model failed. 
+	 8) Single-factor model failed. 
+	 5) Single-factor model failed. 
+	 3) Single-factor model failed. 
+	 1) Single-factor model failed. 
+	 4) Single-factor model failed. 
+	 2) Single-factor model failed. 
+	 6) Single-factor model failed. 
+	 7) Single-factor model failed. 
+	 9) Single-factor model failed. 
+	 8) Single-factor model failed. 
+	1) Single-factor model FAILED: no applicable method for 'logLik' applied to an object of class "c('cpglm', 'cplm')"
+	4) Single-factor model FAILED: no applicable method for 'logLik' applied to an object of class "c('cpglm', 'cplm')"
+	5) Single-factor model FAILED: no applicable method for 'logLik' applied to an object of class "c('cpglm', 'cplm')"
+	3) Single-factor model FAILED: no applicable method for 'logLik' applied to an object of class "c('cpglm', 'cplm')"
+	6) Single-factor model FAILED: no applicable method for 'logLik' applied to an object of class "c('cpglm', 'cplm')"
+	2) Single-factor model FAILED: no applicable method for 'logLik' applied to an object of class "c('cpglm', 'cplm')"
+	7) Single-factor model FAILED: no applicable method for 'logLik' applied to an object of class "c('cpglm', 'cplm')"
+	9) Single-factor model FAILED: no applicable method for 'logLik' applied to an object of class "c('cpglm', 'cplm')"
+	8) Single-factor model FAILED: no applicable method for 'logLik' applied to an object of class "c('cpglm', 'cplm')"

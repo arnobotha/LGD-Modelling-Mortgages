@@ -1,0 +1,5 @@
+New Job: Estimating AIC for each variable as a single-factor model ..
+	 3) Single-factor model built. 
+	 2) Single-factor model built. 
+	 1) Single-factor model built. 
+	 4) Single-factor model built. 

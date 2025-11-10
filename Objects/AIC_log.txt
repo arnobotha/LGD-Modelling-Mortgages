@@ -1,2 +1,8 @@
-=== TWEEDIE SINGLE-FACTOR AIC SELECTION (LossRate_Real) ===
- p_tweedie = 1.6 
+New Job: Estimating AIC for each variable as a single-factor survival model ..
+	 1) Single-factor survival model failed. 
+	 6) Single-factor survival model failed. 
+	 3) Single-factor survival model failed. 
+	 5) Single-factor survival model failed. 
+	 8) Single-factor survival model failed. 
+	 7) Single-factor survival model failed. 
+	 9) Single-factor survival model failed. 

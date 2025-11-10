@@ -13,7 +13,6 @@
 # =======================================================================================
 
 
-
 # ================ 0. Library setup
 
 # ------ Install and load packages
@@ -56,7 +55,7 @@ require(pROC); require(ROCR) # both for cross-sectional ROC-analysis (main:pROC)
 require(MASS)
 require(sandwich) # for robust variance estimators when using weights in glm()
 require(lmtest) # for coeftest() "summary" given robust variance estimators
-
+require(cplm)
 #for plots
 require(ggplot2)
 require(ggpp) # Extensions to ggplot2, particularly geom_table
@@ -70,7 +69,7 @@ require(corrplot)
 #require(Metrics)
 
 
-
+library(cplm)
 # ================ 1. Parametrisation
 
 # - general R options
