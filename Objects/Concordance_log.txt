@@ -1,1 +1,1 @@
-New Job: Estimating B-statistic (1-KS) for each variable as a single-factor survival model ..
+New Job: Estimating B-statistic (1-KS) for each variable as a single-factor model ..

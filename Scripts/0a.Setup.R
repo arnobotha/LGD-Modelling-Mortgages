@@ -13,7 +13,6 @@
 # =======================================================================================
 
 
-
 # ================ 0. Library setup
 
 # ------ Install and load packages
@@ -56,7 +55,7 @@ require(pROC); require(ROCR) # both for cross-sectional ROC-analysis (main:pROC)
 require(MASS)
 require(sandwich) # for robust variance estimators when using weights in glm()
 require(lmtest) # for coeftest() "summary" given robust variance estimators
-
+require(cplm)
 #for plots
 require(ggplot2)
 require(ggpp) # Extensions to ggplot2, particularly geom_table
@@ -68,7 +67,6 @@ require(survminer)
 require(gridExtra)
 require(corrplot)
 #require(Metrics)
-
 
 
 # ================ 1. Parametrisation
@@ -183,6 +181,9 @@ source(paste0(path_cust,"0b.CustomFunctions_General.R"))
 source(paste0(path_cust,"0c.Custom_Functions_VarSelect.R"))
 source(paste0(path_cust,"0d.Custom_Functions_tROC.R"))
 source(paste0(path_cust,"0e.Custom_Functions_tBrierScore.R"))
+source(paste0(path_cust,"0f.Custom_Function_GoF.R"))
+source(paste0(path_cust,"0g.Custom_Functions_LossSeverity.R"))
+
 
 # - Compile Delinquency Calculation Functions (CD, MD/DoD)
 source(paste0(path_cust,'DelinqM.R'))
