@@ -69,7 +69,6 @@ require(corrplot)
 #require(Metrics)
 
 
-library(cplm)
 # ================ 1. Parametrisation
 
 # - general R options
@@ -182,6 +181,9 @@ source(paste0(path_cust,"0b.CustomFunctions_General.R"))
 source(paste0(path_cust,"0c.Custom_Functions_VarSelect.R"))
 source(paste0(path_cust,"0d.Custom_Functions_tROC.R"))
 source(paste0(path_cust,"0e.Custom_Functions_tBrierScore.R"))
+source(paste0(path_cust,"0f.Custom_Function_GoF.R"))
+source(paste0(path_cust,"0g.Custom_Functions_LossSeverity.R"))
+
 
 # - Compile Delinquency Calculation Functions (CD, MD/DoD)
 source(paste0(path_cust,'DelinqM.R'))

@@ -49,7 +49,7 @@ datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 modLR_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
-
+summary(modLR_base)
 
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq_Any_Aggr_Prop_Lag_2",
@@ -61,7 +61,7 @@ vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq
 aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
 
 
-### RESULTS: Best AIC-results: g0_Delinq_Any_Aggr_Prop_12, g0_Delinq_Any_Aggr_Prop_Lag_9, g0_Delinq_Any_Aggr_Prop_Lag_6, g0_Delinq_Any_Aggr_Prop
+### RESULTS: Best AIC-results: g0_Delinq_Any_Aggr_Prop, g0_Delinq_Any_Aggr_Prop_Lag_4, g0_Delinq_Any_Aggr_Prop_Lag_6, g0_Delinq_Any_Aggr_Prop
 # , g0_Delinq_Any_Aggr_Prop_4
 # Best Deviance : g0_Delinq_Any_Aggr_Prop_12, g0_Delinq_Any_Aggr_Prop_Lag_9, g0_Delinq_Any_Aggr_Prop_Lag_6, g0_Delinq_Any_Aggr_Prop
 # , g0_Delinq_Any_Aggr_Prop_4
@@ -70,7 +70,7 @@ aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), ge
 # All are above 50% 
 
 
-# ------ 4.3 Which lag order is the best in calculating the portfolio-level fraction of defaulted accounts during the default spell?
+# ------ 2.2 Which lag order is the best in calculating the portfolio-level fraction of defaulted accounts during the default spell?
 vars <- c("DefaultStatus1_Aggr_Prop", "DefaultStatus1_Aggr_Prop_Lag_1", "DefaultStatus1_Aggr_Prop_Lag_2",
           "DefaultStatus1_Aggr_Prop_Lag_3", "DefaultStatus1_Aggr_Prop_Lag_4", "DefaultStatus1_Aggr_Prop_Lag_5",
           "DefaultStatus1_Aggr_Prop_Lag_6", "DefaultStatus1_Aggr_Prop_Lag_9", "DefaultStatus1_Aggr_Prop_Lag_12" )
@@ -89,7 +89,7 @@ aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), ge
 # Top 3 varibales: DefaultStatus1_Aggr_Prop_Lag_12, DefaultStatus1_Aggr_Prop_Lag_9, DefaultStatus1_Aggr_Prop_Lag_6
 
 
-# ------ 4.4 How do other portfolio-level delinquency-themed variables fare as single-factor models?
+# ------ 2.3 How do other portfolio-level delinquency-themed variables fare as single-factor models?
 
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop", "CuringEvents_Aggr_Prop" )
@@ -106,10 +106,10 @@ aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), ge
 ### Conclusion: All are significant include all 3 of them, curing event is relevant
 
 
-# ------ 4.5 How do account-level delinquency-themed variables fare as single-factor models?
+# ------ 2.4 How do account-level delinquency-themed variables fare as single-factor models?
 
 # - Initialize variables to be tested
-vars <- c("TimeInDefSpell", "g0_Delinq_fac", "g0_Delinq", "g0_Delinq_Lag_1", "slc_acct_arr_dir_3_Change_Ind",
+vars <- c("g0_Delinq_fac", "g0_Delinq", "g0_Delinq_Lag_1", "slc_acct_arr_dir_3_Change_Ind",
           "g0_Delinq_Num", "slc_acct_arr_dir_3", "slc_acct_roll_ever_24_imputed_mean", "Arrears", "PrevDefaults","TimeInDelinqState"
           ,"slc_past_due_amt_imputed_med", "slc_curing_ind","DefSpell_Age")
 
@@ -123,12 +123,12 @@ aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), ge
 # Choose: TimeInDefSpell, Arrears, g0_Delinq_Lag_1, DefSpell_Age, slc_Acct_Arr_dir_3, slc_past_due_amt_imputed_med
 # These variables performed significantly better than the rest with th lowest AIC 
 
-# ------ 4.6 Combining insights: delinquency-themed variables
+# ------ 2.5 Combining insights: delinquency-themed variables
 # - Initialize variables to be tested
-vars <- c("TimeInDefSpell", "Arrears", "g0_Delinq_Lag_1", "DefSpell_Age", "slc_acct_arr_dir_3", "slc_past_due_amt_imputed_med",
+vars <- c( "Arrears", "g0_Delinq_Lag_1", "DefSpell_Age", "slc_acct_arr_dir_3", "slc_past_due_amt_imputed_med",
           "g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop", "CuringEvents_Aggr_Prop",
           "DefaultStatus1_Aggr_Prop_Lag_6", "DefaultStatus1_Aggr_Prop_Lag_9", "DefaultStatus1_Aggr_Prop_Lag_12",
-          "g0_Delinq_Any_Aggr_Prop_Lag_6", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Any_Aggr_Prop_Lag_12")
+          "g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_4", "g0_Delinq_Any_Aggr_Prop_Lag_3")
 # - Full model | Stepwise forward selection procedure
 modLR_full <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
                    data=datCredit_train)
@@ -136,45 +136,50 @@ summary(modLR_full);
 evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
 
 ### RESULTS: AIC:   616; Pseudo R^2:  37.87%; RMSE:  27.83%; MAE:  22.65%
-
+vars <- c( "Arrears", "g0_Delinq_Lag_1", "DefSpell_Age", "slc_acct_arr_dir_3",
+               "CuringEvents_Aggr_Prop","DefaultStatus1_Aggr_Prop_Lag_6","g0_Delinq_Any_Aggr_Prop",
+                "g0_Delinq_Any_Aggr_Prop_Lag_4", "ArrearsToBalance_Aggr_Prop")
+modLR_step <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                     data=datCredit_train)
 summary(modLR_step)
-evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
+
 proc.time() - ptm # IGNORE: elapsed runtime; 70m
-### RESULTS: AIC:   124,655; McFadden R^2:  43.80%; AUC:  96.75%.
+### RESULTS: AIC: 5341.1; Pseudo R^2:  29.80%; RMSE:  28.59%; MAE:  22.99%
 # - Domain expertise
-# Remove g0_Delinq_SD_5 and g0_Delinq_SD_6 since g0_Delinq_SD_4 is already present
+# Remove g0_Delinq_Any_Aggr_Prop due to lag 4 being present
 
 # - Final variables (expert judgement)
-# Arrears removed and TimeInDelinqState as it caused the model to not converge
+# included DefaultStatus1_Aggr_Prop_Lag_6
 
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq", 
-          "slc_curing_ind", "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
-          "g0_Delinq_Any_Aggr_Prop_Lag_1")
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
+vars <- c("Arrears", "g0_Delinq_Lag_1", "DefSpell_Age", "slc_acct_arr_dir_3",
+          "CuringEvents_Aggr_Prop","DefaultStatus1_Aggr_Prop_Lag_6", "ArrearsToBalance_Aggr_Prop",
+          "g0_Delinq_Any_Aggr_Prop_Lag_4")
+modLR <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                data=datCredit_train)
 summary(modLR);
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   118,524; McFadden R^2:  46.56%; AUC:  97.28%.
-# Didn't in include slc_acct_arr_dir_3 due to own judgement
+evalLS(modLR,datCredit_train,targetFld="LossRate_Real",modLR_base)
+
+### RESULTS: AIC: 5946.065; Pseudo R^2:  29.04%; RMSE:  28.42%; MAE:  22.93%
 
 
 # - Final variables 
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq", 
-          "slc_curing_ind", "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
-          "g0_Delinq_Any_Aggr_Prop_Lag_1")
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
+vars <- c("Arrears", "g0_Delinq_Lag_1", "DefSpell_Age", "slc_acct_arr_dir_3",
+          "CuringEvents_Aggr_Prop","DefaultStatus1_Aggr_Prop_Lag_6", "ArrearsToBalance_Aggr_Prop",
+          "g0_Delinq_Any_Aggr_Prop_Lag_4")
+modLR <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                data=datCredit_train)
 summary(modLR);
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   118,524; McFadden R^2:  46.56%; AUC:  97.28%.
+evalLS(modLR,datCredit_train,targetFld="LossRate_Real",modLR_base)
+### RESULTS: AIC: 5946.065; Pseudo R^2:  29.04%; RMSE:  28.42%; MAE:  22.93%
 
 
 
 
-# ------ 5. Other portfolio-level variables
+# ------ 3. Other portfolio-level variables
 
 
-# ------ 5.1 Which lag order is the best in calculating the median interest rate of the portfolio?
+# ------ 3.1 Which lag order is the best in calculating the median interest rate of the portfolio?
 
 # - Initialize variables to be tested
 vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "InterestRate_Margin_Aggr_Med_2",
@@ -183,19 +188,19 @@ vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "Int
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
-# Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: InterestRate_Margin_Aggr_Med_3 , InterestRate_Margin_Aggr_Med_9, InterestRate_Margin_Aggr_Med_2,
-# InterestRate_Margin_Aggr_Med_1. InterestRate_Margin_Aggr_Med
-# Best Deviance: nterestRate_Margin_Aggr_Med_3 , InterestRate_Margin_Aggr_Med_9, InterestRate_Margin_Aggr_Med_2,
-# InterestRate_Margin_Aggr_Med_1. InterestRate_Margin_Aggr_Med
 
+### RESULTS: Best AIC-results: InterestRate_Margin_Aggr_Med , InterestRate_Margin_Aggr_Med_1, InterestRate_Margin_Aggr_Med_2,
+# InterestRate_Margin_Aggr_Med_3. InterestRate_Margin_Aggr_Med_9
+# Best Deviance: InterestRate_Margin_Aggr_Med , InterestRate_Margin_Aggr_Med_1, InterestRate_Margin_Aggr_Med_2,
+# InterestRate_Margin_Aggr_Med_3. InterestRate_Margin_Aggr_Med_9
+# Best C: InterestRate_Margin_Aggr_Med , InterestRate_Margin_Aggr_Med_1, InterestRate_Margin_Aggr_Med_2,
+# InterestRate_Margin_Aggr_Med_3. InterestRate_Margin_Aggr_Med_9
 ### Conclusion
-#  Lag 3 performed the best over the two-metrics with lag 9 performing 2nd best
+#  Early lags performed the best
 # However the difference in AIC is minor
 
 
-# ------ 5.2 How do other portfolio-level (non-delinquency) variables fare as single-factor models?
+# ------ 3.2 How do other portfolio-level (non-delinquency) variables fare as single-factor models?
 
 # - Initialize variables to be tested
 vars <- c("InstalmentToBalance_Aggr_Prop", "AgeToTerm_Aggr_Mean", "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop")
@@ -203,109 +208,111 @@ vars <- c("InstalmentToBalance_Aggr_Prop", "AgeToTerm_Aggr_Mean", "DefSpell_Matu
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
-# Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: NewLoans_Aggr_Prop DefSpell_Maturity_Aggr_Mean,AgeToTerm_Aggr_Mean, InstalmentToBalance_Aggr_Prop
-# Best Deviance: NewLoans_Aggr_Prop DefSpell_Maturity_Aggr_Mean,AgeToTerm_Aggr_Mean, InstalmentToBalance_Aggr_Prop
-
+### RESULTS: Best AIC-results: DefSpell_Maturity_Aggr_Mean,NewLoans_Aggr_Prop ,AgeToTerm_Aggr_Mean, InstalmentToBalance_Aggr_Prop
+# Best Deviance: DefSpell_Maturity_Aggr_Mean,NewLoans_Aggr_Prop,AgeToTerm_Aggr_Mean, InstalmentToBalance_Aggr_Prop
+# Best C: AgeToTerm_Aggr_Mean ,NewLoans_Aggr_Prop,,DefSpell_Maturity_Aggr_Mean ,InstalmentToBalance_Aggr_Prop
 ### CONCLUSION: NewLoans_Aggr_Prop DefSpell_Maturity_Aggr_Mean,AgeToTerm_Aggr_Mean
 
 
-# ------ 5.3 Combining insights: Delinquency-themed and portfolio-level variables
+# ------ 3.3 Combining insights: Delinquency-themed and portfolio-level variables
 
 # - Initialize variables to be tested
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq", 
-          "slc_curing_ind", "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
-          "g0_Delinq_Any_Aggr_Prop_Lag_1","InterestRate_Margin_Aggr_Med_2", 
-          "InterestRate_Margin_Aggr_Med_3", "InterestRate_Margin_Aggr_Med_9",
-          "InstalmentToBalance_Aggr_Prop_adj_WOff","AgeToTerm_Aggr_Mean", "NewLoans_Aggr_Prop")
+vars <- c("Arrears", "g0_Delinq_Lag_1", "DefSpell_Age", "slc_acct_arr_dir_3",
+          "CuringEvents_Aggr_Prop","DefaultStatus1_Aggr_Prop_Lag_6", "ArrearsToBalance_Aggr_Prop",
+          "g0_Delinq_Any_Aggr_Prop_Lag_4",
+          "InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "InterestRate_Margin_Aggr_Med_2",
+          "AgeToTerm_Aggr_Mean", "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop")
 # - Full model | Stepwise forward selection procedure
-modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-                   data=datCredit_train, family="binomial")
+modLR_full <-cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                    data=datCredit_train)
 summary(modLR_full);
-evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   118,480; McFadden R^2:  46.59%; AUC:  97.29%.
+evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
+
+### RESULTS: AIC: 4757.494; Pseudo R^2:  31.15%; RMSE:  28.42%; MAE:  22.82%
+
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
-modLR_step <- stepAIC(modLR_base2, scope = list(lower = ~ log(TimeInDefSpell)*DefSpell_Num_binned, 
-                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
-                      direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+modLR_step <- stepwise_cpglm_both(modLR_base, modLR_full,datCredit_train)
+
 summary(modLR_step)
-evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-proc.time() - ptm # IGNORE: elapsed runtime; 36m
-### RESULTS: AIC:   118,492; McFadden R^2:  46.58%; AUC:  97.28%.
+
+proc.time() - ptm # IGNORE: elapsed runtime; 503m
+evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
+### RESULTS: AIC: 4758.491; Pseudo R^2:  31.15%; RMSE:  28.42%; MAE:  22.82%
 
 # Final variables(Expert judgement)
-# Included InterestRate_Margin_Med_9
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq", 
-          "slc_curing_ind", "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","g0_Delinq_Any_Aggr_Prop_Lag_1")
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
+# Included InterestRate_Margin_Med instead of lag 1 due to better single factor performance
+vars <- c("Arrears", "g0_Delinq_Lag_1", "DefSpell_Age", "slc_acct_arr_dir_3",
+          "CuringEvents_Aggr_Prop","DefaultStatus1_Aggr_Prop_Lag_6", "ArrearsToBalance_Aggr_Prop",
+          "g0_Delinq_Any_Aggr_Prop_Lag_4","InterestRate_Margin_Aggr_Med", "AgeToTerm_Aggr_Mean", 
+          "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop")
+modLR <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                data=datCredit_train)
 summary(modLR);
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   118,878; McFadden R^2:  46,40%; AUC:  97.27%.
+evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
+### RESULTS: AIC: 4758.491; Pseudo R^2:  31.15%; RMSE:  28.42%; MAE:  22.82%
 
 
 
-# ------ 6. Account-level variables
+# ------ 4. Account-level variables
 
-# ------ 6.1 How do various non-delinquency account-level variables fare as single-factor models?
+# ------ 4.1 How do various non-delinquency account-level variables fare as single-factor models?
 
 vars <- c("Principal_Real", "Principal", "InterestRate_Margin", 
-          "Balance_Real_1", "Balance_1", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
-          "BalanceToPrincipal_1", "slc_acct_pre_lim_perc_imputed_med")
+          "Balance_Real", "Balance", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
+          "BalanceToPrincipal", "slc_acct_pre_lim_perc_imputed_med")
 
 # - Correlation analysis towards obtaining clusters of correlated variables
 corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 ### RESULTS:
 # Absolute correlations of  97%  found for  Principal_Real  and  Principal 
-# Absolute correlations of  91%  found for  Principal_Real  and  Balance_Real_1 
-# Absolute correlations of  87%  found for  Principal  and  Balance_Real_1 
-# Absolute correlations of  90%  found for  Principal_Real  and  Balance_1 
-# Absolute correlations of  90%  found for  Principal  and  Balance_1 
-# Absolute correlations of  98%  found for  Balance_Real_1  and  Balance_1 
-# Absolute correlations of  89%  found for  Principal_Real  and  Instalment_Real 
-# Absolute correlations of  86%  found for  Principal  and  Instalment_Real 
-# Absolute correlations of  93%  found for  Balance_Real_1  and  Instalment_Real 
-# Absolute correlations of  92%  found for  Balance_1  and  Instalment_Real 
-# Absolute correlations of  75%  found for  Balance_Real_1  and  BalanceToPrincipal_1 
-# Absolute correlations of  72%  found for  Balance_1  and  BalanceToPrincipal_1 
-# Absolute correlations of  63%  found for  Instalment_Real  and  BalanceToPrincipal_1
+# Absolute correlations of  97%  found for  Principal_Real  and  Balance_Real 
+# Absolute correlations of  93%  found for  Principal  and  Balance_Real 
+# Absolute correlations of  95%  found for  Principal_Real  and  Balance 
+# Absolute correlations of  96%  found for  Principal  and  Balance 
+# Absolute correlations of  97%  found for  Balance_Real  and  Balance 
+# Absolute correlations of  95%  found for  Principal_Real  and  Instalment_Real 
+# Absolute correlations of  90%  found for  Principal  and  Instalment_Real 
+# Absolute correlations of  97%  found for  Balance_Real  and  Instalment_Real 
+# Absolute correlations of  93%  found for  Balance  and  Instalment_Real 
+# Absolute correlations of  67%  found for  Balance_Real  and  BalanceToPrincipal 
+# Absolute correlations of  61%  found for  Balance  and  BalanceToPrincipal 
+# Absolute correlations of  67%  found for  Instalment_Real  and  BalanceToPrincipal 
+# Absolute correlations of  -70%  found for  AgeToTerm  and  BalanceToPrincipal 
 
 # - Initialize variables to be tested
 vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean", "pmnt_method_grp",
-          "Balance_Real_1", "Balance_1", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
-          "BalanceToPrincipal_1", "slc_acct_pre_lim_perc_imputed_med")
+          "Balance_Real", "Balance", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
+          "BalanceToPrincipal", "slc_acct_pre_lim_perc_imputed_med")
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-# Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: InterestRate_Nom, InterestRate_Margin_imputed_mean, Balance_adj_WOff, etc from there all very similar
-# Best C-statistics: InterestRate_Nom, InterestRate_Margin_imputed_mean, Balance_adj_WOff, from there similar
+aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
+### RESULTS: Best AIC-results: BalanceToPrincipal, Balance, Balance_Real, AgeToTerm, Principal, pmnt_method_grp
+# Best C-statistics: Balance, Balance_Real, Principal,Principal_Real, pmnt_method)grp
+# Best Deviance:BalanceToPrincipal, Balance, Balance_Real, AgeToTerm, Principal, pmnt_method_grp 
 # ALL of the have very low AIC and good Harell's c values>0 
 # Choose these 5
 
 
-# ------ 6.2 Combining insights: Delinquency-themed, portfolio-level, and account-level variables
+# ------ 4.2 Combining insights: Delinquency-themed, portfolio-level, and account-level variables
 
 # - Initialize variables to be tested
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_Lag_1", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_1","Principal","InterestRate_Margin_imputed_mean","pmnt_method_grp")
+vars <- c("Arrears", "g0_Delinq_Lag_1", "DefSpell_Age", "slc_acct_arr_dir_3",
+          "CuringEvents_Aggr_Prop","DefaultStatus1_Aggr_Prop_Lag_6", "ArrearsToBalance_Aggr_Prop",
+          "g0_Delinq_Any_Aggr_Prop_Lag_4","InterestRate_Margin_Aggr_Med", "AgeToTerm_Aggr_Mean", 
+          "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop", "Balance", "Principal",
+          "AgeToTerm", "pmnt_method_grp")
 
 ### RESULTS:
 
 # - Full model | Stepwise forward selection procedure
-modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-                   data=datCredit_train, family="binomial")
+modLR_full <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                     data=datCredit_train)
 summary(modLR_full);
-evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   49,781; McFadden R^2:  77.57%; AUC:  99.39%.
+evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
+### RESULTS: AIC: 3112.322; Pseudo R^2:  39.96%; RMSE:  27.57%; MAE:  20.86%
 
 
 # - Stepwise forward selection using BIC
@@ -538,109 +545,6 @@ proc.time() - ptm # IGNORE: elapsed runtime; 117m
 
 
 
-calc_AIC_LS <- function(formula, data_train, variables="", it=NA, logPath="", 
-                        fldSpellID="DefSpell_Key", modelType="tweedie") {
-  # - Testing conditions
-  # j <- 1; formula=TimeDef_Form(TimeDef,variables[j], strataVar=strataVar); 
-  
-  tryCatch({
-    if (modelType=="tweedie") {
-      model <- cpglm(formula,data= data_train)# Fit tweedie model 
-    } else if (modelType=="Cox_Discrete") {
-      model <- glm(formula,data = data_train, family="binomial") # Fit discrete-time Cox model 
-    } else stop("Unknown model type in calc_AIC().")
-    
-    if (!is.na(it)) {# Output the number of models built, where the log is stored in a text file afterwards.
-      cat(paste0("\n\t ", it,") Single-factor model built. "),
-          file=paste0(logPath,"AIC_log_LS.txt"), append=T)
-    }
-    
-    AIC <- AIC(model) # Calculate AIC of the model.
-    Dev <- deviance(model)
-    c_ind <- rcorr.cens(data_train$score, data_train$LossRate_Real)[["C Index"]]
-    # Return results as a data.table
-    if (modelType=="tweedie") {
-      return(data.table(Variable = variables, AIC = AIC, Deviance= Dev, C=c_ind,pValue=summary(model)$coefficients[1,4]))
-    } else if (modelType=="Cox_Discrete") {
-      return(data.table(Variable = variables, AIC = AIC,Deviance= Dev,,C=c_ind, pValue=summary(model)$coefficients[1,4]))
-    }
-    
-    
-  }, error=function(e) {
-    AIC <- Inf
-    Dev <- Inf
-    c_ind <- Inf
-    if (!is.na(it)) {
-      cat(paste0("\n\t ", it,") Single-factor model failed. "),
-          file=paste0(logPath,"AIC_log_LS.txt"), append=T)
-    }
-    return(data.table(Variable = variables, AIC = AIC,Deviance= Dev, pValue=NA,C=c_ind)) 
-  })
-}
-
-
-# --- Function to extract the Akaike Information Criterion (AIC) from single-factor models
-# Input:  [data_train]: Training data; [data_valid]: [variables]: List of variables used to build single-factor models;
-#         [fldSpellID]: Field name of spell-level ID; [TimeDef]: Time definition incorporated.
-#         [numThreads]: Number of threads used; [genPath]: Optional path for log file. 
-# Output: [matResults]: Result matrix.
-aicTable_LS <- function(data_train, variables, fldSpellID="DefSpell_Key",
-                        TimeDef, numThreads=6, genPath, strataVar="", modelType="tweedie") {
-  # - Testing conditions
-  # data_train <- datCredit; TimeDef=Cox_Discrete","PerfSpell_Event; numThreads=6
-  # fldSpellID<-" DefSpell_Key"; variables<-"g0_Delinq_SD_4"; strataVar="DefSpell_Num"
-  
-  # - Iterate across loan space using a multi-threaded setup
-  ptm <- proc.time() #IGNORE: for computation time calculation
-  cl.port <- makeCluster(round(numThreads)); registerDoParallel(cl.port) # multi-threading setup
-  cat("New Job: Estimating AIC for each variable as a single-factor model ..",
-      file=paste0(genPath,"AIC_log_LS.txt"), append=F)
-  
-  results <- foreach(j=1:length(variables), .combine='rbind', .verbose=F, .inorder=T,
-                     .packages=c('data.table', 'survival','cplm','Hmisc'), .export=c('calc_AIC_LS', 'TimeDef_Form')) %dopar%
-    { # ----------------- Start of Inner Loop -----------------
-      # - Testing conditions
-      # j <- 1
-      calc_AIC_LS(formula=TimeDef_Form(TimeDef,variables[j], strataVar=strataVar), variables=variables[j],
-                  data_train=data_train, it=j, logPath=genPath,  fldSpellID=fldSpellID, modelType=modelType)
-    } # ----------------- End of Inner Loop -----------------
-  stopCluster(cl.port); proc.time() - ptm  
-  
-  # Sort by concordance in ascending order.
-  setorder(results, AIC)
-  
-  # Return resulting table.
-  return(results)
-}
-
-
-# Evaluate Tweedie cpglm performance (no weights)
-#), MAE, RMSE
-# Optional: supply model_base or let the function fit an intercept-only baseline.
-# Optional: pass newdata for OOS MAE/RMSE.
-evalLS <- function(model_full,dat_train, targetFld,model_base = NULL) {
-  
-  
-  y_tr  <- dat_train[[targetFld]]
-  mu_tr <- predict(model_full, newdata = dat_train, type = "response")
-  rmse_tr <- sqrt(mean((mu_tr - y_tr)^2))
-  mae_tr  <- mean(abs(mu_tr - y_tr))
-  
-  aic_full <- AIC(model_full)
-  aic_base <- AIC(model_base)
-  dev_full <- deviance(model_full)        # residual deviance of full model
-  dev_base <- deviance(model_base)        # residual deviance of baseline
-  
-  # Pseudo R^2 (deviance explained): 1 - D_full / D_base
-  pseudo_r2 <- 1 - (dev_full / dev_base)
-  data.table(AIC_full = aic_full,AIC_base = aic_base, dAIC = aic_full - aic_base,
-             Deviance_full = dev_full,
-             Deviance_base = dev_base,
-             PseudoR2_Deviance = pseudo_r2,
-             Train_RMSE = rmse_tr,
-             Train_MAE  = mae_tr
-  )
-}
 
 
 
