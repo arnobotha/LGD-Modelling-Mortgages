@@ -95,11 +95,14 @@ evalLS <- function(model_full,dat_train, targetFld,model_base = NULL) {
   dev_base <- deviance(model_base)        # residual deviance of baseline
   
   # Pseudo R^2 (deviance explained): 1 - D_full / D_base
-  pseudo_r2 <- 1 - (dev_full / dev_base)
+  SS_res <- sum((y_tr - mu_tr)^2)
+  SS_tot <- sum((y_tr - mean(y_tr))^2)
+  
+  R2 <- 1 - (SS_res / SS_tot)
   data.table(AIC_full = aic_full,AIC_base = aic_base, dAIC = aic_full - aic_base,
              Deviance_full = dev_full,
              Deviance_base = dev_base,
-             PseudoR2_Deviance = pseudo_r2,
+             R2 = R2,
              Train_RMSE = rmse_tr,
              Train_MAE  = mae_tr
   )
@@ -108,7 +111,7 @@ evalLS <- function(model_full,dat_train, targetFld,model_base = NULL) {
 
 
 
-stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(data[,.N]), trace = TRUE) {
+stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(nrow(data)), trace = TRUE) {
   # Initialize
   best_model <- base_model
   best_formula <- formula(base_model)
@@ -122,7 +125,6 @@ stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(da
     improved <- FALSE
     candidate_models <- list()
     candidate_aics <- c()
-    candidate_ops <- c()
     
     current_terms <- attr(terms(best_model), "term.labels")
     
@@ -130,20 +132,24 @@ stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(da
     addable <- setdiff(full_terms, current_terms)
     for (term in addable) {
       f_try <- update(best_formula, paste(". ~ . +", term))
-      m_try <- cpglm(f_try, data = data)
-      candidate_models[[paste0("+", term)]] <- m_try
-      candidate_aics[paste0("+", term)] <- AIC(m_try)
-      candidate_ops <- c(candidate_ops, paste0("+", term))
+      m_try <- try(cpglm(f_try, data = data), silent = TRUE)
+      if (!inherits(m_try, "try-error") && !any(is.na(coef(m_try)))) {
+        candidate_models[[paste0("+", term)]] <- m_try
+        candidate_aics[paste0("+", term)] <- AIC(m_try)
+        if (trace) cat("Tried +", term, "AIC:", round(AIC(m_try), 2), "\n")
+      } else if (trace) cat("Skipped +", term, "(failed)\n")
     }
     
     # ---- BACKWARD STEP ----
     removable <- current_terms
     for (term in removable) {
       f_try <- update(best_formula, paste(". ~ . -", term))
-      m_try <- cpglm(f_try, data = data)
-      candidate_models[[paste0("-", term)]] <- m_try
-      candidate_aics[paste0("-", term)] <- AIC(m_try)
-      candidate_ops <- c(candidate_ops, paste0("-", term))
+      m_try <- try(cpglm(f_try, data = data), silent = TRUE)
+      if (!inherits(m_try, "try-error") && !any(is.na(coef(m_try)))) {
+        candidate_models[[paste0("-", term)]] <- m_try
+        candidate_aics[paste0("-", term)] <- AIC(m_try)
+        if (trace) cat("Tried -", term, "AIC:", round(AIC(m_try), 2), "\n")
+      } else if (trace) cat("Skipped -", term, "(failed)\n")
     }
     
     if (length(candidate_aics) == 0) break
@@ -158,7 +164,7 @@ stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(da
       best_formula <- formula(best_model)
       best_aic <- best_aic_new
       improved <- TRUE
-      if (trace) cat("Step:", best_op, "| AIC:", round(best_aic, 3), "\n")
+      if (trace) cat("??? Step:", best_op, "| AIC:", round(best_aic, 3), "\n")
     }
   }
   
@@ -170,5 +176,6 @@ stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(da
   
   return(best_model)
 }
+
 
 
