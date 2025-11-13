@@ -9,23 +9,28 @@ calc_AIC_LS <- function(formula, data_train, variables="", it=NA, logPath="",
   tryCatch({
     if (modelType=="tweedie") {
       model <- cpglm(formula,data= data_train)# Fit tweedie model 
-    } else if (modelType=="Cox_Discrete") {
-      model <- glm(formula,data = data_train, family="binomial") # Fit discrete-time Cox model 
+      data_train$score <- predict(model, newdata= data_train, type="response")
+      AIC <- AIC(model) # Calculate AIC of the model.
+      Dev <- deviance(model)
+      c_ind <- rcorr.cens(data_train$score, data_train$LossRate_Real)[["C Index"]]
+    } else if (modelType=="gaussian") {
+      model <- glm(formula, family = gaussian(link = "identity"), data = data_train) # Fit gaussian
+      data_train$score <- predict(model, newdata= data_train, type="response")
+      AIC <- AIC(model) # Calculate AIC of the model.
+      Dev <- deviance(model)
+      c_ind <- NA
     } else stop("Unknown model type in calc_AIC().")
     
     if (!is.na(it)) {# Output the number of models built, where the log is stored in a text file afterwards.
       cat(paste0("\n\t ", it,") Single-factor model built. "),
           file=paste0(logPath,"AIC_log_LS.txt"), append=T)
     }
-    data_train$score <- predict(model, newdata= data_train, type="response")
-    AIC <- AIC(model) # Calculate AIC of the model.
-    Dev <- deviance(model)
-    c_ind <- rcorr.cens(data_train$score, data_train$LossRate_Real)[["C Index"]]
+    
     # Return results as a data.table
     if (modelType=="tweedie") {
       return(data.table(Variable = variables, AIC = AIC, Deviance= Dev, C=c_ind,pValue=summary(model)$coefficients[1,4]))
-    } else if (modelType=="Cox_Discrete") {
-      return(data.table(Variable = variables, AIC = AIC,Deviance= Dev,,C=c_ind, pValue=summary(model)$coefficients[1,4]))
+    } else if (modelType=="gaussian") {
+      return(data.table(Variable = variables, AIC = AIC,Deviance= Dev,C=c_ind, pValue=summary(model)$coefficients[1,4]))
     }
     
     
