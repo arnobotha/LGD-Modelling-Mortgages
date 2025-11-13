@@ -52,7 +52,7 @@ datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
 # remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
-modLR_base <- cpglm(LossRate_Real ~ InterestRate_Nom, data=datCredit_train)
+modLR_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
 
 
 
@@ -314,27 +314,29 @@ modLR_full <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = 
                      data=datCredit_train)
 summary(modLR_full);
 evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
-### RESULTS: AIC: 3112.322; Pseudo R^2:  39.96%; RMSE:  27.57%; MAE:  20.86%
+### RESULTS: AIC: 49658.29;  R^2:  17.27%; RMSE:  20.33%; MAE:  10.41%
 
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (83m) 
 modLR_step <- stepwise_cpglm_both(modLR_base, modLR_full,datCredit_train)
 summary(modLR_step)
-evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
+evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
 proc.time() - ptm
-### RESULTS: AIC:   49,780; McFadden R^2:  77.57%; AUC:  99.39%.
+### RESULTS: AIC: 43240.44;  R^2:  26.82%; RMSE:  19.13%; MAE:  9.39%
 
-# - Final variables
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_Lag_1", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_1","Principal","pmnt_method_grp")
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
+# - Final variables (expert judgement)
+# Swapped PrevDefaults with InterestRate_Nom as they can't work together. Interest Rate_Nom performed
+# better as a single factor model
+# included DefSpell_Age agin and removed some variables such as NewLoans_Aggr_Prop that caused the model
+# to not converge
+vars <- c("InterestRate_Nom","pmnt_method_grp","Arrears","DefSpell_Age","DefSpell_Num_binned",
+          "Balance_1","Principal","DefaultStatus1_Aggr_Prop_Lag_9")
+modLR <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                data=datCredit_train)
 summary(modLR);
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   49,780; McFadden R^2:  77.57%; AUC:  99.39%.
+evalLS(modLR,datCredit_train,targetFld="LossRate_Real",modLR_base)
+### RESULTS: AIC: 43930.32;  R^2:  28.97%; RMSE:  18.84%; MAE:  9.40%
 
 
 
@@ -473,67 +475,59 @@ aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), ge
 # - Initialize variables to be tested
 vars <- c("M_Repo_Rate", "M_Repo_Rate_12", "M_Repo_Rate_9", 
           "M_Inflation_Growth_12", "M_Inflation_Growth", "M_Inflation_Growth_1",
-          "M_RealGDP_Growth_2", "M_RealGDP_Growth_3", "M_RealGDP_Growth_6",
-          "M_RealIncome_Growth_9", "M_RealIncome_Growth_3", "M_RealIncome_Growth_6",
+          "M_RealGDP_Growth_2", "M_RealGDP_Growth_1", "M_RealGDP_Growth",
+          "M_RealIncome_Growth_1", "M_RealIncome_Growth_3", "M_RealIncome_Growth_2",
           "M_DTI_Growth_9", "M_DTI_Growth_12", "M_DTI_Growth_6", 
-          "M_Emp_Growth_12", "M_Emp_Growth_9", "M_Emp_Growth_6")
+          "M_Emp_Growth_2", "M_Emp_Growth_1", "M_Emp_Growth_3")
 
 # - Full model | Stepwise forward selection procedure
-modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-                   data=datCredit_train, family="binomial")
+modLR_full <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                data=datCredit_train)
 summary(modLR_full);
-evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:  213,158; McFadden R^2:  3.9%; AUC:  68.81%.
+evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
+### RESULTS: AIC:   65081.89;   R^2:  3.66%; RMSE:  21.94%; MAE:  13.72%
 
-# - Stepwise forward selection using BIC
+# - Stepwise forward selection using AIC
 ptm <- proc.time() # for runtime calculations (ignore)
-modLR_step <- stepAIC(modLR_base2, scope = list(lower = ~ log(TimeInDefSpell)*DefSpell_Num_binned, 
-                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
-                      direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+modLR_step <- stepwise_cpglm_both(modLR_base, modLR_full,datCredit_train)
 summary(modLR_step)
-evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
 proc.time() - ptm # IGNORE: elapsed runtime; 140m
-### RESULTS: AIC:   213,183;   McFadden R^2:  3.88%; AUC:  68.76%.
+### RESULTS: AIC:   65091.71;   R^2:  3.67%; RMSE:  21.94%; MAE:  13.72%
 
 
 # - Final variables (Expert Judgement)
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
-          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12")
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
+vars <- c("M_RealIncome_Growth", "M_Inflation_Growth","M_DTI_Growth_12","M_Repo_Rate_12")
+modLR <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                data=datCredit_train)
 summary(modLR);
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   214,631;   McFadden R^2:  3.22%; AUC:  67.61%.
-# Included the Repo rate as it is vital. GDP growth and emp growth have a negative effect
-# They increase the AIC and R^2 values
+evalLS(modLR,datCredit_train,targetFld="LossRate_Real",modLR_base)
+### RESULTS: AIC:   66129.86;   R^2:  2.3%; RMSE:  22.10%; MAE:  13.97%
 
 
-# ------ 7.8 Combining insights: Delinquency-themed, portfolio-level, account-level, and macroeconomic variables
+
+# ------ 5.8 Combining insights: Delinquency-themed, portfolio-level, account-level, and macroeconomic variables
 
 # - Initialize variables to be tested
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_Lag_1", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "g0_Delinq_Any_Aggr_Prop_Lag_1",
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_1","Principal","pmnt_method_grp",
-          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12")
+# Removed DTI_Growth and Inflation_Growth as it caused the model to converge
+vars <- c("InterestRate_Nom","pmnt_method_grp","Arrears","DefSpell_Age","DefSpell_Num_binned",
+          "Balance_1","Principal","DefaultStatus1_Aggr_Prop_Lag_9",
+          "M_Repo_Rate_12","M_RealIncome_Growth")
 
 
 # - Full model | Stepwise forward selection procedure
-modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-                   data=datCredit_train, family="binomial")
+modLR_full <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                     data=datCredit_train)
 summary(modLR_full);
-evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   80,968;   McFadden R^2:  63.51%; AUC:  99.40%.
+evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
+### RESULTS: AIC:   43789.81;   R^2:  28.85%; RMSE:  18.86%; MAE:  9.41%
 
-# - Stepwise forward selection using BIC
+# - Stepwise forward selection using AIC
 ptm <- proc.time() # for runtime calculations (ignore)
-modLR_step <- stepAIC(modLR_base2, scope = list(lower = ~ log(TimeInDefSpell)*DefSpell_Num_binned, 
-                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
-                      direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+modLR_step <- stepwise_cpglm_both(modLR_base, modLR_full,datCredit_train)
 summary(modLR_step)
-evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-proc.time() - ptm # IGNORE: elapsed runtime; 117m
-### RESULTS: AIC:  26,008;  McFadden R^2:  85.41%; AUC:  99.91%.
+evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
+proc.time() - ptm # IGNORE: elapsed runtime; 140m
 
 
 
