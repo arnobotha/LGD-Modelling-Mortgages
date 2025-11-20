@@ -56,6 +56,9 @@ require(MASS)
 require(sandwich) # for robust variance estimators when using weights in glm()
 require(lmtest) # for coeftest() "summary" given robust variance estimators
 require(cplm)
+require(tweedie)
+require(pcaPP)
+require(caret)
 #for plots
 require(ggplot2)
 require(ggpp) # Extensions to ggplot2, particularly geom_table
@@ -67,6 +70,9 @@ require(survminer)
 require(gridExtra)
 require(corrplot)
 #require(Metrics)
+require(dplyr)
+require(patchwork)
+require(ggtext)
 
 
 # ================ 1. Parametrisation
@@ -183,6 +189,8 @@ source(paste0(path_cust,"0d.Custom_Functions_tROC.R"))
 source(paste0(path_cust,"0e.Custom_Functions_tBrierScore.R"))
 source(paste0(path_cust,"0f.Custom_Function_GoF.R"))
 source(paste0(path_cust,"0g.Custom_Functions_LossSeverity.R"))
+source(paste0(path_cust,"0g.Custom_Functions_Analysis.R"))
+
 
 
 # - Compile Delinquency Calculation Functions (CD, MD/DoD)
