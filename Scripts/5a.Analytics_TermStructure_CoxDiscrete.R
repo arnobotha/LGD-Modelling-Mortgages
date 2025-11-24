@@ -359,13 +359,12 @@ MAE_eventProb_adv_Youden <- mean(abs(datFusion$EventRate - datFusion$EventRate_a
 vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,2,7,8,9,10,11,12)]
 length(vCol)
 vLabel2 <- c("b_Actual_spline"=paste0("Actual spline"), 
-             "d_Expected_spline_bas"=paste0("Exp spline: Basic"),
-             "f_Expected_spline_adv"=paste0("Exp spline: Advanced"),
-             "h_Expected_spline_LR"=paste0("Exp spline: Logistic Regression"),
-             "j_Expected_spline_Youden_adv"=paste0("Exp spline: Youden advanced"),
-             "l_Expected_spline_Youden_bas"=paste0("Exp spline: Youden basic"),
-             "a_Actual"="Actual", "c_Expected_bas"="Exp: Basic", "e_Expected_adv"="Exp: Advanced","g_Expected_LR"="Exp: Logistic Regression",
-             "i_Expected_Youden_adv"="Exp: Youden advanced")
+             "d_Expected_spline_bas"=paste0("Exp spline: DtH-Basic A"),
+             "f_Expected_spline_adv"=paste0("Exp spline: DtH-Advanced A"),
+             "h_Expected_spline_LR"=paste0("Exp spline: LR A"),
+             "j_Expected_spline_Youden_adv"=paste0("Exp spline: DtH-Advanced B"),
+             "a_Actual"="Actual", "c_Expected_bas"="Exp: DtH-Basic A", "e_Expected_adv"="Exp: DtH-Advanced A","g_Expected_LR"="Exp: LR A",
+             "i_Expected_Youden_adv"="Exp: DtH-Advanced B")
 vSize <- c(0.2,0.3,0.2,0.3,0.2,0.3, 0.2, 0.3, 0.2, 0.3,0.2,0.3)
 vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid","dashed", "solid","dashed", "solid","dashed", "solid")
 
@@ -382,13 +381,13 @@ vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid","dashed",
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
     # Annotations
-    annotate("text", y=0.03,x=100, label=paste0("MAE (basic): ", percent(MAE_eventProb_bas, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.03,x=100, label=paste0("MAE (DtH-Basic A): ", percent(MAE_eventProb_bas, accuracy=0.0001)), family=chosenFont,
              size = 3) + 
-    annotate("text", y=0.0275,x=100, label=paste0("MAE (advanced): ", percent(MAE_eventProb_adv, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.0275,x=100, label=paste0("MAE (DtH-Advanced A): ", percent(MAE_eventProb_adv, accuracy=0.0001)), family=chosenFont,
              size = 3) + 
-    annotate("text", y=0.025,x=100, label=paste0("MAE (logistic regression): ", percent(MAE_eventProb_classic, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.025,x=100, label=paste0("MAE (LR A): ", percent(MAE_eventProb_classic, accuracy=0.0001)), family=chosenFont,
              size = 3)+
-    annotate("text", y=0.0225,x=100, label=paste0("MAE (Youden-Advanced): ", percent(MAE_eventProb_adv_Youden, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.0225,x=100, label=paste0("MAE (DtH-Advanced B): ", percent(MAE_eventProb_adv_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3)+
     # Scales and options
     facet_grid(FacetLabel ~ .) + 
@@ -404,7 +403,7 @@ vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid","dashed",
 # - Save plot
 dpi <- 280 # reset
 ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_CoxDisc.png"),
-       width=2400/dpi, height=1200/dpi,dpi=dpi, bg="white")
+       width=2400/dpi, height=1800/dpi,dpi=dpi, bg="white")
 
 
 
@@ -441,9 +440,9 @@ MAE_eventProb_bas_Youden <- mean(abs(datFusion_OOB$EventRate - datFusion_OOB$Eve
 vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,2)]
 length(vCol)
 vLabel2 <- c("b_Actual_spline"=paste0("Actual spline"), 
-             "d_Expected_spline_Youden_LR"=paste0("Exp spline: Youden-LR"),
-             "f_Expected_spline_Youden_bas"=paste0("Exp spline: Youden-basic"),
-             "a_Actual"="Actual", "c_Expected_Youden_LR"="Exp: Youden-LR", "e_Expected_Youden_bas"="Exp: Youden-basic")
+             "d_Expected_spline_Youden_LR"=paste0("Exp spline: LR B"),
+             "f_Expected_spline_Youden_bas"=paste0("Exp spline: DtH-Basic B"),
+             "a_Actual"="Actual", "c_Expected_Youden_LR"="Exp: LR B", "e_Expected_Youden_bas"="Exp: DtH-Basic B")
 vSize <- c(0.2,0.3,0.2,0.3,0.2,0.3)
 vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid")
 
@@ -478,7 +477,7 @@ vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid")
 # - Save plot
 dpi <- 280 # reset
 ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_CoxDisc_OOB.png"),
-       width=1800/dpi, height=1000/dpi,dpi=dpi, bg="white")
+       width=2400/dpi, height=1800/dpi,dpi=dpi, bg="white")
 
 
 

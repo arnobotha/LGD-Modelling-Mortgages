@@ -438,8 +438,8 @@ datAnnotate[, Label := vLabel]
 # - Graphing parameters
 chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2,1,3)]
-vLabel <- c("A"=bquote(italic(A[t])~": Basic DtH-model"), "C"=bquote(italic(C[t])~": LR-model"), 
-            "B"=bquote(italic(B[t])~": Advanced DtH-model"))
+vLabel <- c("A"=bquote(italic(A[t])~": DtH-Basic A"), "C"=bquote(italic(C[t])~": Logistic Regression A"), 
+            "B"=bquote(italic(B[t])~": DtH-Advanced A"))
 vShape <- c(17,20,4) 
 
 # - Create graph

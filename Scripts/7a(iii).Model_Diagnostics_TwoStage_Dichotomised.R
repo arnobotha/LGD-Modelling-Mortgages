@@ -138,9 +138,9 @@ thresh_dth <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_adv
                                model_name = "DTH-advanced")
 thresh_dth_bas <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_bas,
                                    model_name = "DTH-basic")
-#thresh_glm <- 0.2352999
-#thresh_dth <- 0.1037777
-#thresh_dth_bas <-  0.00795927
+thresh_glm <- 0.2352999
+thresh_dth <- 0.1037777
+thresh_dth_bas <-  0.00795927
 
 
 datCredit <- datCredit[, Youden_LR:= ifelse(EventRate_PD >= thresh_glm,1,0)]
@@ -210,66 +210,76 @@ meanLoss_TruEnd <- mean(datCredit$LossRate_est_adv, na.rm=T)
     scale_x_continuous(breaks=pretty_breaks(), label=percent)
 )
 
-metrics<-evalModel_twostage_youden(datCredit,"LossRate_Real","LossRate_est_adv",writeoff_type = "survival_adv",modLR,modLR_tweedie,thresh_dth)
+metrics<-evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_adv",writeoff_type = "survival_adv",modLR,modLR_tweedie,thresh_dth)
 stats_text <- paste(
-  "RMSE: ",          sprintf("%.1f%%", metrics$RMSE * 100), "\n",
-  "MAE: ",           sprintf("%.1f%%", metrics$MAE * 100), "\n",
   "KS: ",            sprintf("%.1f%%", metrics$KS * 100), "\n",
   "KL: ",            sprintf("%.4f", metrics$KL), "\n",
-  "JS: ",            sprintf("%.4f", metrics$JS), "\n",
-  "Kendall's Tau: ",   sprintf("%.2f", metrics$Kendalls_Tau), "\n",
-  "Spearman's Rho: ",  sprintf("%.2f", metrics$Spearmans_rho),
-  sep = ""
-)
+  "JS: ",            sprintf("%.4f", metrics$JS),
+  sep = "")
 
 plotData <- melt(datCredit,measure.vars = c("LossRate_Real", "LossRate_est_adv"),variable.name = "Type",value.name = "LossRate")
-
 plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_adv"),
-                          labels = c("Actual loss rate", "DtH-Advanced"))]
+                          labels = c("Empirical", "DtH-Advanced B"))]
+plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
 
 gOverlay <- ggplot(plotData, aes(x = LossRate)) + 
-  theme_bw() +
-  geom_histogram(
-    aes(y = after_stat(density), fill = Type, colour = Type),alpha = 0.35,
-    bins = round(2 * datCredit[, .N]^(1/3)),position = "identity") +
-  geom_density(aes(colour = Type),linewidth = 1,linetype = "dotted") +
-  labs(x = bquote({Realised~loss~rate~italic(L)}),y = "Histogram and density of resolved defaults [cures/write-offs]") +
-  annotate("label",x = 0.6,y = 70 * 0.95,label = stats_text,hjust = 0,vjust = 1,family = chosenFont,
-           size = 4,fill = "white",colour = "black", label.size = 0.5)+
+  theme_bw() + geom_histogram(
+    aes(y = after_stat(density), fill = Type, colour = Type),
+    alpha = 0.35,bins = round(2 * datCredit[, .N]^(1/3)), position = "identity") +
+  labs(x = bquote({Realised~loss~rate~italic(L)}), y = "Histogram of loss rates" ) +
   theme(text = element_text(family = chosenFont),legend.position = "bottom",
-        strip.background = element_rect(fill="snow2", colour="snow2"),
-        strip.text = element_text(size=8, colour="gray50"),
-        strip.text.y.right = element_text(angle=90)) +
-  scale_x_continuous(breaks = pretty_breaks(),labels = scales::percent) +
+    strip.background = element_rect(fill = "snow2", colour = "snow2"),
+    strip.text = element_text(size = 8, colour = "gray50"),
+    strip.placement = "outside",        
+    strip.text.y.right = element_text(angle = 90)) +
+  scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
-  scale_fill_manual(values   = c(vCol[1], vCol[2]))
+  scale_fill_manual(values   = c(vCol[1], vCol[2])) +
+  facet_grid(FacetLabel ~., scales="free")
 
-# - save plot
-dpi <- 180
-ggsave(gOverlay, file=paste0(genFigPath,"/ActvsExp_twostage_adv_Youden.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+
 # Now focus on the write-offs
 plotData <- melt(datCredit_hist,measure.vars = c("LossRate_Real", "LossRate_est_adv"),variable.name = "Type",value.name = "LossRate")
-
 plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_adv"),
                           labels = c("Actual loss rate", "DtH-Advanced"))]
-gOverlay_hist <- ggplot(plotData, aes(x = LossRate)) + 
-  theme_bw() +
-  geom_histogram(
-    aes(y = after_stat(density), fill = Type, colour = Type),alpha = 0.35,
-    bins = round(2 * datCredit_hist[, .N]^(1/3)),position = "identity") +
-  geom_density(aes(colour = Type),linewidth = 1,linetype = "dotted") +
-  labs(x = bquote({Realised~loss~rate~italic(L)}),y = "Histogram and density of resolved defaults [write-offs]") +
-  theme(text = element_text(family = chosenFont),legend.position = "bottom",
+plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
+(gOverlay_hist <- ggplot(plotData, aes(x = LossRate)) + 
+    theme_bw() +
+    geom_histogram(
+        aes(y = after_stat(density), fill = Type, colour = Type),
+        alpha = 0.35,
+        bins = round(2 * datCredit_hist[,.N]^(1/3)),
+        position = "identity") +
+    theme(
+        legend.position = "none",text = element_text(size = 12, family = chosenFont),
+        axis.text.y = element_text(size = 9, margin = unit(c(0,0,0,0),"mm")),
+        axis.text.x = element_text(size = 9, margin = unit(c(0,0,0,0),"mm")),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(color="black", fill="white"),
+        plot.background = element_rect(color="white"),
+        plot.margin = unit(c(0,0,0,0),"mm"),
         strip.background = element_rect(fill="snow2", colour="snow2"),
         strip.text = element_text(size=8, colour="gray50"),
         strip.text.y.right = element_text(angle=90)) +
-  scale_x_continuous(breaks = pretty_breaks(),labels = scales::percent) +
-  scale_colour_manual(values = c(vCol[1], vCol[2])) +
-  scale_fill_manual(values   = c(vCol[1], vCol[2]))
+    annotate(
+      "label", x = 0.7, y = 5 , label = stats_text,
+      hjust = 0, vjust = 1, family = chosenFont,
+      size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
+    scale_colour_manual(values = c(vCol[1], vCol[2])) +
+    scale_fill_manual(values   = c(vCol[1], vCol[2])))
+
+ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
+ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
+(plot.full <- gOverlay + annotation_custom(grob = ggplotGrob(gOverlay_hist), xmin=0.2, xmax=1, ymin=ymin, ymax=ymax))
 
 # - save plot
 dpi <- 180
-ggsave(gOverlay_hist, file=paste0(genFigPath,"/ActvsExp_twostage_adv_Youden_WOff.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_DtH_Adv_B.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 # Basic
 
@@ -278,7 +288,7 @@ ggsave(gOverlay_hist, file=paste0(genFigPath,"/ActvsExp_twostage_adv_Youden_WOff
 meanLoss_TruEnd <- mean(datCredit$LossRate_est_bas, na.rm=T)
 
 # - main graphs a) Overall LGD distribution
-(g2 <- ggplot(datCredit, aes(x=LossRate_est_adv)) + theme_bw() +
+(g2 <- ggplot(datCredit, aes(x=LossRate_est_bas)) + theme_bw() +
     geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=round(2*datCredit[,.N]^(1/3)),
                    position="identity", fill=vCol[1], colour=vCol[1]) + 
     geom_density(linewidth=1, colour=vCol[1], linetype="dotted") + 
@@ -295,72 +305,84 @@ meanLoss_TruEnd <- mean(datCredit$LossRate_est_bas, na.rm=T)
     scale_x_continuous(breaks=pretty_breaks(), label=percent)
 )
 
-metrics<-evalModel_twostage_youden(datCredit,"LossRate_Real","LossRate_est_bas",writeoff_type = "survival_bas",modLR_basic,modLR_tweedie,thresh_dth_bas)
+metrics<-evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_bas",writeoff_type = "survival_bas",modLR,modLR_tweedie,thresh_dth_bas)
 stats_text <- paste(
-  "RMSE: ",          sprintf("%.1f%%", metrics$RMSE * 100), "\n",
-  "MAE: ",           sprintf("%.1f%%", metrics$MAE * 100), "\n",
   "KS: ",            sprintf("%.1f%%", metrics$KS * 100), "\n",
   "KL: ",            sprintf("%.4f", metrics$KL), "\n",
-  "JS: ",            sprintf("%.4f", metrics$JS), "\n",
-  "Kendall's Tau: ",   sprintf("%.2f", metrics$Kendalls_Tau), "\n",
-  "Spearman's Rho: ",  sprintf("%.2f", metrics$Spearmans_rho),
-  sep = ""
-)
+  "JS: ",            sprintf("%.4f", metrics$JS),
+  sep = "")
 
 plotData <- melt(datCredit,measure.vars = c("LossRate_Real", "LossRate_est_bas"),variable.name = "Type",value.name = "LossRate")
-
 plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_bas"),
-                          labels = c("Actual loss rate", "DtH-Basic"))]
+                          labels = c("Empirical", "DtH-Basic B"))]
+plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
 
 gOverlay <- ggplot(plotData, aes(x = LossRate)) + 
-  theme_bw() +
-  geom_histogram(
-    aes(y = after_stat(density), fill = Type, colour = Type),alpha = 0.35,
-    bins = round(2 * datCredit[, .N]^(1/3)),position = "identity") +
-  geom_density(aes(colour = Type),linewidth = 1,linetype = "dotted") +
-  labs(x = bquote({Realised~loss~rate~italic(L)}),y = "Histogram and density of resolved defaults [cures/write-offs]") +
-  annotate("label",x = 0.6,y = 70 * 0.95,label = stats_text,hjust = 0,vjust = 1,family = chosenFont,
-           size = 4,fill = "white",colour = "black", label.size = 0.5)+
+  theme_bw() + geom_histogram(
+    aes(y = after_stat(density), fill = Type, colour = Type),
+    alpha = 0.35,bins = round(2 * datCredit[, .N]^(1/3)), position = "identity") +
+  labs(x = bquote({Realised~loss~rate~italic(L)}), y = "Histogram of loss rates" ) +
   theme(text = element_text(family = chosenFont),legend.position = "bottom",
-        strip.background = element_rect(fill="snow2", colour="snow2"),
-        strip.text = element_text(size=8, colour="gray50"),
-        strip.text.y.right = element_text(angle=90)) +
-  scale_x_continuous(breaks = pretty_breaks(),labels = scales::percent) +
+        strip.background = element_rect(fill = "snow2", colour = "snow2"),
+        strip.text = element_text(size = 8, colour = "gray50"),
+        strip.placement = "outside",        
+        strip.text.y.right = element_text(angle = 90)) +
+  scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
-  scale_fill_manual(values   = c(vCol[1], vCol[2]))
+  scale_fill_manual(values   = c(vCol[1], vCol[2])) +
+  facet_grid(FacetLabel ~., scales="free")
 
-# - save plot
-dpi <- 180
-ggsave(gOverlay, file=paste0(genFigPath,"/ActvsExp_twostage_bas_Youden.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+
 # Now focus on the write-offs
 plotData <- melt(datCredit_hist,measure.vars = c("LossRate_Real", "LossRate_est_bas"),variable.name = "Type",value.name = "LossRate")
-
 plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_bas"),
-                          labels = c("Actual loss rate", "DtH-Basic"))]
-gOverlay_hist <- ggplot(plotData, aes(x = LossRate)) + 
-  theme_bw() +
-  geom_histogram(
-    aes(y = after_stat(density), fill = Type, colour = Type),alpha = 0.35,
-    bins = round(2 * datCredit_hist[, .N]^(1/3)),position = "identity") +
-  geom_density(aes(colour = Type),linewidth = 1,linetype = "dotted") +
-  labs(x = bquote({Realised~loss~rate~italic(L)}),y = "Histogram and density of resolved defaults [write-offs]") +
-  theme(text = element_text(family = chosenFont),legend.position = "bottom",
-        strip.background = element_rect(fill="snow2", colour="snow2"),
-        strip.text = element_text(size=8, colour="gray50"),
-        strip.text.y.right = element_text(angle=90)) +
-  scale_x_continuous(breaks = pretty_breaks(),labels = scales::percent) +
-  scale_colour_manual(values = c(vCol[1], vCol[2])) +
-  scale_fill_manual(values   = c(vCol[1], vCol[2]))
+                          labels = c("Actual loss rate", "DtH-Basic B"))]
+plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
+(gOverlay_hist <- ggplot(plotData, aes(x = LossRate)) + 
+    theme_bw() +
+    geom_histogram(
+      aes(y = after_stat(density), fill = Type, colour = Type),
+      alpha = 0.35,
+      bins = round(2 * datCredit_hist[,.N]^(1/3)),
+      position = "identity") +
+    theme(
+      legend.position = "none",text = element_text(size = 12, family = chosenFont),
+      axis.text.y = element_text(size = 9, margin = unit(c(0,0,0,0),"mm")),
+      axis.text.x = element_text(size = 9, margin = unit(c(0,0,0,0),"mm")),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_rect(color="black", fill="white"),
+      plot.background = element_rect(color="white"),
+      plot.margin = unit(c(0,0,0,0),"mm"),
+      strip.background = element_rect(fill="snow2", colour="snow2"),
+      strip.text = element_text(size=8, colour="gray50"),
+      strip.text.y.right = element_text(angle=90)) +
+    annotate(
+      "label", x = 0.7, y = 5 , label = stats_text,
+      hjust = 0, vjust = 1, family = chosenFont,
+      size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
+    scale_colour_manual(values = c(vCol[1], vCol[2])) +
+    scale_fill_manual(values   = c(vCol[1], vCol[2])))
+
+ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
+ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
+(plot.full <- gOverlay + annotation_custom(grob = ggplotGrob(gOverlay_hist), xmin=0.2, xmax=1, ymin=ymin, ymax=ymax))
 
 # - save plot
 dpi <- 180
-ggsave(gOverlay_hist, file=paste0(genFigPath,"/ActvsExp_twostage_bas_Youden_WOff.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_DtH_Bas_B.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+
+
 # Logistic
 # - Aesthetic engineering: Statistical Summaries
 meanLoss_TruEnd <- mean(datCredit$LossRate_est_LR, na.rm=T)
 
 # - main graphs a) Overall LGD distribution
-(g2 <- ggplot(datCredit, aes(x=LossRate_est_adv)) + theme_bw() +
+(g2 <- ggplot(datCredit, aes(x=LossRate_est_LR)) + theme_bw() +
     geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=round(2*datCredit[,.N]^(1/3)),
                    position="identity", fill=vCol[1], colour=vCol[1]) + 
     geom_density(linewidth=1, colour=vCol[1], linetype="dotted") + 
@@ -377,61 +399,81 @@ meanLoss_TruEnd <- mean(datCredit$LossRate_est_LR, na.rm=T)
     scale_x_continuous(breaks=pretty_breaks(), label=percent)
 )
 
-metrics<-evalModel_twostage_youden(datCredit,"LossRate_Real","LossRate_est_LR",writeoff_type = "logistic",modLR_LR,modLR_tweedie,thresh_glm)
+metrics<-evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_LR",writeoff_type = "logistic",modLR,modLR_tweedie,thresh_glm)
 stats_text <- paste(
-  "RMSE: ",          sprintf("%.1f%%", metrics$RMSE * 100), "\n",
-  "MAE: ",           sprintf("%.1f%%", metrics$MAE * 100), "\n",
   "KS: ",            sprintf("%.1f%%", metrics$KS * 100), "\n",
   "KL: ",            sprintf("%.4f", metrics$KL), "\n",
-  "JS: ",            sprintf("%.4f", metrics$JS), "\n",
-  "Kendall's Tau: ",   sprintf("%.2f", metrics$Kendalls_Tau), "\n",
-  "Spearman's Rho: ",  sprintf("%.2f", metrics$Spearmans_rho),
-  sep = ""
-)
+  "JS: ",            sprintf("%.4f", metrics$JS),
+  sep = "")
 
 plotData <- melt(datCredit,measure.vars = c("LossRate_Real", "LossRate_est_LR"),variable.name = "Type",value.name = "LossRate")
-
 plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_LR"),
-                          labels = c("Actual loss rate", "Logistic Regression"))]
+                          labels = c("Empirical", "Logistic Regression B"))]
+plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
 
 gOverlay <- ggplot(plotData, aes(x = LossRate)) + 
-  theme_bw() +
-  geom_histogram(
-    aes(y = after_stat(density), fill = Type, colour = Type),alpha = 0.35,
-    bins = round(2 * datCredit[, .N]^(1/3)),position = "identity")+
-  labs(x = bquote({Realised~loss~rate~italic(L)}),y = "Histogram and density of resolved defaults [cures/write-offs]") +
-  annotate("label",x = 0.6,y = 70 * 0.95,label = stats_text,hjust = 0,vjust = 1,family = chosenFont,
-           size = 4,fill = "white",colour = "black", label.size = 0.5)+
+  theme_bw() + geom_histogram(
+    aes(y = after_stat(density), fill = Type, colour = Type),
+    alpha = 0.35,bins = round(2 * datCredit[, .N]^(1/3)), position = "identity") +
+  labs(x = bquote({Realised~loss~rate~italic(L)}), y = "Histogram of loss rates" ) +
   theme(text = element_text(family = chosenFont),legend.position = "bottom",
-        strip.background = element_rect(fill="snow2", colour="snow2"),
-        strip.text = element_text(size=8, colour="gray50"),
-        strip.text.y.right = element_text(angle=90)) +
-  scale_x_continuous(breaks = pretty_breaks(),labels = scales::percent) +
+        strip.background = element_rect(fill = "snow2", colour = "snow2"),
+        strip.text = element_text(size = 8, colour = "gray50"),
+        strip.placement = "outside",        
+        strip.text.y.right = element_text(angle = 90)) +
+  scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
-  scale_fill_manual(values   = c(vCol[1], vCol[2]))
+  scale_fill_manual(values   = c(vCol[1], vCol[2])) +
+  facet_grid(FacetLabel ~., scales="free")
 
-# - save plot
-dpi <- 180
-ggsave(gOverlay, file=paste0(genFigPath,"/ActvsExp_twostage_classic_Youden.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+
 # Now focus on the write-offs
 plotData <- melt(datCredit_hist,measure.vars = c("LossRate_Real", "LossRate_est_LR"),variable.name = "Type",value.name = "LossRate")
-
 plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_LR"),
-                          labels = c("Actual loss rate", "Logistic Regression"))]
-gOverlay_hist <- ggplot(plotData, aes(x = LossRate)) + 
-  theme_bw() +
-  geom_histogram(
-    aes(y = after_stat(density), fill = Type, colour = Type),alpha = 0.35,
-    bins = round(2 * datCredit_hist[, .N]^(1/3)),position = "identity") +
-  labs(x = bquote({Realised~loss~rate~italic(L)}),y = "Histogram and density of resolved defaults [write-offs]") +
-  theme(text = element_text(family = chosenFont),legend.position = "bottom",
-        strip.background = element_rect(fill="snow2", colour="snow2"),
-        strip.text = element_text(size=8, colour="gray50"),
-        strip.text.y.right = element_text(angle=90)) +
-  scale_x_continuous(breaks = pretty_breaks(),labels = scales::percent) +
-  scale_colour_manual(values = c(vCol[1], vCol[2])) +
-  scale_fill_manual(values   = c(vCol[1], vCol[2]))
+                          labels = c("Actual loss rate", "Logistic Regression B"))]
+plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
+(gOverlay_hist <- ggplot(plotData, aes(x = LossRate)) + 
+    theme_bw() +
+    geom_histogram(
+      aes(y = after_stat(density), fill = Type, colour = Type),
+      alpha = 0.35,
+      bins = round(2 * datCredit_hist[,.N]^(1/3)),
+      position = "identity") +
+    theme(
+      legend.position = "none",text = element_text(size = 12, family = chosenFont),
+      axis.text.y = element_text(size = 9, margin = unit(c(0,0,0,0),"mm")),
+      axis.text.x = element_text(size = 9, margin = unit(c(0,0,0,0),"mm")),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_rect(color="black", fill="white"),
+      plot.background = element_rect(color="white"),
+      plot.margin = unit(c(0,0,0,0),"mm"),
+      strip.background = element_rect(fill="snow2", colour="snow2"),
+      strip.text = element_text(size=8, colour="gray50"),
+      strip.text.y.right = element_text(angle=90)) +
+    annotate(
+      "label", x = 0.7, y = 50 , label = stats_text,
+      hjust = 0, vjust = 1, family = chosenFont,
+      size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
+    scale_colour_manual(values = c(vCol[1], vCol[2])) +
+    scale_fill_manual(values   = c(vCol[1], vCol[2])))
+
+ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
+ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
+(plot.full <- gOverlay + annotation_custom(grob = ggplotGrob(gOverlay_hist), xmin=0.2, xmax=1, ymin=ymin, ymax=ymax))
 
 # - save plot
 dpi <- 180
-ggsave(gOverlay_hist, file=paste0(genFigPath,"/ActvsExp_twostage_classic_Youden_WOff.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_LR_B.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+
+
+
+
+
+
+KL_one_stage(modLR_tweedie,datCredit)
+

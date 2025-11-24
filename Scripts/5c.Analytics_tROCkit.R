@@ -384,7 +384,7 @@ suppressWarnings( rm(gg, vLabels, vLabels_F, vecTROC, datGraph, dat,
 
 
 
-# ------ Advanced discrete-time hazard model
+# ------ Combined model
 
 # --- Package: tROCkit() | custom "package"/function
 # NOTE: Using custom tROC()-function from script 0b(iii) under the CD-approach with an NN-estimator and 0/1-kernel
@@ -432,7 +432,20 @@ proc.time() - ptm
 vecPercTimepoint <- c(44,44,44)
 vecTROC <- list(objROC5_CDH_CoxDisc_adv, objROC5_CDH_CoxDisc_bas ,objROC1_LR)
 vLabels <- vector("list", length=length(vecPercTimepoint))
-vmodel <- c("Survival Analysis(Advanced)","Survival Analysis(Basic)", "Logistic Regression")
+vmodel <- c("DtH-Advanced A","DtH-Basic A", "Logistic Regression A")
+# -- Store experimental objects | Memory optimisation
+# CDH-model: Basic Cox-regression model
+pack.ffdf(paste0(genPath,"WOffSurvModel-CoxDisc-bas"), objROC5_CDH_CoxDisc_bas);
+pack.ffdf(paste0(genPath,"WOffSurvModel-CoxDisc-adv"), objROC5_CDH_CoxDisc_adv);
+pack.ffdf(paste0(genPath,"WOffSurvModel-CoxDisc-LR"), objROC1_LR );
+
+# ------ Advanced discrete-time hazard model
+
+# - Ensure required objects exist in memory
+if (!exists('objROC5_CDH_CoxDisc_bas')) unpack.ffdf(paste0(genPath,"WOffSurvModel-CoxDisc-bas"), tempPath);gc()
+if (!exists('objROC5_CDH_CoxDisc_adv')) unpack.ffdf(paste0(genPath,"WOffSurvModel-CoxDisc-adv"), tempPath);gc()
+if (!exists('objROC1_LR')) unpack.ffdf(paste0(genPath,"WOffSurvModel-CoxDisc-LR"), tempPath);gc()
+
 
 # -- Create a combined data object for plotting purposes
 for (i in 1:length(vecPercTimepoint)) {

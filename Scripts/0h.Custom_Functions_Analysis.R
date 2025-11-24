@@ -41,42 +41,48 @@ JS_div <- function(p, q) {
   0.5 * sum(p * log(p / m)) + 0.5 * sum(q * log(q / m))
 }
 
-KL_one_stage <- function(model, df, dist = c("tweedie", "gaussian")) {
-  dist <- match.arg(dist)
-  y <- df$LossRate_Real
-  N <- length(y)
-  p_emp <- rep(1/N, N)
+KL_one_stage <- function(model, df, n_bins = 200) {
+  
   eps <- 1e-12
   
+  # -------------------------------
+  # Actual loss rate
+  # -------------------------------
+  y <- df$LossRate_Real
+  
+  # -------------------------------
+  # Predicted severity (1-stage model)
+  # -------------------------------
   mu_pred <- predict(model, newdata = df, type = "response")
+  y_pred <- mu_pred   # one-stage predicts severity directly
   
-  # ---------- Tweedie 1-stage ----------
-  if (dist == "tweedie") {
-    library(statmod)
-    
-    # Extract Tweedie parameters correctly from cpglm
-    phi <- model@phi      # dispersion
-    pwr <- model@p        # Tweedie power parameter
-    
-    # Density for each observed loss
-    q_raw <- dtweedie(y, mu = mu_pred, phi = phi, power = pwr)
-  }
+  # -------------------------------
+  # Convert actual & predicted values into probability distributions
+  # -------------------------------
+  rng <- range(c(y, y_pred))
+  breaks <- seq(rng[1], rng[2], length.out = n_bins)
   
-  # ---------- Gaussian 1-stage ----------
-  else if (dist == "gaussian") {
-    sigma_est <- sqrt(sum(residuals(model, type="response")^2) / model$df.residual)
-    q_raw <- dnorm(y, mean = mu_pred, sd = sigma_est)
-  }
+  p_emp <- hist(y, breaks = breaks, plot = FALSE)$density + eps
+  q_emp <- hist(y_pred, breaks = breaks, plot = FALSE)$density + eps
   
-  # Avoid zeros and normalize to discrete pdf
-  q_raw <- q_raw + eps
-  q <- q_raw / sum(q_raw)
+  # normalize
+  p <- p_emp / sum(p_emp)
+  q <- q_emp / sum(q_emp)
   
-  KL <- KL_div(p_emp, q)
-  JS <- JS_div(p_emp, q)
+  # -------------------------------
+  # KL divergence
+  # -------------------------------
+  KL <- sum(p * log(p / q))
   
-  data.frame(Model = paste(dist, "1-stage"), KL, JS)
+  # -------------------------------
+  # JS divergence
+  # -------------------------------
+  M <- 0.5 * (p + q)
+  JS <- 0.5 * sum(p * log(p / M)) + 0.5 * sum(q * log(q / M))
+  
+  data.frame(Model = "1-stage severity", KL = KL, JS = JS)
 }
+
 
 evalModel_onestage <- function(data_train, actField, estField,model_type = c("tweedie", "gaussian") ,model){
   y  <- data_train[[actField]]
@@ -87,14 +93,10 @@ evalModel_onestage <- function(data_train, actField, estField,model_type = c("tw
   ks <- ks.test(y,est)$statistic
   kendalls <-cor.fk(y,est)
   spearman <-cor(y,est,method = "spearman",use    = "complete.obs")
-  if (model_type == "tweedie") {
-    kl <- KL_one_stage(model,data_train,"tweedie")$KL
-    js <- KL_one_stage(model,data_train,"tweedie")$JS
-  } 
-  else if (model_type == "gaussian") {
-    kl <- KL_one_stage(model,data_train,"gaussian")$KL
-    js <- KL_one_stage(model,data_train,"gaussian")$JS
-  }
+  kl <- KL_one_stage(model, data_train)$KL
+  js <- KL_one_stage(model, data_train)$JS
+ 
+
   
   data.table(RMSE = rmse, MAE=mae , KS = ks, KL =kl,JS=js,Kendalls_Tau=kendalls, Spearmans_rho=spearman)
 }
@@ -102,56 +104,6 @@ evalModel_onestage <- function(data_train, actField, estField,model_type = c("tw
 
 
 
-
-# Two-stage Function
-
-
-KL_two_stage <- function(df, model_writeoff, model_severity,
-                         writeoff_type = c("logistic", "survival_adv","survival_bas"),
-                         severity_type = c("tweedie", "gaussian")) {
-  writeoff_type <- match.arg(writeoff_type)
-  severity_type <- match.arg(severity_type)
-  eps <- 1e-12
-  N <- nrow(df)
-  y <- df$LossRate_Real
-  is_zero <- (y == 0)
-  p_emp <- rep(1/N, N)
-  
-  # ---------- Stage 1: Write-off probability ----------
-  if (writeoff_type == "logistic") {
-    p_loss <- df$EventRate_PD
-  } else if (writeoff_type == "survival_adv") {
-
-    p_loss <- df$EventRate_adv
-  }
-  else if (writeoff_type == "survival_bas") {
-    p_loss <- df$EventRate_bas
-  }
-  # ---------- Stage 2: Loss severity ----------
-  mu_pred <- predict(model_severity, newdata = df, type = "response")
-  
-  if (severity_type == "tweedie") {
-    require(statmod)
-    phi <- model_severity@phi
-    pwr <- model_severity@p
-    f_y <- dtweedie(y, mu = mu_pred, phi = phi, power = pwr)
-  } else if (severity_type == "gaussian") {
-    sigma_est <-  sqrt(sum(residuals(model_severity, type="response")^2) / model$df.residual)
-    f_y <- dnorm(y, mean = mu_pred, sd = sigma_est)
-  }
-  
-  # ---------- Mixture density/mass ----------
-  q_raw <- numeric(N)
-  q_raw[is_zero] <- (1 - p_loss[is_zero]) + eps
-  q_raw[!is_zero] <- p_loss[!is_zero] * f_y[!is_zero] + eps
-  
-  q <- q_raw / sum(q_raw)
-  
-  KL <- KL_div(p_emp, q)
-  JS <- JS_div(p_emp, q)
-  data.frame(Model = paste(writeoff_type, "+", severity_type, "2-stage"),
-             KL,JS)
-}
 
 
 
@@ -186,22 +138,24 @@ evalModel_twostage <- function(data_train, actField, estField, writeoff_type = c
 
 
 
-KL_two_stage_youden <- function(df, 
-                         model_writeoff, 
-                         model_severity,
-                         writeoff_type = c("logistic", "survival_adv", "survival_bas"),
-                         severity_type = c("tweedie", "gaussian"),
-                         youden_cutoff = NULL) {   
+KL_two_stage <- function(df, 
+                                model_writeoff, 
+                                model_severity,
+                                writeoff_type = c("logistic", "survival_adv", "survival_bas"),
+                                youden_cutoff = NULL,
+                                n_bins = 200) {
   
   writeoff_type <- match.arg(writeoff_type)
-  severity_type <- match.arg(severity_type)
   eps <- 1e-12
-  N   <- nrow(df)
-  y   <- df$LossRate_Real
-  is_zero <- (y <= eps)
-  p_emp <- rep(1/N, N)
   
-  # ---------- Stage 1: raw probability ----------
+  # -------------------------------
+  # Actual loss rate
+  # -------------------------------
+  y <- df$LossRate_Real
+  
+  # -------------------------------
+  # Stage 1: Write-off probability
+  # -------------------------------
   if (writeoff_type == "logistic") {
     p_loss_raw <- df$EventRate_PD
   } else if (writeoff_type == "survival_adv") {
@@ -210,50 +164,51 @@ KL_two_stage_youden <- function(df,
     p_loss_raw <- df$EventRate_bas
   }
   
-  # Apply Youden cutoff if provided
+  # Apply Youden cutoff -> hard default indicator
   if (!is.null(youden_cutoff)) {
     p_loss <- ifelse(p_loss_raw > youden_cutoff, 1, 0)
   } else {
-    p_loss <- p_loss_raw   # normal soft probabilities
+    p_loss <- p_loss_raw   # soft PD
   }
   
-  # ---------- Stage 2: severity (only on the original non-zero observations) ----------
+  # -------------------------------
+  # Stage 2: Predicted severity
+  # -------------------------------
   mu_pred <- predict(model_severity, newdata = df, type = "response")
   
-  if (severity_type == "tweedie") {
-    require(statmod)
-    phi <- model_severity@phi
-    pwr <- model_severity@p
-    f_y <- dtweedie(y, mu = mu_pred, phi = phi, power = pwr)
-  } else if (severity_type == "gaussian") {
-    sigma_est <- sqrt(sum(residuals(model_severity, type="response")^2) / 
-                        model_severity$df.residual)
-    f_y <- dnorm(y, mean = mu_pred, sd = sigma_est)
-  }
+  # Predicted expected loss
+  y_pred <- p_loss * mu_pred
   
-  # ---------- Mixture density ----------
-  q_raw <- numeric(N)
+  # -------------------------------
+  # Convert actual & predicted values into probability distributions
+  # -------------------------------
+  rng <- range(c(y, y_pred))
+  breaks <- seq(rng[1], rng[2], length.out = n_bins)
   
-
-  pred_zero <- (p_loss <= 0.5) | (p_loss == 0)  
+  p_emp <- hist(y, breaks = breaks, plot = FALSE)$density + eps
+  q_emp <- hist(y_pred, breaks = breaks, plot = FALSE)$density + eps
   
-  q_raw[is_zero]  <- ifelse(pred_zero[is_zero],  1,  0) + eps
-  q_raw[!is_zero] <- ifelse(pred_zero[!is_zero], 0,  f_y[!is_zero]) + eps
+  # Normalize
+  p_emp <- p_emp / sum(p_emp)
+  q_emp <- q_emp / sum(q_emp)
   
-  q <- q_raw / sum(q_raw)
-  
-  KL <- KL_div(p_emp, q)
-  JS <- JS_div(p_emp, q)
+  # -------------------------------
+  # KL & JS divergence
+  # -------------------------------
+  KL <- sum(p_emp * log(p_emp / q_emp))
+  M  <- 0.5 * (p_emp + q_emp)
+  JS <- 0.5 * sum(p_emp * log(p_emp / M)) +
+    0.5 * sum(q_emp * log(q_emp / M))
   
   model_name <- ifelse(is.null(youden_cutoff),
-                       paste(writeoff_type, "+", severity_type, "2-stage"),
-                       paste(writeoff_type, "+ Youden cutoff", youden_cutoff, "+", severity_type))
+                       paste(writeoff_type, "+ severity", "2-stage"),
+                       paste(writeoff_type, "+ Youden", youden_cutoff, "+ severity"))
   
   data.frame(Model = model_name, KL = KL, JS = JS)
 }
 
 
-evalModel_twostage_youden <- function(data_train, actField, estField, writeoff_type = c("logistic", "survival_adv","survival_bas"),modWoff,modLS, thresh){
+evalModel_twostage <- function(data_train, actField, estField, writeoff_type = c("logistic", "survival_adv","survival_bas"),modWoff,modLS, thresh){
   y  <- data_train[[actField]]
   est <- data_train[[estField]]
   
@@ -263,16 +218,16 @@ evalModel_twostage_youden <- function(data_train, actField, estField, writeoff_t
   kendalls <-cor.fk(y,est)
   spearman <-cor(y,est,method = "spearman",use    = "complete.obs")
   if (writeoff_type == "logistic") {
-    kl <- KL_two_stage_youden(data_train,modWoff, modLS,"logistic","tweedie",thresh)$KL
-    js <- KL_two_stage_youden(data_train,modWoff, modLS,"logistic","tweedie",thresh)$JS
+    kl <- KL_two_stage(data_train,modWoff, modLS,"logistic",thresh)$KL
+    js <- KL_two_stage(data_train,modWoff, modLS,"logistic",thresh)$JS
   } 
   else if (writeoff_type == "survival_adv") {
-    kl <- KL_two_stage_youden(data_train,modWoff, modLS,"survival_adv","tweedie",thresh)$KL
-    js <- KL_two_stage_youden(data_train,modWoff, modLS,"survival_adv","tweedie",thresh)$JS
+    kl <- KL_two_stage(data_train,modWoff, modLS,"survival_adv",thresh)$KL
+    js <- KL_two_stage(data_train,modWoff, modLS,"survival_adv",thresh)$JS
   }
   else if (writeoff_type == "survival_bas") {
-    kl <- KL_two_stage_youden(data_train,modWoff, modLS,"survival_bas","tweedie",thresh)$KL
-    js <- KL_two_stage_youden(data_train,modWoff, modLS,"survival_bas","tweedie",thresh)$JS
+    kl <- KL_two_stage(data_train,modWoff, modLS,"survival_bas",thresh)$KL
+    js <- KL_two_stage(data_train,modWoff, modLS,"survival_bas",thresh)$JS
   }
   
   data.table(RMSE = rmse, MAE=mae , KS = ks, KL =kl,JS=js,Kendalls_Tau=kendalls, Spearmans_rho=spearman)

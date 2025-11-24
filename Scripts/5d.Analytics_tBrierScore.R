@@ -150,7 +150,7 @@ ibs_adv <- mean(objCoxDisc_adv$tBS[TimeInDefSpell <= zoomedSpellAge, Brier])
 # - Graphing Parameters
 chosenFont <- "Cambria"
 vCol <- brewer.pal(8, "Set2")[c(2,1)]
-vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
+vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
 
 # - Main graph of tBS
 (gOuter <- ggplot(datGraph, aes(x=TimeInDefSpell, y=Brier, group=Type)) + theme_minimal() + 
@@ -161,9 +161,9 @@ vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5) + 
     # Annotations
-    annotate(geom="text", x=26, y=8, label=paste0("IBS (Basic): ", round(objCoxDisc_bas$IBS,3)), 
+    annotate(geom="text", x=26, y=8, label=paste0("IBS (DtH-Basic A): ", round(objCoxDisc_bas$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=22, y=6, label=paste0("IBS (Advanced): ", round(objCoxDisc_adv$IBS,3)), 
+    annotate(geom="text", x=22, y=6, label=paste0("IBS (DtH-Advanced A): ", round(objCoxDisc_adv$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +     
     # Facets & scales
     facet_grid(FacetLabel ~ .) +  
@@ -188,9 +188,9 @@ vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5, show.legend = F) + 
     # Annotations
-    annotate(geom="text", x=20, y=1.5, label=paste0("IBS (Basic): ", round(ibs_bas,3)), 
+    annotate(geom="text", x=20, y=1.5, label=paste0("IBS (DtH-Basic A): ", round(ibs_bas,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=17, y=1, label=paste0("IBS (Advanced): ", round(ibs_adv,3)), 
+    annotate(geom="text", x=17, y=1, label=paste0("IBS (DtH-Advanced A): ", round(ibs_adv,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +   
     # Facets & scales
     scale_colour_manual(name="", values=vCol, labels=vLabel) + 
@@ -200,7 +200,7 @@ vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
 )
 
 # - Combining the two above plots onto a single graph
-(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=10, xmax=90, ymin=20, ymax=30))
+(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=5, xmax=78, ymin=10, ymax=30))
 
 # - Save plot
 dpi <- 280
@@ -221,7 +221,7 @@ tBrier_LR <- tBS_LR$Brier
 
 # - Create a single table containing the three R^2 measures for each of the models
 brier_Table <- data.table(
-  Model = c("DtH-Advanced","DtH-Basic", "Logistic Regression" ),
+  Model = c("DtH-Advanced A","DtH-Basic A", "Logistic Regression" ),
   Brier = c(tBrier_Bas, tBrier_Adv, tBrier_LR)
 )
 # - Save table to specified path
@@ -244,9 +244,9 @@ vCol1 <- c(
 vCol2 <- vCol1 
 vCol3 <- rep("white", 3)  
 vLabel <- list(
-  "a_Basic" = "DtH-Basic",
-  "b_Advanced" = "DtH-Advanced",
-  "c_Logistic_Regression" = "Logistic Regression"
+  "a_Basic" = "DtH-Basic A",
+  "b_Advanced" = "DtH-Advanced A",
+  "c_Logistic_Regression" = "Logistic Regression A"
 )
 gPlot <- ggplot(datPlot, aes(x = Statistic, y = Value, group = Model)) + 
   theme_minimal() +
