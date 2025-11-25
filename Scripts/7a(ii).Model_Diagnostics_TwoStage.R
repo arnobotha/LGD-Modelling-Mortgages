@@ -101,8 +101,6 @@ datCredit_valid[!is.na(DefSpell_Num), Hazard_PD := predict(modLR_classic, newdat
 datCredit_valid[!is.na(DefSpell_Num), Survival_PD := cumprod(1-Hazard_PD), by=list(DefSpell_Key)]
 datCredit_valid[!is.na(DefSpell_Num), EventRate_PD := shift(Survival_PD, type="lag", n=1, fill=1)* Hazard_PD, by=list(DefSpell_Key)]
 
-ks.test(datCredit$LossRate_Real,datCredit$LossRate_est_adv)
-ks.test(datCredit$LossRate_Real,datCredit$LossRate_est_bas)
 
 # - filter to maximum spell counter
 datCredit_train <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
@@ -221,7 +219,9 @@ gOverlay <- ggplot(plotData, aes(x = LossRate)) +
   scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
   scale_fill_manual(values   = c(vCol[1], vCol[2])) +
-  facet_grid(FacetLabel ~., scales="free")
+  facet_grid(FacetLabel ~., scales="free")+
+  guides(fill = guide_legend(title = NULL),
+         colour = guide_legend(title = NULL))
 
 datCredit_hist[LossRate_est_adv>1, LossRate_est_adv:=1]
 
@@ -256,6 +256,7 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
       "label", x = 0.7, y = 8 , label = stats_text,
       hjust = 0, vjust = 1, family = chosenFont,
       size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
     scale_colour_manual(values = c(vCol[1], vCol[2])) +
     scale_fill_manual(values   = c(vCol[1], vCol[2])))
@@ -317,7 +318,9 @@ gOverlay <- ggplot(plotData, aes(x = LossRate)) +
   scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
   scale_fill_manual(values   = c(vCol[1], vCol[2])) +
-  facet_grid(FacetLabel ~., scales="free")
+  facet_grid(FacetLabel ~., scales="free")+
+  guides(fill = guide_legend(title = NULL),
+         colour = guide_legend(title = NULL))
 
 
 # Now focus on the write-offs
@@ -351,6 +354,7 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
       "label", x = 0.7, y = 50 , label = stats_text,
       hjust = 0, vjust = 1, family = chosenFont,
       size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
     scale_colour_manual(values = c(vCol[1], vCol[2])) +
     scale_fill_manual(values   = c(vCol[1], vCol[2])))
@@ -411,7 +415,9 @@ gOverlay <- ggplot(plotData, aes(x = LossRate)) +
   scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
   scale_fill_manual(values   = c(vCol[1], vCol[2])) +
-  facet_grid(FacetLabel ~., scales="free")
+  facet_grid(FacetLabel ~., scales="free")+
+  guides(fill = guide_legend(title = NULL),
+         colour = guide_legend(title = NULL))
 
 
 # Now focus on the write-offs
@@ -445,6 +451,7 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
       "label", x = 0.7, y = 50 , label = stats_text,
       hjust = 0, vjust = 1, family = chosenFont,
       size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
     scale_colour_manual(values = c(vCol[1], vCol[2])) +
     scale_fill_manual(values   = c(vCol[1], vCol[2])))

@@ -721,7 +721,7 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
           "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave",
           "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff","pmnt_method_grp","Principal","g0_Delinq_Lag_1",
+          "Balance_1","pmnt_method_grp","Principal","g0_Delinq_Lag_1",
           "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial")

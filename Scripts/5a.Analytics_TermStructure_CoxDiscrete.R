@@ -439,10 +439,10 @@ MAE_eventProb_bas_Youden <- mean(abs(datFusion_OOB$EventRate - datFusion_OOB$Eve
 # - Graphing parameters
 vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,2)]
 length(vCol)
-vLabel2 <- c("b_Actual_spline"=paste0("Actual spline"), 
+vLabel2 <- c("b_Actual_spline"=paste0("Empirical spline"), 
              "d_Expected_spline_Youden_LR"=paste0("Exp spline: LR B"),
              "f_Expected_spline_Youden_bas"=paste0("Exp spline: DtH-Basic B"),
-             "a_Actual"="Actual", "c_Expected_Youden_LR"="Exp: LR B", "e_Expected_Youden_bas"="Exp: DtH-Basic B")
+             "a_Actual"="Empirical", "c_Expected_Youden_LR"="Exp: LR B", "e_Expected_Youden_bas"="Exp: DtH-Basic B")
 vSize <- c(0.2,0.3,0.2,0.3,0.2,0.3)
 vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid")
 
@@ -459,9 +459,9 @@ vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid")
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
     # Annotations
-    annotate("text", y=0.2,x=100, label=paste0("MAE (Youden-LR): ", percent(MAE_eventProb_LR_Youden, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.2,x=100, label=paste0("MAE (LR B): ", percent(MAE_eventProb_LR_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3) + 
-    annotate("text", y=0.18,x=100, label=paste0("MAE (Youden-Basic): ", percent(MAE_eventProb_bas_Youden, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.18,x=100, label=paste0("MAE (DtH-Basic B): ", percent(MAE_eventProb_bas_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3) +
     # Scales and options
     facet_grid(FacetLabel ~ .) + 

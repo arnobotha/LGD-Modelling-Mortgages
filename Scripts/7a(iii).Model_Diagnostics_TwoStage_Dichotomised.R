@@ -131,13 +131,13 @@ modLR_tweedie <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse
 
 
 datCredit <- rbind(datCredit_train,datCredit_valid)
-thresh_glm <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_PD,
-                               model_name = "Logistic regression")
+#thresh_glm <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_PD,
+#                               model_name = "Logistic regression")
 
-thresh_dth <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_adv,
-                               model_name = "DTH-advanced")
-thresh_dth_bas <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_bas,
-                                   model_name = "DTH-basic")
+#thresh_dth <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_adv,
+#                               model_name = "DTH-advanced")
+#thresh_dth_bas <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_bas,
+#                                   model_name = "DTH-basic")
 thresh_glm <- 0.2352999
 thresh_dth <- 0.1037777
 thresh_dth_bas <-  0.00795927
@@ -235,7 +235,10 @@ gOverlay <- ggplot(plotData, aes(x = LossRate)) +
   scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
   scale_fill_manual(values   = c(vCol[1], vCol[2])) +
-  facet_grid(FacetLabel ~., scales="free")
+  facet_grid(FacetLabel ~., scales="free")+
+  guides(fill = guide_legend(title = NULL),
+         colour = guide_legend(title = NULL))
+
 
 
 # Now focus on the write-offs
@@ -269,6 +272,7 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
       "label", x = 0.7, y = 5 , label = stats_text,
       hjust = 0, vjust = 1, family = chosenFont,
       size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
     scale_colour_manual(values = c(vCol[1], vCol[2])) +
     scale_fill_manual(values   = c(vCol[1], vCol[2])))
@@ -330,7 +334,10 @@ gOverlay <- ggplot(plotData, aes(x = LossRate)) +
   scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
   scale_fill_manual(values   = c(vCol[1], vCol[2])) +
-  facet_grid(FacetLabel ~., scales="free")
+  facet_grid(FacetLabel ~., scales="free")+
+  guides(fill = guide_legend(title = NULL),
+         colour = guide_legend(title = NULL))
+
 
 
 # Now focus on the write-offs
@@ -364,6 +371,7 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
       "label", x = 0.7, y = 5 , label = stats_text,
       hjust = 0, vjust = 1, family = chosenFont,
       size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
     scale_colour_manual(values = c(vCol[1], vCol[2])) +
     scale_fill_manual(values   = c(vCol[1], vCol[2])))
@@ -424,7 +432,10 @@ gOverlay <- ggplot(plotData, aes(x = LossRate)) +
   scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
   scale_fill_manual(values   = c(vCol[1], vCol[2])) +
-  facet_grid(FacetLabel ~., scales="free")
+  facet_grid(FacetLabel ~., scales="free")+
+  guides(fill = guide_legend(title = NULL),
+         colour = guide_legend(title = NULL))
+
 
 
 # Now focus on the write-offs
@@ -458,6 +469,7 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
       "label", x = 0.7, y = 50 , label = stats_text,
       hjust = 0, vjust = 1, family = chosenFont,
       size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
     scale_colour_manual(values = c(vCol[1], vCol[2])) +
     scale_fill_manual(values   = c(vCol[1], vCol[2])))
@@ -474,6 +486,4 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_LR_B.png"),width=12
 
 
 
-
-KL_one_stage(modLR_tweedie,datCredit)
 

@@ -26,7 +26,7 @@ datCredit <- rbind(datCredit_train,datCredit_valid)
 datCredit_hist <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")
 # remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
-
+median(datCredit$LossRate_Real)
 
 # - Gaussian One-stage model
 vars <- c("PrevDefaults", "g0_Delinq_Any_Aggr_Prop_Lag_3","DefaultStatus1_Aggr_Prop_Lag_9",
@@ -53,7 +53,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 
 # - Aesthetic engineering: Statistical Summaries
 meanLoss_TruEnd <- mean(datCredit$LossRate_Real, na.rm=T)
-MeanLoss_TruEnd_W <- mean(datCredit_W$LossRate_Real, na.rm=T)
+MeanLoss_TruEnd_W <- mean(datCredit_hist$LossRate_Real, na.rm=T)
 mix_WC_TruEnd <- datCredit_hist[, .N] / datCredit[, .N] # overall write-off probability given default of 18%
 
 # - main graphs a) Overall LGD distribution
@@ -153,7 +153,9 @@ gOverlay <- ggplot(plotData, aes(x = LossRate)) +
   scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
   scale_fill_manual(values   = c(vCol[1], vCol[2])) +
-  facet_grid(FacetLabel ~., scales="free")
+  facet_grid(FacetLabel ~., scales="free")+
+  guides(fill = guide_legend(title = NULL),
+         colour = guide_legend(title = NULL))
 
 
 # Now focus on the write-offs
@@ -189,9 +191,11 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
       "label", x = 0.7, y = 5 , label = stats_text,
       hjust = 0, vjust = 1, family = chosenFont,
       size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
     scale_colour_manual(values = c(vCol[1], vCol[2])) +
     scale_fill_manual(values   = c(vCol[1], vCol[2])))
+    
 
 ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
@@ -259,7 +263,9 @@ gOverlay <- ggplot(plotData, aes(x = LossRate)) +
   scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values = c(vCol[1], vCol[2])) +
   scale_fill_manual(values   = c(vCol[1], vCol[2])) +
-  facet_grid(FacetLabel ~., scales="free")
+  facet_grid(FacetLabel ~., scales="free")+
+  guides(fill = guide_legend(title = NULL),
+         colour = guide_legend(title = NULL))
 
 #Write-offs
 datCredit_gauss <- datCredit_hist[LossRate_gaussian >= 0, .(LossRate_gaussian)]
@@ -294,19 +300,19 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
       strip.text = element_text(size=8, colour="gray50"),
       strip.text.y.right = element_text(angle=90)) +
     annotate(
-      "label", x = 0.7, y = 65 , label = stats_text,
+      "label", x = 0.7, y = 7 , label = stats_text,
       hjust = 0, vjust = 1, family = chosenFont,
       size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
     scale_colour_manual(values = c(vCol[1], vCol[2])) +
     scale_fill_manual(values   = c(vCol[1], vCol[2])))
-
 ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
 (plot.full <- gOverlay + annotation_custom(grob = ggplotGrob(gOverlay_hist), xmin=0.2, xmax=1, ymin=ymin, ymax=ymax))
 # - save plot
 dpi <- 180
-ggsave(gOverlay, file=paste0(genFigPath,"/ActvsExp_onestage_gaussian.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_gaussian.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
 

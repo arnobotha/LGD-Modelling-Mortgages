@@ -161,9 +161,9 @@ vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5) + 
     # Annotations
-    annotate(geom="text", x=26, y=8, label=paste0("IBS (DtH-Basic A): ", round(objCoxDisc_bas$IBS,3)), 
+    annotate(geom="text", x=26, y=8, label=paste0("IBS (Basic A): ", round(objCoxDisc_bas$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=22, y=6, label=paste0("IBS (DtH-Advanced A): ", round(objCoxDisc_adv$IBS,3)), 
+    annotate(geom="text", x=22, y=6, label=paste0("IBS (Advanced A): ", round(objCoxDisc_adv$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +     
     # Facets & scales
     facet_grid(FacetLabel ~ .) +  
@@ -188,9 +188,9 @@ vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5, show.legend = F) + 
     # Annotations
-    annotate(geom="text", x=20, y=1.5, label=paste0("IBS (DtH-Basic A): ", round(ibs_bas,3)), 
+    annotate(geom="text", x=20, y=1.5, label=paste0("IBS (Basic A): ", round(ibs_bas,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=17, y=1, label=paste0("IBS (DtH-Advanced A): ", round(ibs_adv,3)), 
+    annotate(geom="text", x=17, y=1, label=paste0("IBS (Advanced A): ", round(ibs_adv,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +   
     # Facets & scales
     scale_colour_manual(name="", values=vCol, labels=vLabel) + 
@@ -204,7 +204,7 @@ vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
 
 # - Save plot
 dpi <- 280
-ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_CoxDisc.png"),width=1350/dpi, height=1000/dpi,dpi=dpi, bg="white")
+ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_CoxDisc.png"),width=1600/dpi, height=1200/dpi,dpi=dpi, bg="white")
 
 
 
