@@ -358,12 +358,12 @@ MAE_eventProb_adv_Youden <- mean(abs(datFusion$EventRate - datFusion$EventRate_a
 # - Graphing parameters
 vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,2,7,8,9,10,11,12)]
 length(vCol)
-vLabel2 <- c("b_Actual_spline"=paste0("Actual spline"), 
+vLabel2 <- c("b_Actual_spline"=paste0("Empirical Spline"), 
              "d_Expected_spline_bas"=paste0("Exp spline: DtH-Basic A"),
              "f_Expected_spline_adv"=paste0("Exp spline: DtH-Advanced A"),
              "h_Expected_spline_LR"=paste0("Exp spline: LR A"),
              "j_Expected_spline_Youden_adv"=paste0("Exp spline: DtH-Advanced B"),
-             "a_Actual"="Actual", "c_Expected_bas"="Exp: DtH-Basic A", "e_Expected_adv"="Exp: DtH-Advanced A","g_Expected_LR"="Exp: LR A",
+             "a_Actual"="Emprirical", "c_Expected_bas"="Exp: DtH-Basic A", "e_Expected_adv"="Exp: DtH-Advanced A","g_Expected_LR"="Exp: LR A",
              "i_Expected_Youden_adv"="Exp: DtH-Advanced B")
 vSize <- c(0.2,0.3,0.2,0.3,0.2,0.3, 0.2, 0.3, 0.2, 0.3,0.2,0.3)
 vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid","dashed", "solid","dashed", "solid","dashed", "solid")
