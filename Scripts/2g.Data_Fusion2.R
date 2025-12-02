@@ -39,7 +39,7 @@
 # =======================================================================================
 
 
-
+### MM: We aren't using any version/derivative of the [Balance_adj] variable, so why not delete all its engineering?
 
 # ------ 1. Preliminaries
 
@@ -168,12 +168,12 @@ datCredit_prep[, value_ind_slc_past_due_amt := ifelse(is.na(slc_past_due_amt) | 
 
 # - Check the missingness of the variables
 # If they are more than 50% missing - remove
-table(datCredit_prep$value_ind_slc_pmnt_method) %>% prop.table()              # missingness: 6.7% - keep the variable (categorical)
-table(datCredit_prep$value_ind_slc_days_excess) %>% prop.table()              # missingness: 78.3% - discard the variable
-table(datCredit_prep$value_ind_slc_acct_pre_lim_perc) %>% prop.table()        # missingness: 6.7% - keep the variable (numeric) 
-table(datCredit_prep$value_ind_slc_acct_roll_ever_24) %>% prop.table()        # missingness: 6.7% - keep the variable (numeric + delinquency theme)     
-table(datCredit_prep$value_ind_slc_acct_arr_dir_3) %>% prop.table()           # missingness: 6.7% - keep the variable (categorical + delinquency theme)        
-table(datCredit_prep$value_ind_slc_acct_prepaid_perc_dir_12) %>% prop.table() # missingness: 6.7% - keep the variable (numeric)
+table(datCredit_prep$value_ind_slc_pmnt_method) %>% prop.table()              # missingness: 11.6% - keep the variable (categorical)
+table(datCredit_prep$value_ind_slc_days_excess) %>% prop.table()              # missingness: 74.4% - discard the variable
+table(datCredit_prep$value_ind_slc_acct_pre_lim_perc) %>% prop.table()        # missingness: 11.6% - keep the variable (numeric) 
+table(datCredit_prep$value_ind_slc_acct_roll_ever_24) %>% prop.table()        # missingness: 11.6% - keep the variable (numeric + delinquency theme)     
+table(datCredit_prep$value_ind_slc_acct_arr_dir_3) %>% prop.table()           # missingness: 11.6% - keep the variable (categorical + delinquency theme)        
+table(datCredit_prep$value_ind_slc_acct_prepaid_perc_dir_12) %>% prop.table() # missingness: 11.6% - keep the variable (numeric)
 
 # - Remove the variables that have missingness > 50%
 suppressWarnings( datCredit_prep[, `:=`(value_ind_slc_days_excess = NULL, slc_days_excess = NULL)]); gc()
@@ -234,7 +234,7 @@ if (doDescribe) describe(datCredit_prep$slc_acct_pre_lim_perc); hist(datCredit_p
 datCredit_prep[is.na(slc_acct_pre_lim_perc), .N] / datCredit_prep[,.N] * 100
 ### RESULTS: Highly right-skewed distribution, with mean of ~0.09282 vs median of 0,
 # bounded by [0, 1] for 5%-95% percentiles; no outliers, other than at 0 and 1
-# Use median imputation, given 6.7% missingness degree, trading off the minor distributional distortion as a result
+# Use median imputation, given 11.6% missingness degree, trading off the minor distributional distortion as a result
 
 datCredit_prep[, slc_acct_pre_lim_perc_imputed_med := 
                 ifelse(is.na(slc_acct_pre_lim_perc) | slc_acct_pre_lim_perc == "", 
@@ -253,7 +253,7 @@ hist(datCredit_prep$slc_acct_pre_lim_perc_imputed_med, breaks='FD')
 if (doDescribe) describe(datCredit_prep$slc_acct_roll_ever_24); hist(datCredit_prep$slc_acct_roll_ever_24, breaks='FD')
 datCredit_prep[is.na(slc_acct_roll_ever_24), .N] / datCredit_prep[,.N] * 100
 ### RESULTS: Highly right-skewed distribution, with most discrete values having the value of 0
-# Use mean imputation, given 6.7% missingness degree, trading off the minor distributional distortion as a result
+# Use mean imputation, given 11.6% missingness degree, trading off the minor distributional distortion as a result
 datCredit_prep[, slc_acct_roll_ever_24_imputed_mean := 
                 ifelse(is.na(slc_acct_roll_ever_24) | slc_acct_roll_ever_24 == "", 
                        mean(slc_acct_roll_ever_24, na.rm=TRUE), slc_acct_roll_ever_24)]
@@ -274,7 +274,7 @@ datCredit_prep[is.na(slc_acct_prepaid_perc_dir_12), .N] / datCredit_prep[,.N] * 
 ### RESULTS: Highly right-skewed distribution, with mean of ~13m vs median of 0, 
 # bounded by [0, 4.2] for 5%-95% percentiles; some very large outliers
 
-# Use median imputation, given 6.7% missingness degree, trading off the minor distributional distortion as a result
+# Use median imputation, given 11.6% missingness degree, trading off the minor distributional distortion as a result
 datCredit_prep[, slc_acct_prepaid_perc_dir_12_imputed_med := 
                 ifelse(is.na(slc_acct_prepaid_perc_dir_12) | slc_acct_prepaid_perc_dir_12 == "", 
                        median(slc_acct_prepaid_perc_dir_12, na.rm=TRUE), slc_acct_prepaid_perc_dir_12)]
@@ -292,7 +292,7 @@ datCredit_prep[is.na(slc_past_due_amt), .N] / datCredit_prep[,.N] * 100
 ### RESULTS: Highly right-skewed distribution, with mean of 329.4 vs median of 0, 
 # bounded by [0, 171.4] for 5%-95% percentiles; some very large outliers
 ### MM: Scope for eventual extreme value treatment if those outliers are correct; or use winsorized mean
-# Use median imputation, given 6.7% missingness degree, trading off the minor distributional distortion as a result
+# Use median imputation, given 11.6% missingness degree, trading off the minor distributional distortion as a result
 
 datCredit_prep[, slc_past_due_amt_imputed_med := 
                 ifelse(is.na(slc_past_due_amt) | slc_past_due_amt == "", 
@@ -506,43 +506,12 @@ if (doDescribe) describe(datCredit_prep$Instalment_Real); hist(datCredit_prep$In
 #                 bounded by [497, 21k] for 5%-95% percentiles; severe outliers to the right: 20m; left: 0
 
 
-# --- 3.7. Featuring Engineering:  Balance and lagged Balance to deal with 0 values on Write-off
+# --- 3.7. Featuring Engineering: Lagged [Balance] to deal with 0 values on Write-off
 
 if (doDescribe) describe(datCredit_prep$Balance); hist(datCredit_prep$Balance)
 ### RESULTS: Highly right-skewed distribution as expected
 
-# Create another variable for balanced to account for these
-datCredit_prep[, Balance_adj_WOff := Balance]
-datCredit_prep[Balance==0&DefSpell_Event==1, Balance_adj_WOff := WriteOff_Amt ]
-
-# [SANITY CHECK] Check new feature for illogical values
-cat( ( datCredit_prep[is.na(Balance_adj_WOff), .N] == 0) %?% 
-       'SAFE: New feature [Balance_adj_WOff] has logical values.\n' %:% 
-       'WARNING: New feature [Balance_adj_WOff] has illogical values \n' )
-
-if (doDescribe) describe(datCredit_prep$BalanceToPrincipal); hist(datCredit_prep$BalanceToPrincipal)
-### RESULTS: Highly right-skewed distribution as expected
-
-# Create another variable for balanced to account for these
-datCredit_prep[, BalanceToPrincipal_adj_WOff := Balance_adj_WOff/Principal]
-
-# [SANITY CHECK] Check new feature for illogical values
-cat( ( datCredit_prep[is.na(BalanceToPrincipal_adj_WOff), .N] == 0) %?% 
-       'SAFE: New feature [BalanceToPrincipal_adj_WOff] has logical values.\n' %:% 
-       'WARNING: New feature [BalanceToPrincipal_adj_WOff] has illogical values \n' )
-
-if (doDescribe) describe(datCredit_prep$Balance_Real); hist(datCredit_prep$Balance_Real)
-### RESULTS: Highly right-skewed distribution as expected
-
-# Create another variable for balanced to account for these
-datCredit_prep[, Balance_Real_adj_WOff := Balance_adj_WOff*Inf_Factor]
-
-# [SANITY CHECK] Check new feature for illogical values
-cat( ( datCredit_prep[is.na(Balance_Real_adj_WOff), .N] == 0) %?% 
-       'SAFE: New feature [Balance_Real_adj_WOff] has logical values.\n' %:% 
-       'WARNING: New feature [Balance_Real_adj_WOff] has illogical values \n' )
-
-# Createing a lagged verision of Balance
+# Creating a lagged version of Balance
 datCredit_prep[, Balance_1 := fcoalesce(shift(Balance, 1, type = "lag"), Balance), by = LoanID]
 
 # [SANITY CHECK] Check new feature for illogical values
@@ -569,7 +538,6 @@ cat( ( datCredit_prep[is.na(Balance_Real_1), .N] == 0) %?%
        'SAFE: New feature [Balance_Real_1] has logical values.\n' %:% 
        'WARNING: New feature [Balance_Real_1] has illogical values \n' )
 
-
 # - Save to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath, "creditdata_final_CDH_smp1d"), datCredit_prep); gc()
 
@@ -577,7 +545,7 @@ pack.ffdf(paste0(genPath, "creditdata_final_CDH_smp1d"), datCredit_prep); gc()
 rm(datMV, date_range, datInflation)
 
 
-# --- 3.7. Featuring Engineering: Portfolio-level information
+# --- 3.8. Featuring Engineering: Portfolio-level information
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1d"), tempPath)
@@ -614,7 +582,6 @@ cat((anyNA(datCredit_prep$g0_Delinq_Any_Aggr_Prop)) %?% 'WARNING: New feature [g
       'SAFE: New feature [g0_Delinq_Any_Aggr_Prop] has no missing values. \n')
 ### RESULTS: [g0_Delinq_Any_Aggr_Prop] created without any missingness
 
-
 # - Average post-default delinquency level
 datCredit_prep[,g0_Delinq_Ave:=mean(ifelse(DefaultStatus1==1,g0_Delinq,0), na.rm=T), by=Date]
 # [SANITY CHECK] Check new feature for illogical values
@@ -649,14 +616,15 @@ if (doDescribe) describe(datCredit_prep$DefaultStatus1_Aggr_Prop_Lag_12); hist(d
 # bounded by [0.028, 0.084] for 5%-95% percentiles; no outliers
 
 # - Ratio type variables (portfolio-level) during default spells
-# (Total) Arrears to (Total) Balance; (Total) Instalments to (Total) Balance
+# Total arrears to total balance; Total instalments to total balance
 # NOTE: These portfolio-level aggregated variables are engineered to capture/ aggregate information only for accounts that are in a performance spell
 # The resulting aggregated dataset can be fused to the full dataset
-dat_Aggr <- data.table(datCredit_prep[DefaultStatus1==1, list(sum(Arrears, na.rm=T)/sum(Balance, na.rm=T)), by=list(Date)], # [ArrearsToBalance_Aggr]
-                       datCredit_prep[DefaultStatus1==1, list(sum(Instalment, na.rm=T)/sum(Balance)), by=list(Date)][,2], # [InstalmentToBalance_Aggr]
-                       datCredit_prep[DefaultStatus1==1, list(sum(Arrears, na.rm=T)/sum(Balance_adj_WOff)), by=list(Date)][,2],# [ArrearsToBalance_Aggr_adj_WOff]
-                       datCredit_prep[DefaultStatus1==1, list(sum(Instalment, na.rm=T)/sum(Balance_adj_WOff)), by=list(Date)][,2]) # [InstalmentToBalance_Aggr_adj_WOff]
-colnames(dat_Aggr) <- c("Date", "ArrearsToBalance_Aggr_Prop", "InstalmentToBalance_Aggr_Prop","ArrearsToBalance_Aggr_Prop_adj_WOff", "InstalmentToBalance_Aggr_Prop_adj_WOff")
+dat_Aggr <- data.table(datCredit_prep[DefaultStatus1==1, list(sum(Arrears, na.rm=T)/sum(Balance, na.rm=T)), by=list(Date)],
+                       datCredit_prep[DefaultStatus1==1, list(sum(Instalment, na.rm=T)/sum(Balance)), by=list(Date)][,2],
+                       datCredit_prep[DefaultStatus1==1, list(sum(Arrears, na.rm=T)/sum(Balance_1)), by=list(Date)][,2],
+                       datCredit_prep[DefaultStatus1==1, list(sum(Instalment, na.rm=T)/sum(Balance_1)), by=list(Date)][,2])
+colnames(dat_Aggr) <- c("Date", "ArrearsToBalance_Aggr_Prop", "InstalmentToBalance_Aggr_Prop",
+                        "ArrearsToBalance_1_Aggr_Prop", "InstalmentToBalance_1_Aggr_Prop")
 # Fusing the aggregated dataset to the full dataset
 datCredit_prep <- merge(datCredit_prep, dat_Aggr, by="Date", all.x=T)
 # [SANITY CHECK] Check new feature for illogical values
@@ -666,20 +634,26 @@ cat( (sum(datCredit_prep[, sum(is.na(ArrearsToBalance_Aggr_Prop)), by=Date][,2])
 cat( (sum(datCredit_prep[, sum(is.na(InstalmentToBalance_Aggr_Prop)), by=Date][,2])==0) %?% 
        'SAFE: New feature [InstalmentToBalance_Aggr_Prop] has logical values.\n' %:% 
        'WARNING: New feature [InstalmentToBalance_Aggr_Prop] has illogical values \n' )
-cat( (sum(datCredit_prep[, sum(is.na(ArrearsToBalance_Aggr_Prop_adj_WOff)), by=Date][,2])==0) %?% 
-       'SAFE: New feature [ArrearsToBalance_Aggr_Prop_adj_WOff] has logical values.\n' %:% 
-       'WARNING: New feature [ArrearsToBalance_Aggr_Prop_adj_WOff] has illogical values \n' )
-cat( (sum(datCredit_prep[, sum(is.na(InstalmentToBalance_Aggr_Prop_adj_WOff)), by=Date][,2])==0) %?% 
-       'SAFE: New feature [InstalmentToBalance_Aggr_Prop_adj_WOff] has logical values.\n' %:% 
-       'WARNING: New feature [InstalmentToBalance_Aggr_Prop_adj_WOff] has illogical values \n' )
-if (doDescribe) describe(datCredit_prep$InstalmentToBalance_Aggr_Prop); 
-plot(unique(datCredit_prep$Date),unique(datCredit_prep$InstalmentToBalance_Aggr_Prop), type="b")
-if (doDescribe) describe(datCredit_prep$ArrearsToBalance_Aggr_Prop); 
-plot(unique(datCredit_prep$ArrearsToBalance_Aggr_Prop), type="b")
-if (doDescribe) describe(datCredit_prep$InstalmentToBalance_Aggr_Prop_adj_WOff); 
-plot(unique(datCredit_prep$Date),unique(datCredit_prep$InstalmentToBalance_Aggr_Prop_adj_WOff), type="b")
-if (doDescribe) describe(datCredit_prep$ArrearsToBalance_Aggr_Prop_adj_WOff); 
-plot(unique(datCredit_prep$ArrearsToBalance_Aggr_Prop_adj_WOff), type="b")
+cat( (sum(datCredit_prep[, sum(is.na(ArrearsToBalance_1_Aggr_Prop)), by=Date][,2])==0) %?% 
+       'SAFE: New feature [ArrearsToBalance_1_Aggr_Prop] has logical values.\n' %:% 
+       'WARNING: New feature [ArrearsToBalance_1_Aggr_Prop] has illogical values \n' )
+cat( (sum(datCredit_prep[, sum(is.na(InstalmentToBalance_1_Aggr_Prop)), by=Date][,2])==0) %?% 
+       'SAFE: New feature [InstalmentToBalance_1_Aggr_Prop] has logical values.\n' %:% 
+       'WARNING: New feature [InstalmentToBalance_1_Aggr_Prop] has illogical values \n' )
+# Analyse newly created variables
+if (doDescribe){
+  describe(datCredit_prep$ArrearsToBalance_Aggr_Prop)
+  plot(unique(datCredit_prep$ArrearsToBalance_Aggr_Prop), type="b")
+  
+  describe(datCredit_prep$InstalmentToBalance_Aggr_Prop)
+  plot(unique(datCredit_prep$Date),unique(datCredit_prep$InstalmentToBalance_Aggr_Prop), type="b")
+  
+  describe(datCredit_prep$ArrearsToBalance_1_Aggr_Prop)
+  plot(unique(datCredit_prep$ArrearsToBalance_1_Aggr_Prop), type="b")
+  
+  describe(datCredit_prep$InstalmentToBalance_1_Aggr_Prop)
+  plot(unique(datCredit_prep$Date),unique(datCredit_prep$InstalmentToBalance_1_Aggr_Prop), type="b")
+}
 ### RESULTS: [InstalmentToBalance_Aggr_Prop]: Variable has high volatility around 2010 as seen through the graphical plot.
 ###          Mean of 0.01228 vs median of 0.012, bounded by [0.01088, 0.01422] for 5%-95% percentiles; no outliers.
 ###          [ArrearsToBalance_Aggr_Prop]: Variable has  mean of 0.0006134 vs median of 0.0004895,
@@ -692,7 +666,7 @@ cat( (sum(datCredit_prep[, sum(is.na(CuringEvents_Aggr_Prop)), by=Date][,2])==0)
        'WARNING: New feature [CuringEvents_Aggr_Prop] has illogical values \n' )
 if (doDescribe)describe(datCredit_prep$CuringEvents_Aggr_Prop); plot(unique(datCredit_prep$CuringEvents_Aggr_Prop), type="b")
 ### RESULTS: Variable has mean of 0.001373 vs median of 0.0012615,
-# bounded by [0.0006567, 0.0026194] for 5%-95% percentiles; no outliers
+###          bounded by [0.0006567, 0.0026194] for 5%-95% percentiles; no outliers
 
 # - Aggregated age-to-term of portfolio over time, i.e., percentage-based maturity
 datCredit_prep[, AgeToTerm_Aggr_Mean := mean(Age_Adj / Term[Term != 0], na.rm = TRUE), by = Date]
@@ -701,7 +675,7 @@ cat( (sum(datCredit_prep[, sum(is.na(AgeToTerm_Aggr_Mean)), by=Date][,2])==0) %?
        'WARNING: New feature [AgeToTerm_Aggr_Mean] has illogical values \n' )
 if (doDescribe) describe(datCredit_prep$AgeToTerm_Aggr_Mean); plot(unique(datCredit_prep$AgeToTerm_Aggr_Mean), type="b")
 ### RESULTS: Variable behaves as expected, i.e., increases as the loan portfolio matures. Has mean 0.3621 and median 0.3878
-###          bounded by [0.2568, 0.4006] for 5%-95% percentiles; no outliers
+###          bounded by [0.2568, 0.4006] for 5%-95% percentiles; no outliers present
 
 # - Aggregate maturity of default spell ages over time
 datCredit_prep[, DefSpell_Maturity_Aggr_Mean := mean(DefSpell_Age, na.rm=T), by=Date]
@@ -757,44 +731,7 @@ suppressWarnings(rm(dat_IRM_Aggr, dat_IRM_Aggr_Check1, list_merge_variables, res
                     Covariate_Info, lookup, lookup2, dat_g0_Delinq_Aggr, dat_DefaultRate, dat_Aggr)); gc()
 
 
-# --- 3.7. Featuring Engineering: Arrears and Balance to deal with 0 values on Write-off
-
-if (doDescribe) describe(datCredit_prep$Balance); hist(datCredit_prep$Balance)
-### RESULTS: Highly right-skewed distribution as expected
-
-# Create another variable for balanced to account for these
-datCredit_prep[, Balance_adj_WOff := Balance]
-datCredit_prep[Balance==0&DefSpell_Event==1, Balance_adj_WOff := WriteOff_Amt ]
-
-# [SANITY CHECK] Check new feature for illogical values
-cat( ( datCredit_prep[is.na(Balance_adj_WOff), .N] == 0) %?% 
-       'SAFE: New feature [Balance_adj_WOff] has logical values.\n' %:% 
-       'WARNING: New feature [Balance_adj_WOff] has illogical values \n' )
-
-if (doDescribe) describe(datCredit_prep$BalanceToPrincipal); hist(datCredit_prep$BalanceToPrincipal)
-### RESULTS: Highly right-skewed distribution as expected
-
-# Create another variable for balanced to account for these
-datCredit_prep[, BalanceToPrincipal_adj_WOff := Balance_adj_WOff/Principal]
-
-# [SANITY CHECK] Check new feature for illogical values
-cat( ( datCredit_prep[is.na(BalanceToPrincipal_adj_WOff), .N] == 0) %?% 
-       'SAFE: New feature [BalanceToPrincipal_adj_WOff] has logical values.\n' %:% 
-       'WARNING: New feature [BalanceToPrincipal_adj_WOff] has illogical values \n' )
-
-if (doDescribe) describe(datCredit_prep$Balance_Real); hist(datCredit_prep$Balance_Real)
-### RESULTS: Highly right-skewed distribution as expected
-
-# Create another variable for balanced to account for these
-datCredit_prep[, Balance_Real_adj_WOff := Balance_adj_WOff*Inf_Factor]
-
-# [SANITY CHECK] Check new feature for illogical values
-cat( ( datCredit_prep[is.na(Balance_Real_adj_WOff), .N] == 0) %?% 
-       'SAFE: New feature [Balance_Real_adj_WOff] has logical values.\n' %:% 
-       'WARNING: New feature [Balance_Real_adj_WOff] has illogical values \n' )
-
-
-# --- 3.8. Macroeconomic feature engineering
+# --- 3.9 Macroeconomic feature engineering
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1e"), tempPath)
@@ -857,9 +794,9 @@ cat( (length(which(results_missingness > 0)) == 0) %?% "SAFE: No missingness, fu
 rm(datMV, list_merge_variables, results_missingness, datMV_Check1, datMV_Check2); gc()
 
 
-# --- 3.9. Model-based feature engineering
+# --- 3.10 Model-based feature engineering
 
-# - Create binned version of TimeInPerfSpell for discrete-time hazard models
+# - Create binned version of [TimeInPerfSpell] for discrete-time hazard models
 timeBinning <- function(x) {
   case_when(
     0 < x & x <= 3 ~ "01.[1,3]", 3 < x & x <= 6 ~ "02.(3,6]",
@@ -962,6 +899,7 @@ pack.ffdf(paste0(genPath,"creditdata_train_CDH"), datCredit_train_CDH)
 
 # - Validation dataset
 pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
+
 
 # --- 4.3 Clean up
 suppressWarnings(rm(dat_keys_smp_perf, dat_keys_smp_perf,  dat_train_keys_perf, dat_train_keys_def, datCredit_train_perf, datCredit_train_def,  datCredit_valid_perf, datCredit_valid_def,

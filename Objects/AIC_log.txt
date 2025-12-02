@@ -1,0 +1,5 @@
+New Job: Estimating AIC for each variable as a single-factor survival model ..
+	 2) Single-factor survival model built. 
+	 3) Single-factor survival model built. 
+	 4) Single-factor survival model built. 
+	 1) Single-factor survival model built. 

@@ -3,7 +3,7 @@
 # an advanced logistic regression model.
 # ------------------------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG)
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG), Marcel Muller (MM)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
@@ -24,7 +24,7 @@
 # ------------------------------------------------------------------------------------------------------
 
 # ------ 1. Preliminaries
-
+# --- 1.1. Load data
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
@@ -35,20 +35,23 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key)&DefSpell_Counter==1,
 # remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
-# Create an indicator to identify a write-off
+
+# --- 1.2 Prepare data
+# - Create an indicator to identify a write-off
 datCredit_train[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
 datCredit_valid[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
 
 
+# --- 1.3 Fit an empty model to use in analytics
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # Insight interactively mined from modelling theme 2a-b was used in fitting this model.
 
 
+
+
 # ------ 2. Delinquency-themed variables
-
-
-# ------ 2.1 Which time window length is the best in calculating delinquency volatility?
+# --- 2.1 Selection of delinquency volatility variables
 
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_SD_4", "g0_Delinq_SD_5", "g0_Delinq_SD_6", "g0_Delinq_SD_9", "g0_Delinq_SD_12")
@@ -56,19 +59,19 @@ vars <- c("g0_Delinq_SD_4", "g0_Delinq_SD_5", "g0_Delinq_SD_6", "g0_Delinq_SD_9"
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [g0_Delinq_SD_12]; [g0_Delinq_SD_4]; [g0_Delinq_SD_5]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: g0_Delinq_SD_12, g0_Delinq_SD_9, g0_Delinq_SD_5, g0_Delinq_SD_6, g0_Delinq_SD_4
-# Best Harrell's C-statistics: g0_Delinq_SD_6, g0_Delinq_SD_5, g0_Delinq_SD_12, g0_Delinq_SD_4, g0_Delinq_SD_9
-# All of them are significant on their own
+### RESULTS: Best Harrell's C-statistics: [g0_Delinq_SD_12]; [g0_Delinq_SD_4]; [g0_Delinq_SD_5]
 
-### Conclusion: The Harell's C-statistic decreases with a linear trend 
-# g0_Delinq_SD_12 seems to perform the best but also include g0_Delinq_SD_5 and g0_Delinq_SD_6
+### Conclusion: The longest lag performed the best, followed by the series of shorter lags
+###             Select:
+###               [g0_Delinq_SD_12], [g0_Delinq_SD_4], [g0_Delinq_SD_5]
+### MM: I have changed this selectionfrom the previous selection: [g0_Delinq_SD_12]; [g0_Delinq_SD_5]; [g0_Delinq_SD_6]
 
 
-#----- 2.2 Which lag order is the best in calculating the portfolio-level fraction of the defaulted proportion with any delinquency?
-# indicates the lag order of past data that should be included  when assessing an account
-# - Initialize variables to be tested
+# --- 2.2 Selection of portfolio-level variables indicating the prevalence of delinquent accounts
+# - Set initial variables to be tested
 vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq_Any_Aggr_Prop_Lag_2",
           "g0_Delinq_Any_Aggr_Prop_Lag_3", "g0_Delinq_Any_Aggr_Prop_Lag_4", "g0_Delinq_Any_Aggr_Prop_Lag_5",
           "g0_Delinq_Any_Aggr_Prop_Lag_6", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Any_Aggr_Prop_Lag_12" )
@@ -76,18 +79,19 @@ vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [g0_Delinq_Any_Aggr_Prop_2]; [g0_Delinq_Any_Aggr_Prop_Lag_5]; [g0_Delinq_Any_Aggr_Prop_Lag_6]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: g0_Delinq_Any_Aggr_Prop_12, g0_Delinq_Any_Aggr_Prop_Lag_9, g0_Delinq_Any_Aggr_Prop_Lag_6, g0_Delinq_Any_Aggr_Prop_Lag_5
-# , g0_Delinq_Any_Aggr_Prop_Lag_3
-# Best C-statistics: g0_Delinq_Any_Aggr_Prop_12, g0_Delinq_Any_Aggr_Prop_Lag_9, g0_Delinq_Any_Aggr_Prop_Lag_4, g0_Delinq_Any_Aggr_Prop_Lag_3
+### RESULTS: Best C-statistics: [g0_Delinq_Any_Aggr_Prop_Lag_12]; [g0_Delinq_Any_Aggr_Prop]; [g0_Delinq_Any_Aggr_Prop_Lag_5]
 
-# Conclusion: The differences in AIC and Harell's C-statiistic are minor
-# Choose the overall top 3 performing variables g0_Delinq_Any_Aggr_Prop_12, g0_Delinq_Any_Aggr_Prop_Lag_9, g0_Delinq_Any_Aggr_Prop_Lag_6
-# All are above 50% 
+### Conclusion: The differences in AIC are minor, however, the differences in the C-statistic are substantial; preference given to C-statistic
+###             Select:
+###               [g0_Delinq_Any_Aggr_Prop_Lag_12]; [g0_Delinq_Any_Aggr_Prop]; [g0_Delinq_Any_Aggr_Prop_Lag_5]
+### MM: I have changed this selection from the previous selection: [g0_Delinq_SD_12]; [g0_Delinq_SD_5]; [g0_Delinq_SD_6]
 
 
-# ------ 2.3 Which lag order is the best in calculating the portfolio-level fraction of defaulted accounts during the default spell?
+# --- 2.3 Selection of portfolio-level variables indicating the prevalence of defaulted accounts
+# - Set initial variables to be tested
 vars <- c("DefaultStatus1_Aggr_Prop", "DefaultStatus1_Aggr_Prop_Lag_1", "DefaultStatus1_Aggr_Prop_Lag_2",
           "DefaultStatus1_Aggr_Prop_Lag_3", "DefaultStatus1_Aggr_Prop_Lag_4", "DefaultStatus1_Aggr_Prop_Lag_5",
           "DefaultStatus1_Aggr_Prop_Lag_6", "DefaultStatus1_Aggr_Prop_Lag_9", "DefaultStatus1_Aggr_Prop_Lag_12" )
@@ -95,64 +99,62 @@ vars <- c("DefaultStatus1_Aggr_Prop", "DefaultStatus1_Aggr_Prop_Lag_1", "Default
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [DefaultStatus1_Aggr_Prop_Lag_9]; [DefaultStatus1_Aggr_Prop_Lag_4]; [DefaultStatus1_Aggr_Prop_Lag_1]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: DefaultStatus1_Aggr_Prop, DefaultStatus1_Aggr_Prop_Lag_1, DefaultStatus1_Aggr_Prop_Lag_2, 
-# Differences are not that major
-# Best C-statistics: DefaultStatus1_Aggr_Prop, DefaultStatus1_Aggr_Prop_Lag_1, DefaultStatus1_Aggr_Prop_Lag_12, DefaultStatus1_Aggr_Prop_Lag_2
-# Similar trend as to AIC
+### RESULTS: Best C-statistics: [DefaultStatus1_Aggr_Prop_Lag_9]; [DefaultStatus1_Aggr_Prop_Lag_6]; [DefaultStatus1_Aggr_Prop_Lag_5]
 
-### CONCLUSION: Later is better, though the AIC-differences were minuscule. Concordance-differences were slightly bigger than the AIC values
-# Top 3 varibales: DefaultStatus1_Aggr_Prop_Lag_2, DefaultStatus1_Aggr_Prop_Lag_1, DefaultStatus1_Aggr_Prop_Lag
+### CONCLUSION: The AICs are almost identical, where as the C-statistics have more pronounced differences; preference given to C-statistic
+###             Select:
+###               [DefaultStatus1_Aggr_Prop_Lag_9]; [DefaultStatus1_Aggr_Prop_Lag_6]; [DefaultStatus1_Aggr_Prop_Lag_5]
+### MM: I have changed this selection from the previous selection: [DefaultStatus1_Aggr_Prop_Lag_2]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag]
 
 
-# ------ 2.4 How do other portfolio-level delinquency-themed variables fare as single-factor models?
-
-# - Initialize variables to be tested
-vars <- c("g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop", "CuringEvents_Aggr_Prop" )
+# --- 2.4 Selection of other portfolio-level delinquency-themed variables
+# - Set initial variables to be tested
+vars <- c("g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop_adj_WOff", "CuringEvents_Aggr_Prop" )
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [g0_Delinq_Ave]; [ArrearsToBalance_Aggr_Prop]; [CuringEvents_Aggr_Prop]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: CuringEvents_Aggr_Prop, g0_Delinq_Ave, ArrearsToBalance_Aggr_Prop,
-# However they aren't that big with their being a 100 difference between the lowest and highest
-# Best C-statistics: CuringEvents_Aggr_Prop, g0_Delinq_Ave, ArrearsToBalance_Aggr_Prop,
+### RESULTS: Best C-statistics: [CuringEvents_Aggr_Prop]; [g0_Delinq_Ave]; [ArrearsToBalance_Aggr_Prop_adj_WOff]
 
-### Conclusion: All are significant include all 3 of them, curing event is relevant
+### Conclusion: All are significant, therefore include all three
 
 
-# ------ 2.5 How do account-level delinquency-themed variables fare as single-factor models?
-
-# - Initialize variables to be tested
-vars <- c("DefSpell_Age", "g0_Delinq_fac", "g0_Delinq", "g0_Delinq_Lag_1", "slc_acct_arr_dir_3_Change_Ind",
-          "g0_Delinq_Num", "slc_acct_arr_dir_3", "slc_acct_roll_ever_24_imputed_mean", "Arrears", "PrevDefaults","TimeInDelinqState"
-          ,"slc_past_due_amt_imputed_med", "slc_curing_ind", "DefSpell_Num_binned")
+# --- 2.5 Selection of account-level delinquency-themed variables
+# - Set initial variables to be tested
+vars <- c("DefSpell_Age", "g0_Delinq_Lag_1", "slc_acct_arr_dir_3_Change_Ind",
+          "g0_Delinq_Num", "slc_acct_arr_dir_3", "slc_acct_roll_ever_24_imputed_mean", "Arrears", "PrevDefaults","TimeInDelinqState",
+          "slc_past_due_amt_imputed_med", "slc_curing_ind", "DefSpell_Num_binned")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [DefSpell_Age]; [Arrears]; [g0_Delinq_Lag_1]; [slc_past_due_amt_imputed_med]; [slc_acct_roll_ever_24_imputed_mean]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: PrevDefaults, DefSpell_Age, g0_Delinq_Num, Arrears,DefSpell_Num_binned, slc_acct_arr_dir_3,slc_past_due_amt_imputed_med,slc_curing_ind
-# Best C-statistics: PrevDefaults, DefSpell_Age, g0_Delinq_Num, Arrears, slc_acct_arr_dir_3,slc_past_due_amt_imputed_med,slc_curing_ind
-# Do not include g0_Delinq and g0_Delinq_fac as these would lead to unstable models
-### CONCLUSION
-# Choose: PrevDefaults, DefSpell_Age, g0_Delinq_Num, Arrears, DefSpell_Num_binned,slc_past_due_amt_imputed_med,
-# These variables performed significantly better than the rest with th lowest AIC 
+### RESULTS: Best C-statistics: [DefSpell_Age]; [Arrears]; [slc_past_due_amt_imputed_med]; [slc_acct_arr_dir_3]; [g0_Delinq_Lag_1]
+
+### CONCLUSION: Differences are pronounced between the AICs and C-statistics; preference given to C-statistic in final choice
+###             Select:
+###               [DefSpell_Age]; [Arrears]; [slc_past_due_amt_imputed_med]; [slc_acct_arr_dir_3]; [g0_Delinq_Lag_1]
+### MM: I have changed this selection from the previous selection: [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num]; [Arrears]; [DefSpell_Num_binned]; [slc_past_due_amt_imputed_med]
+### MM: Why are we selecting the top 5 variables here instead of the top 3 as we did in previous subsections?
 
 
-# ------ 2.6 Combining insights: delinquency-themed variables
-
-# - Initialize variables to be tested
-vars <- c("g0_Delinq_SD_5", "g0_Delinq_SD_12","g0_Delinq_SD_6",
-          "g0_Delinq_Any_Aggr_Prop_Lag_12", "g0_Delinq_Any_Aggr_Prop_Lag_9","g0_Delinq_Any_Aggr_Prop_Lag_6",
-          "DefaultStatus1_Aggr_Prop_Lag_1", "DefaultStatus1_Aggr_Prop_Lag_2", "DefaultStatus1_Aggr_Prop",
-          "g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop","CuringEvents_Aggr_Prop","PrevDefaults",
-          "DefSpell_Age", "g0_Delinq_Num", "Arrears", "slc_past_due_amt_imputed_med",
-          "DefSpell_Num_binned")
-
+# --- 2.6 Combining insights: delinquency-themed variables
+# - Set initial variables to be tested
+### NOTE: [g0_Delinq_SD_4] ,[g0_Delinq_SD_5], [ArrearsToBalance_Aggr_Prop_adj_WOff],
+###       [DefSpell_Age], [Arrears], [slc_past_due_amt_imputed_med], [slc_acct_arr_dir_3] cause quasi-complete separation
+vars <- c("g0_Delinq_SD_12",#  "g0_Delinq_SD_4", "g0_Delinq_SD_5",
+          "DefaultStatus1_Aggr_Prop_Lag_9", "DefaultStatus1_Aggr_Prop_Lag_6" , "DefaultStatus1_Aggr_Prop_Lag_5",
+          "CuringEvents_Aggr_Prop", "g0_Delinq_Ave", # "ArrearsToBalance_Aggr_Prop_adj_WOff",
+          # "DefSpell_Age", # "Arrears", "slc_past_due_amt_imputed_med", "slc_acct_arr_dir_3",
+          "g0_Delinq_Lag_1")
 
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
@@ -160,6 +162,9 @@ modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = "
 summary(modLR_full);
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC:   69,432; McFadden R^2:  30.62%; AUC:  86.47%.
+### MM: I couldn't run this code, getting this error:
+###       Error in coefDeter_glm(model, model_base) : 
+###         ERROR: Internal function error in calculating & verifying McFadden's pseudo R^2-measure
 
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
@@ -199,49 +204,48 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 ### RESULTS: AIC:   70,738; McFadden R^2:  29.30%; AUC:  85.89%.
 
 
+
+
 # ------ 3. Other portfolio-level variables
-
-
-# ------ 3.1 Which lag order is the best in calculating the median interest rate of the portfolio?
-
-# - Initialize variables to be tested
+# --- 3.1 Selection of the portfolio median interest rate margin
+# - Set initial variables to be tested
 vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "InterestRate_Margin_Aggr_Med_2",
           "InterestRate_Margin_Aggr_Med_3", "InterestRate_Margin_Aggr_Med_9")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: InterestRate_Margin_Aggr_Med , InterestRate_Margin_Aggr_Med_1, InterestRate_Margin_Aggr_Med_2,
-# InterestRate_Margin_Aggr_Med_3. InterestRate_Margin_Aggr_Med_9
-# Best C-statistics: InterestRate_Margin_Aggr_Med , InterestRate_Margin_Aggr_Med_1, InterestRate_Margin_Aggr_Med_2,
-# InterestRate_Margin_Aggr_Med_3. InterestRate_Margin_Aggr_Med_9
+### RESULTS: Best C-statistics: [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_3]; [InterestRate_Margin_Aggr_Med_2];
 
-### Conclusion
-# InterestRate_Margin_Aggr_Med_2 , InterestRate_Margin_Aggr_Med, InterestRate_Margin_Aggr_Med_1
-# However the difference in AIC and Harell's c is minor
+### Conclusion: The AICs are almost identical, and apart from the top variable, the rest have similar C-statistics; preference given to higher C-statistics
+###             Select: [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_3]; [InterestRate_Margin_Aggr_Med_2];
+###               [InterestRate_Margin_Aggr_Med_2];, [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]
+### MM: I changed the selection from the previous one: [InterestRate_Margin_Aggr_Med_2];, [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]
 
 
-# ------ 3.2 How do other portfolio-level (non-delinquency) variables fare as single-factor models?
-
-# - Initialize variables to be tested
+# --- 3.2 Selection of other portfolio-level, non-delinquency themed, variables
+# - Set initial variables to be tested
 vars <- c("InstalmentToBalance_Aggr_Prop", "AgeToTerm_Aggr_Mean", "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [AgeToTerm_Aggr_Mean]; [NewLoans_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]; [InstalmentToBalance_Aggr_Prop] 
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: AgeToTerm_Aggr_Mean,  DefSpell_Maturity_Aggr_Mean,InstalmentToBalance_Aggr_Prop, NewLoans_Aggr_Prop
-# Best C-statistics: AgeToTerm_Aggr_Mean, InstalmentToBalance_Aggr_Prop,DefSpell_Maturity_Aggr_Mean, NewLoans_Aggr_Prop,
+### RESULTS: Best C-statistics: [AgeToTerm_Aggr_Mean]; [DefSpell_Maturity_Aggr_Mean]; [NewLoans_Aggr_Prop]; [InstalmentToBalance_Aggr_Prop]
 
-### CONCLUSION: Choose DefSpell_Maturity_Aggr_Mean + InstalmentToBalance_Aggr_Prop +  AgeToTerm_Aggr_Mean
+### CONCLUSION: AICs are almost identical, whilst differences in C-statistics are more pronounced
+###             Select:
+###               [AgeToTerm_Aggr_Mean]; [DefSpell_Maturity_Aggr_Mean]; [NewLoans_Aggr_Prop]
 
 
-# ------ 3.3 Combining insights: Delinquency-themed and portfolio-level variables
-
-# - Initialize variables to be tested
+# --- 3.3 Combining insights: Delinquency-themed and portfolio-level variables
+### MM: Needs reviewing once comments from previous sub-sections have been adressed
+# - Set initial variables to be tested
 vars <- c("g0_Delinq_Any_Aggr_Prop_Lag_12","DefaultStatus1_Aggr_Prop",
           "CuringEvents_Aggr_Prop","PrevDefaults",
           "DefSpell_Age", "g0_Delinq_Num", "Arrears",
@@ -284,49 +288,61 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 
 
 # ------ 4. Account-level variables
-
-# ------ 4.1 How do various non-delinquency account-level variables fare as single-factor models?
-vars <- c("Principal_Real", "Principal", "InterestRate_Margin", 
-          "Balance_Real", "Balance", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
-          "BalanceToPrincipal", "slc_acct_pre_lim_perc_imputed_med")
+# --- 4.1 Selection of non-delinquency related account-level variables
+# - Set initial variables to be tested
+vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean", 
+          "Balance_Real_adj_WOff", "Balance_adj_WOff", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
+          "BalanceToPrincipal_adj_WOff", "slc_acct_pre_lim_perc_imputed_med")
 
 # - Correlation analysis towards obtaining clusters of correlated variables
 corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 ### RESULTS:
-# Absolute correlations of  96%  found for  Principal_Real  and  Principal 
-# Absolute correlations of  92%  found for  Principal_Real  and  Balance_Real 
-# Absolute correlations of  87%  found for  Principal  and  Balance_Real 
-# Absolute correlations of  90%  found for  Principal_Real  and  Balance 
-# Absolute correlations of  91%  found for  Principal  and  Balance 
-# Absolute correlations of  97%  found for  Balance_Real  and  Balance 
-# Absolute correlations of  91%  found for  Principal_Real  and  Instalment_Real 
-# Absolute correlations of  86%  found for  Principal  and  Instalment_Real 
-# Absolute correlations of  96%  found for  Balance_Real  and  Instalment_Real 
-# Absolute correlations of  92%  found for  Balance  and  Instalment_Real 
-# Absolute correlations of  -60%  found for  Balance_Real  and  AgeToTerm 
-# Absolute correlations of  76%  found for  Balance_Real  and  BalanceToPrincipal 
-# Absolute correlations of  69%  found for  Balance  and  BalanceToPrincipal 
-# Absolute correlations of  69%  found for  Instalment_Real  and  BalanceToPrincipal 
-# Absolute correlations of  -68%  found for  AgeToTerm  and  BalanceToPrincipal
+###   Absolute correlations of  96%  found for  [Principal_Real] and [Principal] 
+###   Absolute correlations of  92%  found for  [Principal_Real] and [Balance_Real_adj_WOff] 
+###   Absolute correlations of  87%  found for  [Principal] and [Balance_Real_adj_WOff]
+###   Absolute correlations of  90%  found for  [Principal_Real] and [Balance_adj_WOff] 
+###   Absolute correlations of  91%  found for  [Principal] and [Balance_adj_WOff] 
+###   Absolute correlations of  97%  found for  [Balance_Real_adj_WOff] and [Balance_adj_WOff] 
+###   Absolute correlations of  91%  found for  [Principal_Real] and [Instalment_Real] 
+###   Absolute correlations of  86%  found for  [Principal] and [Instalment_Real] 
+###   Absolute correlations of  96%  found for  [Balance_Real_adj_WOff] and [Instalment_Real] 
+###   Absolute correlations of  92%  found for  [Balance_adj_WOff] and [Instalment_Real] 
+###   Absolute correlations of  -60%  found for  [Balance_Real_adj_WOff] and [AgeToTerm] 
+###   Absolute correlations of  76%  found for  [Balance_Real] and [BalanceToPrincipal_adj_WOff] 
+###   Absolute correlations of  69%  found for  [Balance] and [BalanceToPrincipal_adj_WOff] 
+###   Absolute correlations of  69%  found for  [Instalment_Real] and [BalanceToPrincipal_adj_WOff] 
+###   Absolute correlations of  -68%  found for  [AgeToTerm] and [BalanceToPrincipal_adj_WOff]
 
-# - Initialize variables to be tested
-vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean", "pmnt_method_grp",
-          "Balance_Real", "Balance", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
-          "BalanceToPrincipal", "slc_acct_pre_lim_perc_imputed_med")
+### CONCLUSION: Remove both [Principal] and [Balance] since their counterparts negate the effects of inflation
+###             Keep both [Principal_Real] and [Balance_Real_adj_WOff] despite their high correlation, since one is a behavioral- and the other and application-type variable
+###             Keep [BalanceToPrincipal_adj_WOff] since this is a known powerful variable in predicting write-off
+###             Remove [AgeToTerm] and [Instalment_Real]
+
+# - Refine variable selection according to insights from correlation analysis
+vars <- c("Principal_Real", "InterestRate_Margin_imputed_mean", "pmnt_method_grp",
+          "Balance_Real_adj_WOff", "InterestRate_Nom",
+          "BalanceToPrincipal_adj_WOff", "slc_acct_pre_lim_perc_imputed_med")
+### MM: Why weren't we adjusting this selection based on the correlation analysis results?
+### MM: I refined the above selection accordingly
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [BalanceToPrincipal_adj_WOff]; [Balance_Real_adj_WOff]; [InterestRate_Margin_imputed_mean];
+###                            [slc_acct_pre_lim_perc_imputed_med]; [InterestRate_Nom]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: Balance_Real, InterestRate_Nom, Instalment_Real, AgeToTerm, Pricipal_Real, BalanceToPrincipal , pmnt_mehtod_grp etc
-# Best C-statistics: AgeToTerm, Balance_Real, Instalment_Real, BalanceToPrinical, InterestRate_Nom
-# AIC and Harrel's c all very similar to each other
-# Choose these 5
+### RESULTS: Best C-statistics: [BalanceToPrincipal_adj_WOff]; [Balance_Real_adj_WOff]; [InterestRate_Margin_imputed_mean];
+###                             [Principal_Real]; [pmnt_method_grp]
+
+### CONCLUSION: The AICs and C-statistics are disparate from one another; C-statistics given preference
+###             Select:
+###               [BalanceToPrincipal_adj_WOff]; [Balance_Real_adj_WOff]; [InterestRate_Margin_imputed_mean];
+###               [Principal_Real]; [pmnt_method_grp]
 
 
-# ------ 4.2 Combining insights: Delinquency-themed, portfolio-level, and account-level variables
-
+# --- 4.2 Combining insights: Delinquency-themed, portfolio-level, and account-level variables
+### MM: Needs reviewing once comments from previous sub-sections have been adressed
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_Any_Aggr_Prop_Lag_12","DefaultStatus1_Aggr_Prop",
           "CuringEvents_Aggr_Prop","PrevDefaults",
@@ -377,136 +393,126 @@ evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 
 
 # ------ 5. Macroeconomic variables
-
-# ------ 5.1 Which lag order is the best for: M_Repo_Rate
-
-# - Initialize variables to be tested
+# --- 5.1 Which lag order is the best for: [M_Repo_Rate]
+# - Set initial variables to be tested
 vars <- c("M_Repo_Rate", "M_Repo_Rate_1 ", "M_Repo_Rate_2", "M_Repo_Rate_3", "M_Repo_Rate_6", "M_Repo_Rate_9", "M_Repo_Rate_12")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_Repo_Rate]; [M_Repo_Rate_1]; [M_Repo_Rate_2] 
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results:  M_Repo_Rate_3, M_Repo_Rate_2, M_Repo_Rate_6, 
-# M_Repo_Rate_1, M_Repo_Rate_9, M_Repo_Rate.
-# Best C-statistics: M_Repo_Rate_3, M_Repo_Rate_6, M_Repo_Rate_2, 
-# M_Repo_Rate_1, M_Repo_Rate_9, M_Repo_Rate.
+### RESULTS: Best C-statistics: [M_Repo_Rate_9]; [M_Repo_Rate_6]; [M_Repo_Rate_2] 
 
-### CONCLUSION
-# There are minor difference between AIC valuea
-# Choose: M_Repo_Rate_2, M_Repo_Rate_3, M_Repo_Rate_6
+### CONCLUSION: The AICs and C-statistics are almost identical; preference given to C-statistics
+###             Select:
+###               [M_Repo_Rate_9]; [M_Repo_Rate_6]; [M_Repo_Rate_2] 
+### MM: I changed this selection from the previous one: [M_Repo_Rate_6]; [M_Repo_Rate_3]; [M_Repo_Rate_2]
 
 
-# ------ 5.2 Which lag order is the best for: M_Inflation_Growth
-
-# - Initialize variables to be tested
+# --- 5.2 Which lag order is the best for: [M_Inflation_Growth]
+# - Set initial variables to be tested
 vars <- c("M_Inflation_Growth", "M_Inflation_Growth_1 ", "M_Inflation_Growth_2", "M_Inflation_Growth_3", 
           "M_Inflation_Growth_6", "M_Inflation_Growth_9", "M_Inflation_Growth_12")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_Inflation_Growth_9]; [M_Inflation_Growth_6]; [M_Inflation_Growth_12]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: M_Inflation_Growth_3, M_Inflation_Growth_2, M_Inflation_Growth_1, M_Inflation_Growth_6, 
-# M_Inflation_Growth,M_Inflation_Growth_9, M_Inflation_Growth_12 .
-# Best C-statistics: M_Inflation_Growth_6, M_Inflation_Growth_3, M_Inflation_Growth_1, M_Inflation_Growth_2, 
-# M_Inflation_Growth,M_Inflation_Growth_9, M_Inflation_Growth_12 .
+### results: Best C-statistics: [M_Inflation_Growth]; [M_Inflation_Growth_1]; [M_Inflation_Growth_12]
 
-### CONCLUSION: Small AIC and Harell's c-statsitics differences
-# Best variables: M_Inflation_Growth_2, M_Inflation_Growth_3, M_Inflation_Growth_1
+### CONCLUSION: The AICs are almost identical, whilst the C-statistics have larger differences; preference given to C-statistics
+###             Select:
+###               [M_Inflation_Growth]; [M_Inflation_Growth_1]; [M_Inflation_Growth_12]
+### MM: I changed this selection from the previous one: [M_Inflation_Growth_2]; [M_Inflation_Growth_3]; [M_Inflation_Growth_1]
 
 
-# ------ 5.3 Which lag order is the best for: M_RealGDP_Growth
-
-# - Initialize variables to be tested
+# --- 5.3 Which lag order is the best for: [M_RealGDP_Growth]
+# - Set initial variables to be tested
 vars <- c("M_RealGDP_Growth", "M_RealGDP_Growth_1 ", "M_RealGDP_Growth_2", "M_RealGDP_Growth_3", 
           "M_RealGDP_Growth_6", "M_RealGDP_Growth_9", "M_RealGDP_Growth_12")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_RealGDP_Growth]; [M_RealGDP_Growth_1]; [M_RealGDP_Growth_2]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: M_RealGDP_Growth_12, M_RealGDP_Growth_9, M_RealGDP_Growth_6, M_RealGDP_Growth_3, 
-# M_RealGDP_Growth_2, M_RealGDP_Growth_1, M_RealGDP_Growth.
-# Best C-statistics: M_RealGDP_Growth_12, M_RealGDP_Growth_9, M_RealGDP_Growth_6, M_RealGDP_Growth_3, 
-# M_RealGDP_Growth_2, M_RealGDP_Growth_1, M_RealGDP_Growth.
+### RESULTS: Best C-statistics: [M_RealGDP_Growth_6]; [M_RealGDP_Growth_12]; [M_RealGDP_Growth_9]
 
-### CONCLUSION: Middle lags seem better, based on very small AIC-differences and c-differences (57-54%)
-# Choose: M_RealGDP_Growth_12, M_RealGDP_Growth_9, M_RealGDP_Growth_6
+### CONCLUSION: AICs are almost identical, whilst the C-statistics have a bit bigger differences (~1%); preference given to C-statistics
+###             Select:
+###               [M_RealGDP_Growth_6]; [M_RealGDP_Growth_12]; [M_RealGDP_Growth_9]
+### MM: I changed this selection from the previous one: [M_RealGDP_Growth_12]; [M_RealGDP_Growth_9]; [M_RealGDP_Growth_6]
 
 
-# ------ 5.4 Which lag order is the best for: M_RealIncome_Growth
-
-# - Initialize variables to be tested
+# --- 5.4 Which lag order is the best for: [M_RealIncome_Growth]
+# - Set initial variables to be tested
 vars <- c("M_RealIncome_Growth", "M_RealIncome_Growth_1 ", "M_RealIncome_Growth_2", "M_RealIncome_Growth_3", 
           "M_RealIncome_Growth_6", "M_RealIncome_Growth_9", "M_RealIncome_Growth_12")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_RealIncome_Growth_1]; [M_RealIncome_Growth_2]; [M_RealIncome_Growth] 
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: M_RealIncome_Growth_12, M_RealIncome_Growth_9, M_RealIncome_Growth_6, M_RealIncome_Growth_3, 
-# M_RealIncome_Growth_2, M_RealIncome_Growth_1, M_RealIncome_Growth.
-# Best C-statistics: M_RealIncome_Growth_12, M_RealIncome_Growth_9, M_RealIncome_Growth_6, M_RealIncome_Growth_3, 
-# M_RealIncome_Growth_2, M_RealIncome_Growth_1, M_RealIncome_Growth.
+### RESULTS: Best C-statistics: [M_RealIncome_Growth_9]; [M_RealIncome_Growth_6]; [M_RealIncome_Growth_12]
 
-### CONCLUSION: Middle lags seem better, based on very small AIC-differences and c-differences (50%-51%)
-# # Choose:  M_RealIncome_Growth_6, M_RealIncome_Growth_9, M_RealIncome_Growth_12
+### CONCLUSION: AICs are almost identical, whilst the C-statistics have a bit bigger differences (~1%-2%); preference given to C-staistics
+###             Select:
+###               [M_RealIncome_Growth_9]; [M_RealIncome_Growth_6]; [M_RealIncome_Growth_12] 
+### MM: I changed this selection from the previous one: [M_RealIncome_Growth_6]; [M_RealIncome_Growth_9]; [M_RealIncome_Growth_12]
 
 
-# ------ 5.5 Which lag order is the best for: M_DTI_Growth
-
-# - Initialize variables to be tested
+# --- 5.5 Which lag order is the best for: [M_DTI_Growth]
+# - Set initial variables to be tested
 vars <- c("M_DTI_Growth", "M_DTI_Growth_1 ", "M_DTI_Growth_2", "M_DTI_Growth_3", 
           "M_DTI_Growth_6", "M_DTI_Growth_9", "M_DTI_Growth_12")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_DTI_Growth_1]; [M_DTI_Growth]; [M_DTI_Growth_2]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: M_DTI_Growth_3, M_DTI_Growth_6, M_DTI_Growth_2, M_DTI_Growth_1, M_DTI_Growth_9, 
-# M_DTI_Growth,M_DTI_Growth_12 .
-# Best C-statistics: _DTI_Growth_3, M_DTI_Growth_6, M_DTI_Growth_2, M_DTI_Growth_1, M_DTI_Growth_9, 
-# M_DTI_Growth,M_DTI_Growth_12 
+### RESULTS: Best C-statistics: [M_DTI_Growth]; [M_DTI_Growth_1]; [M_DTI_Growth_2]
 
-### CONCLUSION: Longer lags seem better, based on very small AIC-differences,
-# trend exist across c-differences (54-56%)
-# Choose: M_DTI_Growth_2, M_DTI_Growth_3, M_DTI_Growth_6
+### CONCLUSION: AICs are almost identical, whilst the C-statistics have a bit bigger differences (~1%); preference given to C-statistics
+###             Select:
+###               [M_DTI_Growth]; [M_DTI_Growth_1]; [M_DTI_Growth_2]
+### MM: I changed this selection from the previous one: [M_DTI_Growth_2]; [M_DTI_Growth_3]; [M_DTI_Growth_6]
 
 
-# ------ 5.6 Which lag order is the best for: M_Emp_Growth
-
-# - Initialize variables to be tested
+# --- 5.6 Which lag order is the best for: [M_Emp_Growth]
+# - Set initial variables to be tested
 vars <- c("M_Emp_Growth", "M_Emp_Growth_1 ", "M_Emp_Growth_2", "M_Emp_Growth_3", 
           "M_Emp_Growth_6", "M_Emp_Growth_9", "M_Emp_Growth_12")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_Emp_Growth_1]; [M_Emp_Growth]; [M_Emp_Growth_2]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: M_Emp_Growth_12, M_Emp_Growth_9, M_Emp_Growth_6, M_Emp_Growth_3
-# M_Emp_Growth_2, M_Emp_Growth_1, M_Emp_Growth
-# Best C-statistics: M_Emp_Growth_12, M_Emp_Growth_9, M_Emp_Growth_6, M_Emp_Growth_3
-# M_Emp_Growth_2, M_Emp_Growth_1, M_Emp_Growth
+### RESULTS: Best C-statistics: [M_Emp_Growth_6]; [M_Emp_Growth_12]; [M_Emp_Growth_9]
 
-### CONCLUSION: Middle to late lags seem better, based on very small AIC-differences, affirmed by the c-differences (50-51%)
+### CONCLUSION: AICs are almost identical, whilst the C-statistics have a bit bigger differences (~2%-6%); preference given to C-statistics
+###             Select:
+###               [M_Emp_Growth_6]; [M_Emp_Growth_12]; [M_Emp_Growth_9]
 
 
-# ------ 7.7 Combining insights: Macroeconomic variables
-
+# --- 7.7 Combining insights: Macroeconomic variables
 # - Initialize variables to be tested
-vars <- c("M_Repo_Rate_6", "M_Repo_Rate_3", "M_Repo_Rate_2", 
-          "M_Inflation_Growth_2", "M_Inflation_Growth_3", "M_Inflation_Growth_1",
-          "M_RealGDP_Growth_12", "M_RealGDP_Growth_9", "M_RealGDP_Growth_6",
-          "M_RealIncome_Growth_9", "M_RealIncome_Growth_12", "M_RealIncome_Growth_6",
-          "M_DTI_Growth_6", "M_DTI_Growth_2", "M_DTI_Growth_3", 
-          "M_Emp_Growth_12", "M_Emp_Growth_9", "M_Emp_Growth_6")
+vars <- c("M_Repo_Rate_9", "M_Repo_Rate_6", "M_Repo_Rate_2", 
+          "M_Inflation_Growth", "M_Inflation_Growth_1", "M_Inflation_Growth_12",
+          "M_RealGDP_Growth_6", "M_RealGDP_Growth_12", "M_RealGDP_Growth_9",
+          "M_RealIncome_Growth_9", "M_RealIncome_Growth_6", "M_RealIncome_Growth_12",
+          "M_DTI_Growth", "M_DTI_Growth_1", "M_DTI_Growth_2", 
+          "M_Emp_Growth_6", "M_Emp_Growth_12", "M_Emp_Growth_9")
 
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
@@ -514,6 +520,9 @@ modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = "
 summary(modLR_full);
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC:  93,786; McFadden R^2:  6.28%; AUC:  67.27%.
+### MM: I can't run this functions, getting the following error:
+###     Error in coefDeter_glm(model, model_base) : 
+###       ERROR: Internal function error in calculating & verifying McFadden's pseudo R^2-measure
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)

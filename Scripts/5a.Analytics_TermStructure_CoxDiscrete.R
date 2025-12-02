@@ -27,7 +27,7 @@
 
 
 # ------ 1. Model fitting
-
+# --- 1.1 Preliminaries
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
@@ -42,7 +42,6 @@ rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
 datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)] # for merging purposes
 
-
 # - Create subset of performing spells towards modelling each spell as a single record | Classical PD-modelling
 datTrain_classic <- subset(datCredit_train, DefSpell_Counter==1)
 datValid_classic <- subset(datCredit_valid, DefSpell_Counter==1)
@@ -56,7 +55,7 @@ datTrain_classic[, DefSpell_Age2 := DefSpell_Age]
 datValid_classic[, DefSpell_Age2 := DefSpell_Age]
 
 
-# ---  Basic discrete-time hazard model
+# --- 1.2  Basic discrete-time hazard model
 # - Initialize variables
 vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned", "g0_Delinq_Lag_1",
                 "M_Inflation_Growth_9","g0_Delinq_Any_Aggr_Prop_Lag_1")
@@ -66,19 +65,18 @@ modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, colla
                     data=datCredit_train, family="binomial", weights= Weight)
 
 
-
-# ---  Advanced discrete-time hazard model
+# --- 1.3  Advanced discrete-time hazard model
 # - Initialize variables
 vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
            "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave",
           "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_1","pmnt_method_grp","Principal","g0_Delinq_Lag_1",
+          "Balance_adj_WOff","pmnt_method_grp","Principal","g0_Delinq_Lag_1",
           "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial", weights= Weight)
 
-# ------ Classical Logistic Regression model
 
+# --- 1.4 Classical Logistic Regression model
 # - Initialize variables
 vars_classic <- c("g0_Delinq_Any_Aggr_Prop_Lag_12","DefaultStatus1_Aggr_Prop",
                   "CuringEvents_Aggr_Prop","PrevDefaults",
@@ -95,15 +93,18 @@ summary(modLR_classic)
 roc(response=datTrain_classic$DefSpell_Event, 
     predictor=predict(modLR_classic, datTrain_classic, type="response")) # 87.1% AUC
 
+
+
+
 # ------ 2. Kaplan-Meier estimation towards constructing empirical term-structure of default risk
 
-# --- Preliminaries
+# --- 2.1 Preliminaries
 # - Create pointer to the appropriate data object 
 datCredit <- rbind(datCredit_train, datCredit_valid)
 
 
-# --- Estimate survival rate of the main event S(t) = P(T >=t) for time-to-event variable T
-# Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
+# --- 2.2 Estimate survival rate of the main event S(t) = P(T >=t) for time-to-event variable T
+#  -Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
 km_Default <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=DefSpell_Event==1, type="counting") ~ 1, 
                       id=DefSpell_Key, data=datCredit)
 
@@ -118,8 +119,7 @@ setorder(datSurv_sub, Time)
 datSurv_sub[,AtRisk_perc := AtRisk_n / max(AtRisk_n, na.rm=T)]
 
 
-
-# --- Estimate survival rate of the censoring event G(t) = P(C >= t) for time-to-censoring variable C
+# --- 2.3 Estimate survival rate of the censoring event G(t) = P(C >= t) for time-to-censoring variable C
 # This prepares for implementing the Inverse Probability of Censoring Weighting (IPCW) scheme,
 # as an adjustment to event rates (discrete density), as well as for the time-dependent Brier score
 
@@ -139,10 +139,9 @@ datCredit <- merge(datCredit, datSurv_censoring, by="TimeInDefSpell", all.x=T)
 
 
 
-
 # ------ 3. Constructing expected term-structure of write-off risk
 
-# --- Handle left-truncated spells by adding a starting record 
+# --- 3.1 Handle left-truncated spells by adding a starting record 
 # This is necessary for calculating certain survival quantities later
 datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
 datAdd[, Start := Start-1]
@@ -151,16 +150,19 @@ datAdd[, Counter := 0]
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
 
 
-# --- Calculate survival quantities of interest
-# Compute IPCW-scheme weight
+# --- 3.2 Calculate survival quantities of interest
+# - Compute IPCW-scheme weight
 datCredit[, Weight := 1/Survival_censoring]
-# Predict hazard h(t) = P(T=t | T>= t) in discrete-time
+
+# - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv := predict(modLR, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas := predict(modLR_basic, newdata=datCredit, type = "response")]
-# Derive survival probability S(t) = prod ( 1- hazard)
+
+# - Derive survival probability S(t) = prod ( 1- hazard)
 datCredit[, Survival_adv := cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
 datCredit[, Survival_bas := cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
-# Derive discrete density, or event probability f(t) = S(t-1) . h(t)
+
+# - Derive discrete density, or event probability f(t) = S(t-1) . h(t)
 datCredit[, EventRate_adv := shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
 datCredit[, EventRate_bas := shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
 
@@ -173,8 +175,8 @@ datCredit[!is.na(DefSpell_Num), Hazard_PD := predict(modLR_classic, newdata=.SD[
 datCredit[!is.na(DefSpell_Num), Survival_PD := cumprod(1-Hazard_PD), by=list(DefSpell_Key)]
 datCredit[!is.na(DefSpell_Num), EventRate_PD := shift(Survival_PD, type="lag", n=1, fill=1) - Survival_PD, by=list(DefSpell_Key)]
 
-# --- Period-level aggregation
 
+# --- 3.3 Period-level aggregation
 # - Aggregate to period-level towards plotting key survival quantities
 datSurv_exp <- datCredit[,.(EventRate_bas = mean(EventRate_bas, na.rm=T),EventRate_PD = mean(EventRate_PD, na.rm=T),
                             EventRate_adv = mean(EventRate_adv, na.rm=T), EventRate_Emp = sum(DefSpell_Event)/.N,
@@ -187,18 +189,22 @@ datSurv_exp[, Survival_adv := 1 - cumsum(coalesce(EventRate_adv,0))]
 datSurv_exp[, Survival_IPCW := 1 - cumsum(coalesce(EventRate_IPCW,0))]
 datSurv_exp[, Survival_PD := 1 - cumsum(coalesce(EventRate_PD,0))]
 
-# -- Graphing survival quantities
+
+# --- 3.3 [SANITY CHECK] Graphing survival quantities
 # - Confirm prepared datasets are loaded into memory : actual term-structure of full-sample
 #if (!exists('datSurv')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), tempPath);gc()
 
-
+# - Quick graphs
 plot(datSurv_exp[TimeInDefSpell <= 120, EventRate_Emp], type="b")
 lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_adv], type="b", col="red")
 lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_bas], type="b", col="blue")
 lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_PD], type="b", col="cyan")
 
-# ------ 4. Graphing the event density / probability mass function f(t)
 
+
+
+# ------ 4. Graphing the event density / probability mass function f(t)
+# --- 4.1 Prelimanaries
 # - General parameters
 sMaxSpellAge <- 120 # max for [DefSpell_Age], as determined in earlier analyses (script 3c
 sMaxSpellAge_graph <- 120 # max for [DefSpell_Age] for graphing purposes
@@ -210,22 +216,27 @@ sMaxSpellAge_graph <- 120 # max for [DefSpell_Age] for graphing purposes
 #lines(datSurv_exp[TimeInDefSpell <= 300, TimeInDefSpell], datSurv_exp[TimeInDefSpell <= 300, EventRate_Emp], type="b", col="blue")
 #lines(datSurv_exp[TimeInDefSpell <= 300, TimeInDefSpell], datSurv_exp[TimeInDefSpell <= 300, EventRate_IPCW], type="b", col="gray")
 
+# - Spline parameters
+# - Number of knots
+sDf_Act <- 12
+sDf_Exp <- 12
 
-# - Fitting natural cubic regression splines
-sDf_Act <- 12; sDf_Exp <- 12
+
+# --- 4.2 Natural cubic regression splines
+# - Fit splines
 smthEventRate_Act <- lm(EventRate ~ ns(Time, df=sDf_Act), data=datSurv_sub[Time <= sMaxSpellAge,])
 smthEventRate_Exp_bas <- lm(EventRate_bas ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
 smthEventRate_Exp_adv <- lm(EventRate_adv ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
 smthEventRate_Exp_classic <- lm(EventRate_PD ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
 
+# - Check the resulting splines
 summary(smthEventRate_Act); summary(smthEventRate_Exp_bas); summary(smthEventRate_Exp_adv); summary(smthEventRate_Exp_classic)
 
-# - Render predictions based on fitted smoother, with standard errors for confidence intervals
+# - Render predictions based on the fitted smoother, with standard errors for confidence intervals
 vPredSmth_Act <- predict(smthEventRate_Act, newdata=datSurv_sub, se=T)
 vPredSmth_Exp_bas <- predict(smthEventRate_Exp_bas, newdata=datSurv_exp, se=T)
 vPredSmth_Exp_adv <- predict(smthEventRate_Exp_adv, newdata=datSurv_exp, se=T)
 vPredSmth_Exp_classic <- predict(smthEventRate_Exp_classic, newdata=datSurv_exp, se=T)
-
 
 # - Add smoothed estimate to graphing object
 datSurv_sub[, EventRate_spline := vPredSmth_Act$fit]
@@ -234,15 +245,16 @@ datSurv_exp[, EventRate_spline_adv := vPredSmth_Exp_adv$fit]
 datSurv_exp[, EventRate_spline_classic := vPredSmth_Exp_classic$fit]
 
 
+# --- 4.3 Graph the event rate
 # - Create graphing data object
 datGraph <- rbind(datSurv_sub[,list(Time, EventRate, Type="a_Actual")],
                   datSurv_sub[,list(Time, EventRate=EventRate_spline, Type="b_Actual_spline")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_bas, Type="c_Expected_bas")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_bas, Type="d_Expected_spline_bas")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_adv, Type="e_Expected_adv")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_adv, Type="f_Expected_spline_adv")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_PD, Type="g_Expected_LR")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_classic, Type="h_Expected_spline_LR")]
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_bas, Type="c_Expected_bas")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_bas, Type="d_Expected_spline_bas")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_adv, Type="e_Expected_adv")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_adv, Type="f_Expected_spline_adv")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_PD, Type="g_Expected_LR")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_classic, Type="h_Expected_spline_LR")]
 )
 
 # - Create different groupings for graphing purposes
@@ -308,8 +320,10 @@ ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_
        width=1800/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
-# --- Cleanup
+# --- 4.4 Cleanup
 rm(gsurv_ft, km_Censoring, km_Default, datSurv_censoring, datSurv_exp, datSurv_sub,
    datGraph, datFusion, smthEventRate_Act, smthEventRate_Exp_bas, smthEventRate_Exp_adv,
    vPredSmth_Act, vPredSmth_Exp_bas, vPredSmth_Exp_adv,
    modLR, modLR_basic, datAdd)
+
+
