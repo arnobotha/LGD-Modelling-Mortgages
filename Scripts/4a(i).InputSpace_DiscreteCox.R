@@ -294,11 +294,13 @@ modLR_step <- stepAIC(modLR_base2, scope = list(lower = ~ log(TimeInDefSpell)*De
 summary(modLR_step)
 evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 proc.time() - ptm # IGNORE: elapsed runtime; ~51 minutes
-### RESULTS: AIC:   130 202; McFadden R^2:  41.30%; AUC:  96.29%.
+### RESULTS: AIC:   121 346; McFadden R^2:  45.29%; AUC:  97.07%.
 ###          Variables from step-wise selection procedure:
-###             [slc_past_due_amt_imputed_med]; [slc_acct_arr_dir_3]; slc_curing_ind];
-###             [DefaultStatus1_Aggr_Prop_Lag_12]; [g0_Delinq_Any_Aggr_Prop_Lag_1];
-###             [g0_Delinq_Ave]; [ArrearsToBalance_Aggr_Prop_adj_WOff]; g0_Delinq_Any_Aggr_Prop_Lag_12]
+###             [log(TimeInDefSpell)]; [DefSpell_Num_Binned]; [log(TimeInDefSpell):DefSpell_Num_binned];
+###             [slc_past_due_amt_imputed_med]; [slc_acct_arr_dir_3]; [slc_curing_ind];
+###             [DefaultStatus1_Aggr_Prop_Lag_9]; [DefaultStatus1_Aggr_Prop_Lag_12];
+###             [g0_Delinq_Any_Aggr_Prop_Lag_1]; [g0_Delinq_Any_Aggr_Prop_Lag_12];
+###             [g0_Delinq_Ave]; [CuringEvents_Aggr_Prop]
 
 ### CONCLUSION: Use the selection from the automated variable selection
 
@@ -347,8 +349,9 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 # - Initialize variables to be tested
 vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
           "slc_past_due_amt_imputed_med", "slc_acct_arr_dir_3", "slc_curing_ind",
-          "DefaultStatus1_Aggr_Prop_Lag_12", "g0_Delinq_Any_Aggr_Prop_Lag_1",
-          "g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop_adj_WOff", "g0_Delinq_Any_Aggr_Prop_Lag_12",
+          "DefaultStatus1_Aggr_Prop_Lag_9", "DefaultStatus1_Aggr_Prop_Lag_12",
+          "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq_Any_Aggr_Prop_Lag_12",
+          "g0_Delinq_Ave", "CuringEvents_Aggr_Prop",
           "InterestRate_Margin_Aggr_Med_2", "InterestRate_Margin_Aggr_Med_3",
           "InterestRate_Margin_Aggr_Med_9", "AgeToTerm_Aggr_Mean",
           "InstalmentToBalance_Aggr_Prop_adj_WOff", "NewLoans_Aggr_Prop")
@@ -357,7 +360,7 @@ modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = "
                    data=datCredit_train, family="binomial")
 summary(modLR_full);
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 130 053; McFadden R^2:  41.37%; AUC: 96.31%
+### RESULTS: AIC: 121 261; McFadden R^2:  45.34%; AUC: 97.08%
 
 # - Stepwise forward selection using AIC
 ptm <- proc.time() # for runtime calculations (ignore)
@@ -367,11 +370,13 @@ modLR_step <- stepAIC(modLR_base2, scope = list(lower = ~ log(TimeInDefSpell)*De
 summary(modLR_step)
 evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 proc.time() - ptm # IGNORE: elapsed runtime; ~7.5 minutes
-### RESULTS: AIC: 154 320; McFadden R^2: 30.42%; AUC: 92.85%
+### RESULTS: AIC: 121 299; McFadden R^2: 45.32%; AUC: 97.08%
 ###          Variables from step-wise selection procedure:
-###             [slc_past_due_amt_imputed_med]; [slc_acct_arr_dir_3]; slc_curing_ind];
-###             [DefaultStatus1_Aggr_Prop_Lag_12]; [g0_Delinq_Any_Aggr_Prop_Lag_1];
-###             [g0_Delinq_Ave]; [ArrearsToBalance_Aggr_Prop_adj_WOff]; g0_Delinq_Any_Aggr_Prop_Lag_12]
+###             [log(TimeInDefSpell)]; [DefSpell_Num_binned]; [log(TimeInDefSpell):DefSpell_Num_binned]
+###             [slc_past_due_amt_imputed_med]; [slc_acct_arr_dir_3]; [slc_curing_ind]
+###             [DefaultStatus1_Aggr_Prop_Lag_9]; [DefaultStatus1_Aggr_Prop_Lag_12]
+###             [g0_Delinq_Any_Aggr_Prop_Lag_1]; [NewLoans_Aggr_Prop]; 
+###             [g0_Delinq_Ave]
 
 ### CONCLUSION: Use the selection from the automated variable selection
 
@@ -403,67 +408,63 @@ corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 ###           Absolute correlations of  63%  found for [Instalment_Real] and [BalanceToPrincipal_1]
 
 # - Initialize variables to be tested
-### MM: Should this selection not be refined according to the results of the correlation analysis?
-vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean", "pmnt_method_grp",
-          "Balance_Real_1", "Balance_1", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
+### NOTE: - Inflation adjusted variables preferred over their non-adjusted counterparts
+###       - Principal, balance, and instalment all kept regardless of their correlations, each contains unique information
+vars <- c("Principal_Real", "InterestRate_Margin_imputed_mean", "pmnt_method_grp",
+          "Balance_Real_1", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
           "BalanceToPrincipal_1", "slc_acct_pre_lim_perc_imputed_med")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [InterestRate_Nom]; [InterestRate_Margin_imputed_mean]; [pmnt_method_grp]; [AgeToTerm]; [Principal_Real]
-###          The remainder of the variables have very similar AICs
+### RESULTS: Best AIC-results: [InterestRate_Nom]; [InterestRate_Margin_imputed_mean]; [pmnt_method_grp]; [AgeToTerm]; [Principal_Real]; [Balance_Real_1]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [InterestRate_Nom]; [InterestRate_Margin_imputed_mean]; [BalanceToPrinpal_1]; [Principal_Rea]; [pmnt_method_grp]
-###          The remainder of the variables have very similar AICs
-### CONLUSION: ALL variables have very low AIC and good Harell's c values>0 
-###            Select top 5 variables:
+### RESULTS: Best C-statistics: [InterestRate_Nom]; [InterestRate_Margin_imputed_mean]; [BalanceToPrinpal_1]; [Principal_Rea]; [pmnt_method_grp]; [AgeToTerm]
+### CONLUSION: Select top 5 variables (preference given to [BalanceToPrincipal_1] since
+###                                    it is highly correlated with [AgeToTerm] (-56% correlation) and
+###                                    it is more well known (LTV-type variable)):
 ###               [InterestRate_Nom]; [InterestRate_Margin_imputed_mean]; [BalanceToPrincipal_1];
 ###               [Principal_Real]; [pmnt_method_grp]
-### MM: Why are we selecting the top 5 variables here whilst the other sub-sections we select only the top three?
-### MM: I changed the selection, the previous was: 
-###               [InterestRate_Nom]; [InterestRate_Margin_imputed_mean]; [Balance_adj_WOff]
-###               [Balance_Real_adj_WOff]; [Principal_Real]
 
 
 # --- 6.2 Combining insights: Delinquency-themed, portfolio-level, and account-level variables
 
 # - Initialize variables to be tested
-### MM: No convergence with [BalanceToPrincipal_1]
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_Lag_1", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_1","Principal_Real","InterestRate_Margin_imputed_mean","pmnt_method_grp")
+### NOTE: [BalanceToPrincipal_1] causes issues when fitting the model, replacing it with [Balance_Real_1]
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
+          "slc_past_due_amt_imputed_med", "slc_acct_arr_dir_3", "slc_curing_ind",
+          "DefaultStatus1_Aggr_Prop_Lag_9", "DefaultStatus1_Aggr_Prop_Lag_12",
+          "g0_Delinq_Any_Aggr_Prop_Lag_1", "NewLoans_Aggr_Prop", "g0_Delinq_Ave",
+          "InterestRate_Nom", "InterestRate_Margin_imputed_mean", "Balance_Real_1",
+          "Principal_Real", "pmnt_method_grp"
+          )
 
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
                    data=datCredit_train, family="binomial")
-summary(modLR_full);
+summary(modLR_full)
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 81 718; McFadden R^2: 64.21%; AUC: 98.43%.
+### RESULTS: AIC: 53 769; McFadden R^2: 75.77%; AUC: 99.58%.
 
 # - Stepwise forward selection using AIC
-ptm <- proc.time() # for runtime calculations (83m) 
+ptm <- proc.time() # for runtime calculations (~37m) 
 modLR_step <- stepAIC(modLR_base2, scope = list(lower = ~ log(TimeInDefSpell)*DefSpell_Num_binned, 
                                                 upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
                       direction = "both", k=log(datCredit_train[,.N]), maxit=50)
 summary(modLR_step)
 evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 proc.time() - ptm
-### RESULTS: AIC: 82 721; McFadden R^2: 62.71%; AUC: 98.43%
+### RESULTS: AIC: 53 855; McFadden R^2: 75.77%; AUC: 99.58%
+###          Variables from step-wise selection procedure:
+###             [log(TimeInDefSpell)]; [DefSpell_Num_binned]; [log(TimeInDefSpell):DefSpell_Num_binned]
+###             [slc_past_due_amt_imputed_med]; [slc_curing_ind]; [pmnt_method_grp];
+###             [DefaultStatus1_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_1];
+###`            [NewLoans_Aggr_Prop]; 
+###             [InterestRate_Nom]; [Balance_Real_1]; [Principal_Real]
 
-# - Final variables
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_Lag_1", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", 
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff","Principal","pmnt_method_grp")
-### MM: Why is [InterestRate_Margin_Aggr_Med_9] included instead of [InterestRate_Margin_imputed_mean], where the latter is output from step-wise selection?
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
-summary(modLR);
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 83 384; McFadden R^2: 62.41%; AUC: 98.41%
+### CONCLUSION: Use the selection from the automated variable selection
+### NOTE:       Including [slc_acct_arr_dir_3] since post-hoc analysis reveals it results in more accurate term-structures
 
 
 
@@ -478,16 +479,12 @@ vars <- c("M_Repo_Rate", "M_Repo_Rate_1 ", "M_Repo_Rate_2", "M_Repo_Rate_3", "M_
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_Repo_Rate_12], [M_Repo_Rate_9], [M_Repo_Rate], [M_Repo_Rate_1], 
-###                            [M_Repo_Rate_2], [M_Repo_Rate_6], [M_Repo_Rate_3]
+### RESULTS: Best AIC-results: [M_Repo_Rate_12], [M_Repo_Rate_9], [M_Repo_Rate]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [M_Repo_Rate_12]; [M_Repo_Rate_9]; [M_Repo_Rate_6]; [M_Repo_Rate];
-###                             [M_Repo_Rate_1]; [M_Repo_Rate_2]; [M_Repo_Rate_3]
+### RESULTS: Best C-statistics: [M_Repo_Rate_12]; [M_Repo_Rate_9]; [M_Repo_Rate_6]
 
-### CONCLUSION: There are minor difference between AIC value which suggest the main repo rate
-###             and lags 1 and 0 are best. C-statistic differences are also small (ranging from 50%-52%).
-###             Select two best variables and the [M_Repo_Rate] base variable (the latter is an intuitive choice):
+### CONCLUSION: Select top two variables and [M_Repo_Rate] (the latter is an intuitive choice):
 ###               [M_Repo_Rate_12]; [M_Repo_Rate_9]; [M_Repo_Rate]
 
 
@@ -500,16 +497,13 @@ vars <- c("M_Inflation_Growth", "M_Inflation_Growth_1 ", "M_Inflation_Growth_2",
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_Inflation_Growth_12]; [M_Inflation_Growth]; [M_Inflation_Growth_1]; [M_Inflation_Growth_2]; 
-###                            [M_Inflation_Growth_3]; [M_Inflation_Growth_9]; [M_Inflation_Growth_6]
+### RESULTS: Best AIC-results: [M_Inflation_Growth_12]; [M_Inflation_Growth]; [M_Inflation_Growth_1]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [M_Inflation_Growth_12]; [M_Inflation_Growth]; [M_Inflation_Growth_1]; [M_Inflation_Growth_2];
-###                             M_Inflation_Growth_3]; [M_Inflation_Growth_9]; [M_Inflation_Growth_6]
+### RESULTS: Best C-statistics: [M_Inflation_Growth_12]; [M_Inflation_Growth]; [M_Inflation_Growth_1]
 
-### CONCLUSION: Small AIC and Harell's c-statistics differences
-###             Select two best variables and the [M_Inflation_Growth] base variable (the latter is an intuitive choice):
-###               Best variables: [M_Inflation_Growth_12]; [M_Inflation_Growth]; [M_Inflation_Growth_1]
+### CONCLUSION: select two best variables and the [M_Inflation_Growth] base variable (the latter is an intuitive choice):
+###               [M_Inflation_Growth_12]; [M_Inflation_Growth]; [M_Inflation_Growth_1]
 
 
 # --- 7.3 Which lag order is the best for: [M_RealGDP_Growth]
@@ -521,15 +515,13 @@ vars <- c("M_RealGDP_Growth", "M_RealGDP_Growth_1 ", "M_RealGDP_Growth_2", "M_Re
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_RealGDP_Growth_6]; [M_RealGDP_Growth_3]; [M_RealGDP_Growth_2]; [M_RealGDP_Growth_1]; 
-###                            [M_RealGDP_Growth]; [M_RealGDP_Growth_9]; [M_RealGDP_Growth_12]
+### RESULTS: Best AIC-results: [M_RealGDP_Growth_6]; [M_RealGDP_Growth_3]; [M_RealGDP_Growth_2]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [M_RealGDP_Growth_3]; [M_RealGDP_Growth_6]; [M_RealGDP_Growth_2]; [M_RealGDP_Growth_1]; 
-###                             [M_RealGDP_Growth_9]; [M_RealGDP_Growth]; [M_RealGDP_Growth_12]
+### RESULTS: Best C-statistics: [M_RealGDP_Growth_3]; [M_RealGDP_Growth_6]; [M_RealGDP_Growth_2]
 
-### CONCLUSION: Middle lags seem better, based on very small AIC-differences and C-statistic differences (57-54%)
-###             Select: [M_RealGDP_Growth_3]; [M_RealGDP_Growth_6]; [M_RealGDP_Growth_2]
+### CONCLUSION: Select top three variables:
+###               [M_RealGDP_Growth_3]; [M_RealGDP_Growth_6]; [M_RealGDP_Growth_2]
 
 
 # --- 7.4 Which lag order is the best for: [M_RealIncome_Growth]
@@ -541,15 +533,13 @@ vars <- c("M_RealIncome_Growth", "M_RealIncome_Growth_1 ", "M_RealIncome_Growth_
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_RealIncome_Growth_6]; [M_RealIncome_Growth_3]; [M_RealIncome_Growth_9]; [M_RealIncome_Growth_2]; 
-###                            [M_RealIncome_Growth_12]; [M_RealIncome_Growth_1]; [M_RealIncome_Growth]
+### RESULTS: Best AIC-results: [M_RealIncome_Growth_6]; [M_RealIncome_Growth_3]; [M_RealIncome_Growth_9]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [M_RealIncome_Growth_6]; [M_RealIncome_Growth_3]; [M_RealIncome_Growth_9]; [M_RealIncome_Growth_12]; 
-###                             [M_RealIncome_Growth_2]; [M_RealIncome_Growth_1]; [M_RealIncome_Growth]
+### RESULTS: Best C-statistics: [M_RealIncome_Growth_6]; [M_RealIncome_Growth_3]; [M_RealIncome_Growth_9]
 
-### CONCLUSION: Middle lags seem better, based on very small AIC-differences and c-differences (50%-51%)
-###             Select: [M_RealIncome_Growth_6]; [M_RealIncome_Growth_3]; [M_RealIncome_Growth_9]
+### CONCLUSION: Select top three variables:
+###               [M_RealIncome_Growth_6]; [M_RealIncome_Growth_3]; [M_RealIncome_Growth_9]
 
 
 # --- 7.5 Which lag order is the best for: [M_DTI_Growth]
@@ -561,16 +551,12 @@ vars <- c("M_DTI_Growth", "M_DTI_Growth_1 ", "M_DTI_Growth_2", "M_DTI_Growth_3",
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_DTI_Growth_12]; [M_DTI_Growth_9]; [M_DTI_Growth_6]; [M_DTI_Growth_3]; [M_DTI_Growth_2]; 
-###                            [M_DTI_Growth]; [M_DTI_Growth_1]
+### RESULTS: Best AIC-results: [M_DTI_Growth_12]; [M_DTI_Growth_9]; [M_DTI_Growth_6]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [M_DTI_Growth_12]; [M_DTI_Growth_9]; [M_DTI_Growth_6]; [M_DTI_Growth_3]; [M_DTI_Growth]; 
-###                             [M_DTI_Growth_2]; [M_DTI_Growth_1]
+### RESULTS: Best C-statistics: [M_DTI_Growth_12]; [M_DTI_Growth_9]; [M_DTI_Growth_6]
 
-### CONCLUSION: Longer lags seem better, based on very small AIC-differences,
-###             trend exist across c-differences (54-56%)
-###             Select top three variables:
+### CONCLUSION: Select top three variables:
 ###               [M_DTI_Growth_12]; [M_DTI_Growth_9]; [M_DTI_Growth_6]
 
 
@@ -583,16 +569,13 @@ vars <- c("M_Emp_Growth", "M_Emp_Growth_1 ", "M_Emp_Growth_2", "M_Emp_Growth_3",
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_Emp_Growth_6]; [M_Emp_Growth_9]; [M_Emp_Growth_12]; [M_Emp_Growth_3];
-###                            [M_Emp_Growth_2]; [M_Emp_Growth_1]; [M_Emp_Growth]
+### RESULTS: Best AIC-results: [M_Emp_Growth_6]; [M_Emp_Growth_9]; [M_Emp_Growth_12]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [M_Emp_Growth_6]; [M_Emp_Growth_9]; [M_Emp_Growth_12]; [M_Emp_Growth_3];
-###                             [M_Emp_Growth_2]; [M_Emp_Growth_1]; [M_Emp_Growth]
+### RESULTS: Best C-statistics: [M_Emp_Growth_6]; [M_Emp_Growth_12]; [M_Emp_Growth_9]
 
-### CONCLUSION: Middle to late lags seem better, based on very small AIC-differences, affirmed by the c-differences (50-51%)
-###             Select top three variables:
-###               [M_Emp_Growth_6]; [M_Emp_Growth_12]; [M_Emp_Growth_9] 
+### CONCLUSION: Select top three variables:
+###               [M_Emp_Growth_6]; [M_Emp_Growth_9]; [M_Emp_Growth_12] 
 
 
 # --- 7.7 Combining insights: Macroeconomic variables
@@ -621,36 +604,40 @@ modLR_step <- stepAIC(modLR_base2, scope = list(lower = ~ log(TimeInDefSpell)*De
 summary(modLR_step)
 evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 proc.time() - ptm # IGNORE: elapsed runtime; 140 minutes
-### RESULTS: AIC: 213 183; McFadden R^2: 3.88%; AUC: 68.76%.
+### RESULTS: AIC: 213 183; McFadden R^2: 3.88%; AUC: 68.76%
+###          Variables from step-wise selection procedure:
+###             [M_DTI_Growth_12]; [M_DTI_Growth_6];
+###             [M_RealIncome_Growth_3]; [M_RealIncome_Growth_6]; [M_RealIncome_Growth_9];
+###             [M_Repo_Rate]; [M_Repo_Rate_12];
+###             [M_RealGDP_Growth_3];
+###             [M_Inflation_Growth_1]; [M_Inflation_Growth_12];
+###             [M_Emp_Growth_9]
 
-# - Final variables (Expert Judgement)
-### MM: Why are we reducing the number of macro variables in the list below from what we got in the step-wise selection?
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
-          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12")
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
-summary(modLR);
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 214 631; McFadden R^2: 3.22%; AUC: 67.61%.
-###         Included the Repo rate as it is vital. GDP growth and emp growth have a negative effect
-###         They increase the AIC and R^2 values
+### CONCLUSION: Use the selection from the automated variable selection
 
 
 # --- 7.8 Combining insights: Delinquency-themed, portfolio-level, account-level, and macroeconomic variables
 
 # - Initialize variables to be tested
-vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned", "g0_Delinq_Lag_1", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "g0_Delinq_Any_Aggr_Prop_Lag_1",
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff","Principal","pmnt_method_grp",
-          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12")
+vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
+          "slc_past_due_amt_imputed_med", "slc_curing_ind", "pmnt_method_grp",
+          "DefaultStatus1_Aggr_Prop_Lag_9", "g0_Delinq_Any_Aggr_Prop_Lag_1",
+          "slc_acct_arr_dir_3", # This variable is kept in the selection since post-hoc analysis has shown that it produces more accurate term structures
+          "NewLoans_Aggr_Prop",
+          "InterestRate_Nom", "Balance_Real_1", "Principal_Real",
+          "M_DTI_Growth_12", "M_DTI_Growth_6",
+          "M_RealIncome_Growth_3", "M_RealIncome_Growth_6", "M_RealIncome_Growth_9",
+          "M_Repo_Rate", "M_Repo_Rate_12",
+          "M_RealGDP_Growth_3",
+          "M_Inflation_Growth_1", "M_Inflation_Growth_12",
+          "M_Emp_Growth_9")
 
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
                    data=datCredit_train, family="binomial")
 summary(modLR_full);
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 81 809; McFadden R^2: 63.13%; AUC: 98.48%.
+### RESULTS: AIC: 53 413; McFadden R^2: 75.94%; AUC: 99.59%
 
 # - Stepwise forward selection using AIC
 ptm <- proc.time() # for runtime calculations (ignore)
@@ -659,28 +646,92 @@ modLR_step <- stepAIC(modLR_base2, scope = list(lower = ~ log(TimeInDefSpell)*De
                       direction = "both", k=log(datCredit_train[,.N]), maxit=50)
 summary(modLR_step)
 evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-proc.time() - ptm # IGNORE: elapsed runtime; 117m
-### RESULTS: AIC: 81 808; McFadden R^2: 63.13%; AUC: 98.48%.
-
-# - Final variables
-### NOTE: Include log(TimeInDefSpell) with Time_Binned for final modelling iteration
-### MM: Why do we have [Time_Binned] in here as well as log(TimeInDefSpell)?
-vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave",
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff ","pmnt_method_grp","Principal","g0_Delinq_Lag_1",
-          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
-summary(modLR)
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### MM: [g0_Delinq_Any_Aggr_Prop_Lag_1] is insignificant
-### RESULTS: AIC: 79 503; McFadden R^2: 64.18%; AUC: 98.55%
+proc.time() - ptm # IGNORE: elapsed runtime; 119m
+### RESULTS: AIC: 53 526; McFadden R^2: 75.88%; AUC: 99.59%.
+###          Variables from step-wise selection procedure:
+###          Variables from step-wise selection procedure:
+###             [log(TimeInDefSpell)]; [DefSpell_Num_binned]; [log(TimeInDefSpell):DefSpell_Num_binned]
+###             [slc_curing_ind]; [pmnt_method_grp];
+###             [DefaultStatus1_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_1];
+###             [NewLoans_Aggr_Prop]; 
+###             [InterestRate_Nom]; [Balance_Real_1]; [Principal_Real]
+###             [M_Repo_Rate_12];
+###             [M_Inflation_Growth_1]; [M_Inflation_Growth_12];
+###             [M_Emp_Growth_9]
 
 
+### RESULTS: Insignificant variables:
+###           [DefSpell_Num_Binned]
+
+### CONCLUSION: Remove insignificant variable [DefSpell_Num_Binned], include [slc_acct_arr_dir_3],
+###             refit model, and assess the resulting model
 
 
-# ------ 8. Final 
+# --- 7.8 Refinement of final input space | Part I
+# - Initialize variables to be tested
+vars <- c("log(TimeInDefSpell)", "log(TimeInDefSpell):DefSpell_Num_binned", 
+          "slc_curing_ind", "pmnt_method_grp",
+          "slc_acct_arr_dir_3", # This variable is kept in the selection since post-hoc analysis has shown that it produces more accurate term structures
+          "DefaultStatus1_Aggr_Prop_Lag_9", "g0_Delinq_Any_Aggr_Prop_Lag_1",
+          "NewLoans_Aggr_Prop",
+          "InterestRate_Nom", "Balance_Real_1", "Principal_Real",
+          "M_Repo_Rate_12", "M_Inflation_Growth_1", "M_Inflation_Growth_12",
+          "M_Emp_Growth_9")
+
+# - Fit model
+modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
+                   data=datCredit_train, family="binomial")
+summary(modLR_full);
+evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 53 659; McFadden R^2: 75.92%; AUC: 99.31%.
+###          Variables from step-wise selection procedure:
+###             [log(TimeInDefSpell)]; [log(TimeInDefSpell):DefSpell_Num_binned]
+###             [slc_curing_ind]; [pmnt_method_grp]; [slc_acct_arr_dir_3]
+###             [DefaultStatus1_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_1];
+###             [NewLoans_Aggr_Prop]; 
+###             [InterestRate_Nom]; [Balance_Real_1]; [Principal_Real]
+###             [M_Repo_Rate_12];
+###             [M_Inflation_Growth_1]; [M_Inflation_Growth_12];
+###             [M_Emp_Growth_9]
+
+### RESULTS: [Principal_Real] is no longer significant
+
+### CONCLUSION: Remove [Principal_Real] and refit the model
+
+
+# --- 7.9 Refinement of final input space | Part II
+# - Initialize variables to be tested
+vars <- c("log(TimeInDefSpell)", "log(TimeInDefSpell):DefSpell_Num_binned", 
+          "slc_curing_ind", "pmnt_method_grp",
+          "slc_acct_arr_dir_3", # This variable is kept in the selection since post-hoc analysis has shown that it produces more accurate term structures
+          "DefaultStatus1_Aggr_Prop_Lag_9", "g0_Delinq_Any_Aggr_Prop_Lag_1",
+          "NewLoans_Aggr_Prop",
+          "InterestRate_Nom", "Balance_Real_1",
+          "M_Repo_Rate_12", "M_Inflation_Growth_1", "M_Inflation_Growth_12",
+          "M_Emp_Growth_9")
+
+# - Fit model
+modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
+                   data=datCredit_train, family="binomial")
+summary(modLR_full);
+evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 53 657; McFadden R^2: 75.92%; AUC: 99.31%
+###          Variables from step-wise selection procedure:
+###             [log(TimeInDefSpell)]; [log(TimeInDefSpell):DefSpell_Num_binned]
+###             [slc_curing_ind]; [pmnt_method_grp]; [slc_acct_arr_dir_3]
+###             [DefaultStatus1_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_1];
+###             [NewLoans_Aggr_Prop]; 
+###             [InterestRate_Nom]; [Balance_Real_1]
+###             [M_Repo_Rate_12];
+###             [M_Inflation_Growth_1]; [M_Inflation_Growth_12];
+###             [M_Emp_Growth_9]
+
+### RESULTS: No insignificant variables
+
+
+
+
+# ------ 8. Final model
 
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
@@ -702,38 +753,40 @@ datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Final variables
-vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave",
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_adj_WOff","pmnt_method_grp","Principal","g0_Delinq_Lag_1",
-          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
+vars <- c("log(TimeInDefSpell)", "log(TimeInDefSpell):DefSpell_Num_binned", 
+          "slc_curing_ind", "pmnt_method_grp",
+          "slc_acct_arr_dir_3", # This variable is kept in the selection since post-hoc analysis has shown that it produces more accurate term structures
+          "DefaultStatus1_Aggr_Prop_Lag_9", "g0_Delinq_Any_Aggr_Prop_Lag_1",
+          "NewLoans_Aggr_Prop",
+          "InterestRate_Nom", "Balance_Real_1",
+          "M_Repo_Rate_12", "M_Inflation_Growth_1", "M_Inflation_Growth_12",
+          "M_Emp_Growth_9")
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train, family="binomial")
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 79 503; McFadden R^2: 64.18%; AUC: 98.55%
+### RESULTS: AIC: 53 657; McFadden R^2: 75.92%; AUC: 99.31%
 
 # - Summary with robust SEs
 robust_se <- vcovHC(modLR, type="HC0")
 coeftest(modLR, vcov.=robust_se)
-### MM: [g0_Delinq_Any_Aggr_Prop_Lag_1] is insignificant
 
 # - Test goodness-of-fit using AIC-measure from single-factor models
 (aicTable_CoxDisc <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [log(TimeInDefSpell)DefSpell_Num_binned]; [g0_Delinq_Lag_1];
-###                         [Balance_adj_WOff]; [DefaultStatus1_Aggr_Prop_Lag_12]
+### RESULTS: Top variables: [InterestRate_Nom]; [slc_curing_ind]; [slc_acct_arr_dir_3]; [log(TimeInDefSpell)]; [DefaultStatus1_Aggr_Prop_Lag_9];
+###                         [pmnt_method_grp; [NewLoans_Aggr_Prop]
 
 # - Test accuracy using c-statistic from single-factor models
 (concTable_CoxDisc <- concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [log(TimeInDefSpell)*DefSpell_Num_binned]; [Balance_adj_WOff];
-###                         [g0_Delinq_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12]
+### RESULTS: Top variables: [InterestRate_Nom]; [slc_curing_ind]; [slc_acct_arr_dir_3]; [log(TimeInDefSpell)]; [DefaultStatus1_Aggr_Prop_Lag_9];
+###                         [NewLoans_Aggr_Prop]; [pmnt_method_grp]
 
 # - Combine results into a single object
 (Table_CoxDisc <- concTable_CoxDisc[,1:2] %>% left_join(aicTable_CoxDisc, by ="Variable"))
 
 GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Advanced",
                 fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Adv", ".png"), dpi=280)
-### MM: Can't find this function?
+### RESULTS: KS-statistic = 95%; Harell's c = 99.306%; AIC = 55 657
 
 # - Save objects
 pack.ffdf(paste0(genObjPath,"CoxDisc_advanced_fits"), Table_CoxDisc)

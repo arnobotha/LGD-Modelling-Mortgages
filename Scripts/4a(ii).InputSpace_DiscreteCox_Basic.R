@@ -68,7 +68,6 @@ evalLR(modLR_basic, modLR_base, datCredit_train, targetFld="DefSpell_Event", pre
 # - Test goodness-of-fit using AIC-measure over single-factor models
 (aicTable_CoxDisc_basic <- aicTable(datCredit_train, vars_basic, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
 ### RESULTS: Top variables (ranked in order): [log(TimeInDefSpell)]; [DefSpell_Num_binned]
-### MM: The variables I'm getting here for the basic model is only [log(TimeInDefSpell)] and [DefSpell_Num_Binned], guessing this was not updated?
 
 # - Test accuracy using c-statistic over single-factor models
 (concTable_CoxDisc_basic <- concTable(datCredit_train, datCredit_valid, vars_basic, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))

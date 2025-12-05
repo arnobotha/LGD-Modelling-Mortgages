@@ -55,7 +55,7 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_SD_4", "g0_Delinq_SD_5", "g0_Delinq_SD_6", "g0_Delinq_SD_9", "g0_Delinq_SD_12")
-
+.
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
