@@ -23,6 +23,7 @@
 #   - Input_Space
 # ------------------------------------------------------------------------------------------------------
 
+
 # ------ 1. Preliminaries
 
 # --- 1.1 Load and subset data
@@ -330,18 +331,18 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 # --- 5.2 Other portfolio-level (non-delinquency) variables
 
 # - Initialise variables to be tested
-vars <- c("InstalmentToBalance_Aggr_Prop_adj_WOff", "AgeToTerm_Aggr_Mean", "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop")
+vars <- c("InstalmentToBalance_1_Aggr_Prop", "AgeToTerm_Aggr_Mean", "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop")
 
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [InstalmentToBalance_Aggr_Prop_adj_WOff]; [NewLoans_Aggr_Prop]; [AgeToTerm_Aggr_Mean];  [DefSpell_Maturity_Aggr_Mean]
+### RESULTS: Best AIC-results: [InstalmentToBalance_1_Aggr_Prop]; [AgeToTerm_Aggr_Mean]; [NewLoans_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]
 # Discriminatory power (in-sample)
 concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [InstalmentToBalance_Aggr_Prop_adj_WOff]; [NewLoans_Aggr_Prop]; [AgeToTerm_Aggr_Mean];  [DefSpell_Maturity_Aggr_Mean]
+### RESULTS: Best C-statistics: [InstalmentToBalance_1_Aggr_Prop]; [NewLoans_Aggr_Prop]; [AgeToTerm_Aggr_Mean];  [DefSpell_Maturity_Aggr_Mean]
 
 ### CONCLUSION: Select top three:
-###               [InstalmentToBalance_Aggr_Prop_adj_WOff]; [NewLoans_Aggr_Prop]; [AgeToTerm_Aggr_Mean]
+###               [InstalmentToBalance_1_Aggr_Prop]; [NewLoans_Aggr_Prop]; [AgeToTerm_Aggr_Mean]
 
 
 # --- 5.3 Combining insights: Account- and portfolio-level, delinquency themed, variables
@@ -354,7 +355,7 @@ vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
           "g0_Delinq_Ave", "CuringEvents_Aggr_Prop",
           "InterestRate_Margin_Aggr_Med_2", "InterestRate_Margin_Aggr_Med_3",
           "InterestRate_Margin_Aggr_Med_9", "AgeToTerm_Aggr_Mean",
-          "InstalmentToBalance_Aggr_Prop_adj_WOff", "NewLoans_Aggr_Prop")
+          "InstalmentToBalance_1_Aggr_Prop", "NewLoans_Aggr_Prop")
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
                    data=datCredit_train, family="binomial")
@@ -745,8 +746,7 @@ datCredit_valid <- datCredit_valid[,DefSpell_ExitInd:= ifelse(DefSpell_Age==Time
 # remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
-# - Weigh default cases heavier. as determined interactively based on calibration success (script 6e)
-### MM: We aren't weighting these higher/lower? I thought the the results showed that the best "weight" was not one?
+# - Weigh default cases (assuming 1 in this instance for simplicity)
 datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
 
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
@@ -789,8 +789,11 @@ GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelT
 ### RESULTS: KS-statistic = 95%; Harell's c = 99.306%; AIC = 55 657
 
 # - Save objects
+# Model analytics
 pack.ffdf(paste0(genObjPath,"CoxDisc_advanced_fits"), Table_CoxDisc)
-
+# Modeling object
+modLR_Adv <- copy(modLR); rm(modLR); gc()
+save(modLR_Adv, file=paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
 
 
