@@ -30,9 +30,10 @@ if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
 # - Use only default spells and first counter
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key)&DefSpell_Counter==1,]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key)&DefSpell_Counter==1,]
-# remove previous objects from memory
+datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
+datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
+
+# - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 
@@ -44,8 +45,6 @@ datCredit_valid[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0
 
 # --- 1.3 Fit an empty model to use in analytics
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
-
-# Insight interactively mined from modelling theme 2a-b was used in fitting this model.
 
 
 

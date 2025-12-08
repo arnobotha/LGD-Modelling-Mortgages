@@ -32,32 +32,34 @@
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
-# - Use only default spells 
+# - Filter data for default spells only
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key)]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key)]
 
-# - filter to maximum spell counter
+# - Filter data for last default spell observations
 datCredit_train <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
 datCredit_valid <- datCredit_valid[, .SD[which.max(DefSpell_Counter)], by = LoanID]
 
-# Identify where the loss rate is out of bounds and not feasible
+# - Identify where the loss rate is out of bounds and not feasible
 datCredit_train <- datCredit_train[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
 datCredit_valid <- datCredit_valid[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
 
-# Subset to include only relevant data
+# - Subset to exclude nonsensical loss-rates
 datCredit_train <- subset(datCredit_train, OOB_Ind == 0)
 datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
 
-
-# remove previous objects from memory
+# - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
+# - Fit an empty model to use for analyses
 modLR_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
 
 
 
+
 # ------ 2. Delinquency-themed variables
-#----- 2.1 Which lag order is the best in calculating the portfolio-level fraction of the defaulted proportion with any delinquency?
+
+# --- 2.1 Which lag order is the best in calculating the portfolio-level fraction of the defaulted proportion with any delinquency?
 # indicates the lag order of past data that should be included  when assessing an account
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq_Any_Aggr_Prop_Lag_2",
@@ -67,8 +69,6 @@ vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
-
-
 ### RESULTS: Best AIC-results: g0_Delinq_Any_Aggr_Prop_Lag_3, g0_Delinq_Any_Aggr_Prop_Lag_2, g0_Delinq_Any_Aggr_Prop_Lag_4, 
 # , g0_Delinq_Any_Aggr_Prop_1
 # Best Deviance : g0_Delinq_Any_Aggr_Prop_Lag_3, g0_Delinq_Any_Aggr_Prop_Lag_2, g0_Delinq_Any_Aggr_Prop_Lag_4, 
