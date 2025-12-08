@@ -150,20 +150,20 @@ ibs_adv <- mean(objCoxDisc_adv$tBS[TimeInDefSpell <= zoomedSpellAge, Brier])
 # - Graphing Parameters
 chosenFont <- "Cambria"
 vCol <- brewer.pal(8, "Set2")[c(2,1)]
-vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
+vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
 
 # - Main graph of tBS
 (gOuter <- ggplot(datGraph, aes(x=TimeInDefSpell, y=Brier, group=Type)) + theme_minimal() + 
-    labs(y=bquote("Time-dependent Brier Score "*italic(B)[s](italic(t))), x=bquote("Default spell age (months)"*~italic(t))) + 
+    labs(y=bquote("Time-dependent Brier Score "*italic(B)[s](italic(t))), x=bquote("Spell time (months)"*~italic(t))) + 
     theme(text=element_text(family=chosenFont),legend.position="bottom", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text = element_text(size=8, colour="gray50"), strip.text.y.right = element_text(angle=90)) + 
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5) + 
     # Annotations
-    annotate(geom="text", x=76, y=20, label=paste0("IBS (Basic): ", round(objCoxDisc_bas$IBS,3)), 
+    annotate(geom="text", x=26, y=8, label=paste0("IBS (Basic A): ", round(objCoxDisc_bas$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=72, y=18, label=paste0("IBS (Advanced): ", round(objCoxDisc_adv$IBS,3)), 
+    annotate(geom="text", x=22, y=6, label=paste0("IBS (Advanced A): ", round(objCoxDisc_adv$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +     
     # Facets & scales
     facet_grid(FacetLabel ~ .) +  
@@ -188,9 +188,9 @@ vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5, show.legend = F) + 
     # Annotations
-    annotate(geom="text", x=20, y=1.5, label=paste0("IBS (Basic): ", round(ibs_bas,3)), 
+    annotate(geom="text", x=20, y=1.5, label=paste0("IBS (Basic A): ", round(ibs_bas,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=17, y=1, label=paste0("IBS (Advanced): ", round(ibs_adv,3)), 
+    annotate(geom="text", x=17, y=1, label=paste0("IBS (Advanced A): ", round(ibs_adv,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +   
     # Facets & scales
     scale_colour_manual(name="", values=vCol, labels=vLabel) + 
@@ -200,11 +200,11 @@ vLabel <- c("a_Basic"="Basic", "b_Advanced"="Advanced")
 )
 
 # - Combining the two above plots onto a single graph
-(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=10, xmax=90, ymin=5, ymax=15))
+(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=5, xmax=78, ymin=10, ymax=30))
 
 # - Save plot
 dpi <- 280
-ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_CoxDisc.png"),width=1350/dpi, height=1000/dpi,dpi=dpi, bg="white")
+ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_CoxDisc.png"),width=1600/dpi, height=1200/dpi,dpi=dpi, bg="white")
 
 
 
@@ -221,7 +221,7 @@ tBrier_LR <- tBS_LR$Brier
 
 # - Create a single table containing the three R^2 measures for each of the models
 brier_Table <- data.table(
-  Model = c("Survival Analysis(Basic)","Survival Analysis(Advanced)", "Logistic Regression" ),
+  Model = c("DtH-Advanced A","DtH-Basic A", "Logistic Regression" ),
   Brier = c(tBrier_Bas, tBrier_Adv, tBrier_LR)
 )
 # - Save table to specified path
@@ -244,9 +244,9 @@ vCol1 <- c(
 vCol2 <- vCol1 
 vCol3 <- rep("white", 3)  
 vLabel <- list(
-  "a_Basic" = "Survival Analysis(Basic)",
-  "b_Advanced" = "Survival Analysis(Advanced)",
-  "c_Logistic_Regression" = "Logistic Regression"
+  "a_Basic" = "DtH-Basic A",
+  "b_Advanced" = "DtH-Advanced A",
+  "c_Logistic_Regression" = "Logistic Regression A"
 )
 gPlot <- ggplot(datPlot, aes(x = Statistic, y = Value, group = Model)) + 
   theme_minimal() +

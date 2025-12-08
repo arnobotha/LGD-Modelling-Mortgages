@@ -1,4 +1,4 @@
-# ======================================= INPUT SPACE: LOSS SEVERITY-GAUSSIAN============================
+# ======================================= INPUT SPACE: LOSS SEVERITY-GAUSSIAN-TWO-STAGE============================
 # Divide data into thematic groups and perform data analysis on them to compile an input space for 
 # the loss severity component.
 # ------------------------------------------------------------------------------------------------------
@@ -33,8 +33,8 @@ if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
 # - Use only default spells 
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key)]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key)]
+datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key)&DefSpellResol_Type_Hist=="WOFF",]
+datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key)&DefSpellResol_Type_Hist=="WOFF",]
 
 # - filter to maximum spell counter
 datCredit_train <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
@@ -66,10 +66,10 @@ vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="gaussian")
-### RESULTS: Best AIC-results: g0_Delinq_Any_Aggr_Prop_Lag_3, g0_Delinq_Any_Aggr_Prop_Lag_2, g0_Delinq_Any_Aggr_Prop_Lag_34, 
-# , g0_Delinq_Any_Aggr_Prop_1
-# Best Deviance : g0_Delinq_Any_Aggr_Prop_Lag_3, g0_Delinq_Any_Aggr_Prop_Lag_2, g0_Delinq_Any_Aggr_Prop_Lag_34, 
-# , g0_Delinq_Any_Aggr_Prop_1
+### RESULTS: Best AIC-results: g0_Delinq_Any_Aggr_Prop_Lag_3, g0_Delinq_Any_Aggr_Prop_Lag_2, g0_Delinq_Any_Aggr_Prop_Lag_1, 
+# , g0_Delinq_Any_Aggr_Prop_4
+# Best Deviance : g0_Delinq_Any_Aggr_Prop_Lag_3, g0_Delinq_Any_Aggr_Prop_Lag_2, g0_Delinq_Any_Aggr_Prop_Lag_1, 
+# , g0_Delinq_Any_Aggr_Prop_4
 # Conclusion: The differences in AIC and deviance are minor
 # Choose the overall top 3 performing variables g0_Delinq_Any_Aggr_Prop_2 g0_Delinq_Any_Aggr_Prop_Lag_4, g0_Delinq_Any_Aggr_Prop_Lag_3
 # All are above 50% 
@@ -83,9 +83,9 @@ vars <- c("DefaultStatus1_Aggr_Prop", "DefaultStatus1_Aggr_Prop_Lag_1", "Default
 # - Single-factor modelling results
 # Goodness-of-fit
 aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="gaussian")
-### RESULTS: Best AIC-results: DefaultStatus1_Aggr_Prop_Lag_9, DefaultStatus1_Aggr_Prop_Lag_6, DefaultStatus1_Aggr_Prop_Lag_5 etc in descending order
+### RESULTS: Best AIC-results: DefaultStatus1_Aggr_Prop_Lag_6, DefaultStatus1_Aggr_Prop_Lag_5, DefaultStatus1_Aggr_Prop_Lag_4 etc in descending order
 # Differences are not that major
-# Best Deviance: DefaultStatus1_Aggr_Prop_Lag_9, DefaultStatus1_Aggr_Prop_Lag_6, DefaultStatus1_Aggr_Prop_Lag_5 etc in descending order
+# Best Deviance: DefaultStatus1_Aggr_Prop_Lag_6, DefaultStatus1_Aggr_Prop_Lag_5, DefaultStatus1_Aggr_Prop_Lag_4 etc in descending order
 # Similar trend as to AIC
 
 
@@ -121,7 +121,7 @@ vars <- c("g0_Delinq_fac", "g0_Delinq", "g0_Delinq_Lag_1", "slc_acct_arr_dir_3_C
 # Goodness-of-fit
 aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="gaussian")
 # Discriminatory power (in-sample)
-### RESULTS: Best AIC-results:  g0_Delinq_Lag_1, PrevDeafults, slc_Acct_Arr_dir_3, TimeInDelinqState, Arrears,, slc_past_due_amt_imputed_med
+### RESULTS: Best AIC-results:  PrevDefaults, DefSpell_Num_binned
 # Best Deviance: g0_Delinq_Lag_1, PrevDeafults, slc_Acct_Arr_dir_3, TimeInDelinqState, Arrears,, slc_past_due_amt_imputed_med
 ### CONCLUSION
 # Choose:  PrevDeafults, slc_acct_arr_dir_3, Arrears,, slc_past_due_amt_imputed_med
@@ -136,7 +136,7 @@ vars <- c("PrevDefaults","g0_Delinq_Any_Aggr_Prop_Lag_2",
           "slc_acct_arr_dir_3","DefSpell_Age","DefSpell_Num_binned","slc_past_due_amt_imputed_med")
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                     data=datCredit_train,family = gaussian(link = "identity"))
+                   data=datCredit_train,family = gaussian(link = "identity"))
 summary(modLR_full);
 evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
 
@@ -157,7 +157,7 @@ proc.time() - ptm # IGNORE: elapsed runtime;
 vars <- c("PrevDefaults", "g0_Delinq_Any_Aggr_Prop_Lag_3","DefaultStatus1_Aggr_Prop_Lag_9",
           "g0_Delinq_Ave", "CuringEvents_Aggr_Prop",
           "slc_acct_arr_dir_3","DefSpell_Age","DefSpell_Num_binned","slc_past_due_amt_imputed_med")
-          
+
 modLR <- glm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
               data=datCredit_train,family = gaussian(link = "identity"))
 summary(modLR);
@@ -490,7 +490,7 @@ evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
-                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
+                                               upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
                       direction = "both", k=log(datCredit_train[,.N]), maxit=50)
 summary(modLR_step)
 evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
@@ -533,11 +533,8 @@ evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
-                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
+                                               upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
                       direction = "both", k=log(datCredit_train[,.N]), maxit=50)
 summary(modLR_step)
 evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
 ### RESULTS: AIC: -27175.37;  R^2:  24.52%; RMSE:  19.42%; MAE:  11.85%
-
-
-
