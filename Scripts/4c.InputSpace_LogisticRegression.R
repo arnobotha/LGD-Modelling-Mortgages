@@ -221,38 +221,30 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 ###               [AgeToTerm_Aggr_Mean]; [InstalmentToBalance_1_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]
 
 
-# --- 3.3 Combining insights: Delinquency-themed and portfolio-level variables
+# --- 3.3 Combining insights
 # - Set initial variables to be tested
-vars <- c("g0_Delinq_SD_12",
-          "DefaultStatus1_Aggr_Prop_Lag_12",
-          "CuringEvents_Aggr_Prop", "g0_Delinq_Ave", "ArrearsToBalance_1_Aggr_Prop",
-          "PrevDefaults", "DefSpell_Age", "g0_Delinq_Num", "Arrears", "DefSpell_Num_binned",
-          "InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "InterestRate_Margin_Aggr_Med_2",
+vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "InterestRate_Margin_Aggr_Med_2",
           "AgeToTerm_Aggr_Mean", "InstalmentToBalance_1_Aggr_Prop", "DefSpell_Maturity_Aggr_Mean")
 
-# - Full model | Stepwise forward selection procedure
+# - Full model
 modLR_full <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
                   data=datCredit_train, family="binomial")
-summary(modLR_full);
+summary(modLR_full)
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   69 464; McFadden R^2:  30.41%; AUC:  86.31%.
+### RESULTS: AIC: 94 464; McFadden R^2: 5.63%; AUC: 66.64%.
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
                                                 upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
                       direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+proc.time() - ptm # IGNORE: elapsed runtime; 1m
 summary(modLR_step)
 evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-proc.time() - ptm # IGNORE: elapsed runtime; 1m
-### RESULTS: AIC:   69 448; McFadden R^2: 30.40%; AUC: 86.32%
+### RESULTS: AIC:   90 413; McFadden R^2: 5.62%; AUC: 66.64%
 
 ### CONCLUSION: Select variables from automated variable selection:
-###             [DefaultStatus1_Aggr_Prop_Lag_12];
-###             [CuringEvents_Aggr_Prop]; [g0_Delinq_Ave]; [ArrearsToBalance_1_Aggr_Prop];
-###             [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num]; [Arrears]; [DefSpell_Num_binned];
-###             [InterestRate_Margin_Aggr_Med];
-####            [AgeToTerm_Aggr_Mean]; [InstalmentToBalance_1_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]
+###             [InterestRate_Margin_Aggr_Med_2]; [InstalmentToBalance_1_Aggr_Prop]
 
 
 
@@ -300,46 +292,9 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 ### RESULTS: Best C-statistics: [Balance_Real_1]; [Principal_Real]; [InterestRate_Nom]; [BalanceToPrincipal_1]; [pmnt_method_grp];
 ###                            [InterestRate_Margin_imputed_mean]; [slc_acct_pre_lim_perc_imputed_med]
 
-### CONCLUSION: Select top three variables (preference given to C-statistic rankings):
+### CONCLUSION: Select top five variables (preference given to C-statistic rankings):
 ###               [Balance_Real_1]; [Principal_Real]; [InterestRate_Nom];
 ###               [BalanceToPrincipal_1]; [pmnt_method_grp]
-
-
-# --- 4.2 Combining insights: Delinquency-themed, portfolio-level, and account-level variables
-# - Initialize variables to be tested
-### NOTE: [pmnt_method_grp] causes quasi-complete seperation, excluding it in the selection
-vars <- c("DefaultStatus1_Aggr_Prop_Lag_12", "CuringEvents_Aggr_Prop", "g0_Delinq_Ave",
-          "ArrearsToBalance_1_Aggr_Prop", "PrevDefaults", "DefSpell_Age", "g0_Delinq_Num",
-          "Arrears", "DefSpell_Num_binned", "InterestRate_Margin_Aggr_Med",
-          "AgeToTerm_Aggr_Mean", "InstalmentToBalance_1_Aggr_Prop", "DefSpell_Maturity_Aggr_Mean",
-          "Balance_Real_1", "Principal_Real", "InterestRate_Nom",
-          "BalanceToPrincipal_1") # , "pmnt_method_grp")
-
-# - Full model | Stepwise forward selection procedure
-modLR_full <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-                  data=datCredit_train, family="binomial")
-summary(modLR_full);
-evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS:  Quasi-complete separation occurred
-###           AIC:   68 688; McFadden R^2:  31.37%; AUC:  86.84%
-
-
-# - Stepwise forward selection using BIC
-ptm <- proc.time() # for runtime calculations (ignore)
-modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
-                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
-                      direction = "both", k=log(datCredit_train[,.N]), maxit=50)
-summary(modLR_step)
-evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-proc.time() - ptm
-### RESULTS: AIC: 68 684; McFadden R^2: 31.37%; AUC: 86.84%
-
-### CONCLUSION: Select variables from automated selection:
-###               [DefaultStatus1_Aggr_Prop_Lag_12]; [CuringEvents_Aggr_Prop]; [g0_Delinq_Ave];
-###               [ArrearsToBalance_1_Aggr_Prop]; [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num];
-###               [DefSpell_Num_binned]; [InterestRate_Margin_Aggr_Med];
-###               [AgeToTerm_Aggr_Mean]; [InstalmentToBalance_1_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean];
-###               [Balance_Real_1]; [Principal_Real]; [InterestRate_Nom]
 
 
 
@@ -468,13 +423,15 @@ ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
                                                 upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
                       direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+proc.time() - ptm # IGNORE: elapsed runtime; 1m
+
+# - Evaluate model
 summary(modLR_step)
 evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-proc.time() - ptm # IGNORE: elapsed runtime; 1m
 ### RESULTS: AIC:   93 983;   McFadden R^2:  6.06%; AUC:  66.98%
 
 ### CONCLUSION: Select variables from automated variable selection:
-###               [M_Repo_Rate_2]; [M_Repo_Rate_6]
+###               [M_Repo_Rate_2]; [M_Repo_Rate_6];
 ###               [M_Inflation_Growth_3]; [M_Inflation_Growth_6];
 ###               [M_RealGDP_Growth_9]; [M_RealGDP_Growth_12];
 ###               [M_RealIncome_Growth_9]; [M_RealIncome_Growth_12];
@@ -482,14 +439,18 @@ proc.time() - ptm # IGNORE: elapsed runtime; 1m
 ###               [M_Emp_Growth_6]; [M_Emp_Growth_9]
 
 
-# ------ 5.8 Combining insights: Delinquency-themed, portfolio-level, account-level, and macroeconomic variables
 
-# - Initialize variables to be tested
-vars <- c("DefaultStatus1_Aggr_Prop_Lag_12", "CuringEvents_Aggr_Prop", "g0_Delinq_Ave",
-          "ArrearsToBalance_1_Aggr_Prop", "PrevDefaults", "DefSpell_Age", "g0_Delinq_Num",
-          "DefSpell_Num_binned", "InterestRate_Margin_Aggr_Med",
-          "AgeToTerm_Aggr_Mean", "InstalmentToBalance_1_Aggr_Prop", "DefSpell_Maturity_Aggr_Mean",
+
+# ------ 6. Combine variables from all themes
+
+# --- 6.1 Run an automated selection procedure on the entire set
+# - Initialise set of variables
+vars <- c("g0_Delinq_SD_12", "DefaultStatus1_Aggr_Prop_Lag_12",
+          "CuringEvents_Aggr_Prop", "g0_Delinq_Ave", "ArrearsToBalance_1_Aggr_Prop",
+          "PrevDefaults", "DefSpell_Age", "g0_Delinq_Num", "Arrears", "DefSpell_Num_binned",
+          "InterestRate_Margin_Aggr_Med_2", "InstalmentToBalance_1_Aggr_Prop",
           "Balance_Real_1", "Principal_Real", "InterestRate_Nom",
+          "BalanceToPrincipal_1", "pmnt_method_grp",
           "M_Repo_Rate_2", "M_Repo_Rate_6",
           "M_Inflation_Growth_3", "M_Inflation_Growth_6",
           "M_RealGDP_Growth_9", "M_RealGDP_Growth_12",
@@ -497,31 +458,32 @@ vars <- c("DefaultStatus1_Aggr_Prop_Lag_12", "CuringEvents_Aggr_Prop", "g0_Delin
           "M_DTI_Growth_2", "M_DTI_Growth_3", "M_DTI_Growth_6",
           "M_Emp_Growth_6", "M_Emp_Growth_9")
 
-# - Full model | Stepwise forward selection procedure
+# - Full model
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
                    data=datCredit_train, family="binomial")
-summary(modLR_full);
+summary(modLR_full)
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 67 698; McFadden R^2: 32.38%; AUC: 87.42%
+### RESULTS: AIC: 67 526; McFadden R^2: 32.56%; AUC: 87.36%
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
-                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
+                                               upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
                       direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+proc.time() - ptm # IGNORE: elapsed runtime; 3m
+
+# - Evaluate model
 summary(modLR_step)
 evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-proc.time() - ptm # IGNORE: elapsed runtime; 5m
-### RESULTS: AIC: 67 779; McFadden R^2: 32.28%; AUC: 87.36%
+### RESULTS: AIC: 67 678; McFadden R^2: 32.38%; AUC: 87.25%
 
 ### CONCLUSION: Select variables from automated variable selection:
-###               [PrevDefaults]; [DefSpell_Num_binned]; [ArrearsToBalance_1_Aggr_Prop];
+###               [PrevDefaults]; [M_Repo_Rate_6]; [DefSpell_Num_binned];
 ###               [ArrearsToBalance_1_Aggr_Prop]; [Balance_Real_1]; [DefSpell_Age];
-###               [DefaultStatus1_Aggr_Prop_Lag_12]; [Principal_Real]; [AgeToTerm_Aggr_Mean];
-###               [InterestRate_Margin_Aggr_Med]; [g0_Delinq_Num]; [CuringEvents_Aggr_Prop];
-###               [InterestRate_Nom]; [g0_Delinq_Ave];
-###               [M_Repo_Rate_6]; [M_Repo_Rate_2]; [M_Inflation_Growth_6];
-###               [M_DTI_Growth_6]; [M_Inflation_Growth_3]
+###               [pmnt_method_grp]; [InterestRate_Margin_Aggr_Med_2]; [InterestRate_Nom];
+###               [DefaultStatus1_Aggr_Prop_Lag_12]; [g0_Delinq_Ave]; [M_DTI_Growth_6];
+###               [Principal_Real]; [M_RealGDP_Growth_12]; [g0_Delinq_Num];
+###               [M_Repo_Rate_2]; [M_Inflation_Growth_3]
 
 
 
@@ -533,12 +495,14 @@ if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
 # - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key)&DefSpell_Counter==1,]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key)&DefSpell_Counter==1,]
+datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
+datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
 
+# - Add an event indicator
 datCredit_train[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
 datCredit_valid[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
-# remove previous objects from memory
+
+# - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 # - Weigh default cases heavier. as determined interactively based on calibration success (script 6e)
@@ -549,13 +513,12 @@ datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)]
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Final variables
-vars <- c("PrevDefaults", "DefSpell_Num_binned", "ArrearsToBalance_1_Aggr_Prop",
-          "ArrearsToBalance_1_Aggr_Prop", "Balance_Real_1", "DefSpell_Age",
-          "DefaultStatus1_Aggr_Prop_Lag_12", "Principal_Real", "AgeToTerm_Aggr_Mean",
-          "InterestRate_Margin_Aggr_Med", "g0_Delinq_Num", "CuringEvents_Aggr_Prop",
-          "InterestRate_Nom", "g0_Delinq_Ave",
-          "M_Repo_Rate_6", "M_Repo_Rate_2", "M_Inflation_Growth_6",
-          "M_DTI_Growth_6", "M_Inflation_Growth_3")
+vars <- c("PrevDefaults", "M_Repo_Rate_6", "DefSpell_Num_binned",
+          "ArrearsToBalance_1_Aggr_Prop", "Balance_Real_1", 'DefSpell_Age',
+          "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2", 'InterestRate_Nom',
+          "DefaultStatus1_Aggr_Prop_Lag_12", "g0_Delinq_Ave", "M_DTI_Growth_6",
+          "Principal_Real", "M_RealGDP_Growth_12", "g0_Delinq_Num",
+          "M_Repo_Rate_2", "M_Inflation_Growth_3")
   
 # - Fit model
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
@@ -571,22 +534,24 @@ coeftest(modLR, vcov.=robust_se)
 
 # - Other diagnostics
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:  67 779;  McFadden R^2:  32.28%; AUC:  87.36%
+### RESULTS: AIC: 67 678; McFadden R^2: 32.38%; AUC: 87.25%
 
 # - Test goodness-of-fit using AIC-measure over single-factor models
 (aicTable_LR <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-# Top variables: [Prev_Defaults]; [M_Repo_Rate_2]; [M_Repo_Rate_6]; [M_DTI_Growth_6]; [AgeToTerm_Aggr_Mean]
+### RESULTS: Top variables: [Prev_Defaults]; [M_Repo_Rate_2]; [M_Repo_Rate_6]; [M_DTI_Growth_6]; [InterestRate_Margin_Aggr_Med_2];
+###                         [Balance_Real_1]; [M_RealGDP_Growth_12]
 
 # - Test accuracy using c-statistic over single-factor models
 (concTable_LR <- concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-# Top variables: [Prev_Defaults]; [DefSpell_Age]; [M_Repo_Rate_6]; [M_Repo_Rate_2]; [M_DTI_Growth_6]
+### RESULTS: Top variables: [Prev_Defaults]; [DefSpell_Age]; [M_Repo_Rate_6]; [M_Repo_Rate_2]; [M_DTI_Growth_6]
+###                          [InterestRate_Margin_Aggr_Med_2]; [Balance_Real_1]
 
 # - Combine results into a single object
 Table_LR <- merge(concTable_LR[,1:2], aicTable_LR, by="Variable")
 
 GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, ,legPos=c(0.6,0.4), panelTitle="Logistic Regression",
                 fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_LR", ".png"), dpi=280,fldLstRowInd="DefSpell_Counter")
-### RESULTS: KS-statistic = 43%; Harell's c = 87.64%; AIC = 67 779
+### RESULTS: KS-statistic = 43%; Harell's c = 87.25%; AIC = 67 678
 
 # - Save objects
 # Model analytics
