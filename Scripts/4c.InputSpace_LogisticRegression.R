@@ -29,7 +29,7 @@
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
-# - Use only default spells and first counter
+# - Use only default spells and first default observations
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
 
@@ -50,8 +50,8 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 
 # ------ 2. Delinquency-themed variables
-# --- 2.1 Selection of delinquency volatility variables
 
+# --- 2.1 Selection of delinquency volatility variables
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_SD_4", "g0_Delinq_SD_5", "g0_Delinq_SD_6", "g0_Delinq_SD_9", "g0_Delinq_SD_12")
 
@@ -71,7 +71,7 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 # - Set initial variables to be tested
 vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq_Any_Aggr_Prop_Lag_2",
           "g0_Delinq_Any_Aggr_Prop_Lag_3", "g0_Delinq_Any_Aggr_Prop_Lag_4", "g0_Delinq_Any_Aggr_Prop_Lag_5",
-          "g0_Delinq_Any_Aggr_Prop_Lag_6", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Any_Aggr_Prop_Lag_12" )
+          "g0_Delinq_Any_Aggr_Prop_Lag_6", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Any_Aggr_Prop_Lag_12")
 
 # - Single-factor modelling results
 # Goodness-of-fit
@@ -153,9 +153,9 @@ evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 ### RESULTS: AIC:   70 839; McFadden R^2:  29.21%; AUC:  85.75%
 
 ptm <- proc.time() # for runtime calculations (ignore)
-modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
-                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
-                      direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+modLR_step <- stepAIC(modLR_base, scope=list(lower=~ 1, 
+                                             upper=as.formula(paste("~", paste(vars, collapse=" + ")))), 
+                      direction="both", k=log(datCredit_train[,.N]), maxit=50)
 summary(modLR_step)
 evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 proc.time() - ptm # IGNORE: elapsed runtime; 1m

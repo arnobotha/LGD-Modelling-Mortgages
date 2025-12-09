@@ -1,4 +1,4 @@
-# ======================================= INPUT SPACE: LOSS SEVERITY-GAUSSIAN============================
+# ======================================= INPUT SPACE: ONE-STAGE-GAUSSIAN============================
 # Divide data into thematic groups and perform data analysis on them to compile an input space for 
 # the loss severity component.
 # ------------------------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ vars <- c("PrevDefaults","g0_Delinq_Any_Aggr_Prop_Lag_2",
           "slc_acct_arr_dir_3","DefSpell_Age","DefSpell_Num_binned","slc_past_due_amt_imputed_med")
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                     data=datCredit_train,family = gaussian(link = "identity"))
+                   data=datCredit_train,family = gaussian(link = "identity"))
 summary(modLR_full);
 evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
 
@@ -157,7 +157,7 @@ proc.time() - ptm # IGNORE: elapsed runtime;
 vars <- c("PrevDefaults", "g0_Delinq_Any_Aggr_Prop_Lag_3","DefaultStatus1_Aggr_Prop_Lag_9",
           "g0_Delinq_Ave", "CuringEvents_Aggr_Prop",
           "slc_acct_arr_dir_3","DefSpell_Age","DefSpell_Num_binned","slc_past_due_amt_imputed_med")
-          
+
 modLR <- glm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
               data=datCredit_train,family = gaussian(link = "identity"))
 summary(modLR);
@@ -490,7 +490,7 @@ evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
-                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
+                                               upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
                       direction = "both", k=log(datCredit_train[,.N]), maxit=50)
 summary(modLR_step)
 evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
@@ -533,11 +533,8 @@ evalLS(modLR_full,datCredit_train,targetFld="LossRate_Real",modLR_base)
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
-                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
+                                               upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
                       direction = "both", k=log(datCredit_train[,.N]), maxit=50)
 summary(modLR_step)
 evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
 ### RESULTS: AIC: -27175.37;  R^2:  24.52%; RMSE:  19.42%; MAE:  11.85%
-
-
-

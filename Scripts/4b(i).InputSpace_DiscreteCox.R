@@ -311,7 +311,6 @@ proc.time() - ptm # IGNORE: elapsed runtime; ~51 minutes
 # ------ 5. Other portfolio-level variables
 
 # --- 5.1 Median portfolio-level interest rates
-
 # - Initialize variables to be tested
 vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "InterestRate_Margin_Aggr_Med_2",
           "InterestRate_Margin_Aggr_Med_3", "InterestRate_Margin_Aggr_Med_9")
@@ -329,7 +328,6 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 
 
 # --- 5.2 Other portfolio-level (non-delinquency) variables
-
 # - Initialise variables to be tested
 vars <- c("InstalmentToBalance_1_Aggr_Prop", "AgeToTerm_Aggr_Mean", "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop")
 
@@ -346,7 +344,6 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 
 
 # --- 5.3 Combining insights: Account- and portfolio-level, delinquency themed, variables
-
 # - Initialize variables to be tested
 vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
           "slc_past_due_amt_imputed_med", "slc_acct_arr_dir_3", "slc_curing_ind",
@@ -387,6 +384,7 @@ proc.time() - ptm # IGNORE: elapsed runtime; ~7.5 minutes
 # ------ 6. Account-level variables
 
 # --- 6.1 How do various non-delinquency account-level variables fare as single-factor models?
+# - Initialise variables to be tested
 vars <- c("Principal_Real", "Principal", "InterestRate_Margin", 
           "Balance_Real_1", "Balance_1", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
           "BalanceToPrincipal_1", "slc_acct_pre_lim_perc_imputed_med")
@@ -408,7 +406,7 @@ corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 ###           Absolute correlations of  72%  found for [Balance_1] and [BalanceToPrincipal_1] 
 ###           Absolute correlations of  63%  found for [Instalment_Real] and [BalanceToPrincipal_1]
 
-# - Initialize variables to be tested
+# - Refine variables given insights from correlation analyses
 ### NOTE: - Inflation adjusted variables preferred over their non-adjusted counterparts
 ###       - Principal, balance, and instalment all kept regardless of their correlations, each contains unique information
 vars <- c("Principal_Real", "InterestRate_Margin_imputed_mean", "pmnt_method_grp",
