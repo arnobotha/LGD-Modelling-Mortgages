@@ -655,6 +655,7 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 
 # ------ 9. Final model
 
+# --- 9.1 Preliminaries
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
@@ -673,6 +674,8 @@ datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
+
+# --- 9.2 Fit and evaluate final model
 # - Final variables
 vars <- c("log(TimeInDefSpell)", "DefSpell_Num_binned",
           "InterestRate_Nom", "g0_Delinq_SD_4", "pmnt_method_grp",
@@ -713,7 +716,8 @@ GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelT
                 fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Adv", ".png"), dpi=280)
 ### RESULTS: KS-statistic = 96%; Harell's c = 99.657%; AIC = 49 836
 
-# - Save objects
+
+# --- 9.3 Save objects
 # Model analytics
 pack.ffdf(paste0(genObjPath,"CoxDisc_advanced_fits"), Table_CoxDisc)
 # Modeling object
