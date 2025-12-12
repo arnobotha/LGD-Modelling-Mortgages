@@ -171,7 +171,7 @@ modLR_step <- stepwise_cpglm_both(modLR_base, modLR_full,datCredit_train)
 summary(modLR_step)
 evalLS(modLR_step,datCredit_train,targetFld="LossRate_Real",modLR_base)
 proc.time() - ptm # IGNORE: elapsed runtime; 70m
-### RESULTS: AIC: 3094.623;  R^2:  3.97%%; RMSE:  30.55%; MAE:  25.65%
+### RESULTS: AIC: 3094.623;  R^2:  3.97%; RMSE:  30.55%; MAE:  25.65%
 
 # - Domain expertise
 

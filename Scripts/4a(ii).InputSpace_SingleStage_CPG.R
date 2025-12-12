@@ -1,6 +1,6 @@
 # ======================================= INPUT SPACE: LOSS SEVERITY============================
 # Divide data into thematic groups and perform data analysis on them to compile an input space for 
-# a single stage model.
+# a single stage model with a Compound Poisson Gamma link function.
 # ------------------------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG)
@@ -161,7 +161,7 @@ modGLM_full <- cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = 
                     data=datCredit_train)
 summary(modGLM_full)
 evalLS(modGLM_full, datCredit_train, targetFld="LossRate_Real", modGLM_base)
-### RESULTS: AIC: 69892.5; R^2: 12.62%; RMSE:  19.47%; MAE:  11.35%
+### RESULTS: AIC: 69893; R^2: 12.62%; RMSE:  19.47%; MAE:  11.35%
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
@@ -276,7 +276,7 @@ vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean",
 corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 ### RESULTS:
 # Absolute correlations of  96%  found for  [Principal_Real] and [Principal ]
-# Absolute correlations of  62%  found for  [Principal_Real] and [Balance_Real_1] 
+# Absolute correlations of  92%  found for  [Principal_Real] and [Balance_Real_1] 
 # Absolute correlations of  87%  found for  [Principal]  and  [Balance_Real_1] 
 # Absolute correlations of  91%  found for  [Principal_Real] and [Balance_1] 
 # Absolute correlations of  91%  found for  [Principal] and [Balance_1]
@@ -437,7 +437,7 @@ vars <- c("M_Repo_Rate_9", "M_Repo_Rate_12", "M_Repo_Rate_6",
 # - Full model | Stepwise forward selection procedure
 modGLM_full <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
                 data=datCredit_train)
-summary(modGLM_full);
+summary(modGLM_full)
 evalLS(modGLM_full,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ### RESULTS: AIC: 79 626; R^2: 2.15%; RMSE: 20.60%; MAE: 11.96%
 
@@ -466,7 +466,7 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
 
 # - Evaluate model
 summary(modGLM)
-evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
+evalLS(modGLM, datCredit_train,targetFld="LossRate_Real", modGLM_base)
 ### RESULTS: AIC: 79 664; R^2: 2.07%; RMSE: 20.61%; MAE: 11.97%
 
 ### CONCLUSION: Select variables from automated variable selection procedure:
@@ -494,7 +494,7 @@ vars <- c("g0_Delinq_SD_12", "DefaultStatus1_Aggr_Prop_Lag_12",
 # - Full model 
 modGLM_full <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
                      data=datCredit_train)
-summary(modGLM_full);
+summary(modGLM_full)
 evalLS(modGLM_full,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ### RESULTS: AIC: 67 812; R^2: 11.57; RMSE: 19.59%; MAE: 9.96%
 
@@ -537,7 +537,7 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
 
 # - Evaluate model
 summary(modGLM)
-evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modLR_base)
+evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ### RESULTS: AIC: 67 365; R^2: 11.03; RMSE: 19.64%; MAE: 10.02%
 
 ### CONCLUSION: The following variables are insignificant:
@@ -561,7 +561,7 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
 
 # - Evaluate model
 summary(modGLM)
-evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modLR_base)
+evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ### RESULTS: AIC: 67 365; R^2: 11.05 RMSE: 19.64%; MAE: 10.00%
 
 ### CONCLUSION: All varaibles significant, we therefore select:

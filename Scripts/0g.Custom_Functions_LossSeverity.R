@@ -4,7 +4,7 @@
 calc_AIC_LS <- function(formula, data_train, variables="", it=NA, logPath="", 
                         fldSpellID="DefSpell_Key", modelType="tweedie") {
   # - Testing conditions
-  # formula<-TimeDef_Form(TimeDef,variables[j], strataVar=strataVar); variables<-variables[j]
+  # j<-1; formula<-TimeDef_Form(TimeDef,variables[j], strataVar=strataVar); variables<-variables[j]
   # data_train<-data_train; it=j; logPath=genPath;  fldSpellID=fldSpellID; modelType<-modelType
   
   tryCatch({
@@ -33,7 +33,8 @@ calc_AIC_LS <- function(formula, data_train, variables="", it=NA, logPath="",
       # Get model deviance
       Dev <- deviance(model)
       # Calculate C-index
-      c_ind <- NA
+      c_ind <- rcorr.cens(data_train$score, data_train$LossRate_Real)[["C Index"]]
+      
     } else stop("Unknown model type in calc_AIC().")
     
     # - Output the number of models built, where the log is stored in a text file afterwards.
@@ -43,11 +44,8 @@ calc_AIC_LS <- function(formula, data_train, variables="", it=NA, logPath="",
     }
     
     # - Return results as a data.table
-    if (modelType=="tweedie") {
-      return(data.table(Variable = variables, AIC = AIC, Deviance= Dev, C=c_ind,pValue=summary(model)$coefficients[1,4]))
-      
-    } else if (modelType=="gaussian") {
-      return(data.table(Variable = variables, AIC = AIC,Deviance= Dev,C=c_ind, pValue=summary(model)$coefficients[1,4]))
+    if (modelType %in% c("tweedie","gaussian")) {
+      return(data.table(Variable=variables, AIC=AIC, Deviance=Dev, C=c_ind,pValue=summary(model)$coefficients[1,4]))
     }
     
   }, error=function(e) {
@@ -60,6 +58,7 @@ calc_AIC_LS <- function(formula, data_train, variables="", it=NA, logPath="",
     }
     return(data.table(Variable = variables, AIC = AIC,Deviance= Dev, pValue=NA,C=c_ind)) 
   })
+  
 }
 
 
@@ -73,7 +72,7 @@ aicTable_LS <- function(data_train, variables, fldSpellID="DefSpell_Key",
   # - Testing conditions
   # data_train<-datCredit_train
   # variables<-c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq_Any_Aggr_Prop_Lag_2")
-  # fldSpellID<-" DefSpell_Key"; TimeDef=c("Cox_Discrete","LossRate_Real"); numThreads<-6; genPath<-genObjPath
+  # fldSpellID<-" DefSpell_Key"; TimeDef<-c("Cox_Discrete","LossRate_Real"); numThreads<-6; genPath<-genObjPath
   # strataVar<-"DefSpell_Num"; modelType<-"Tweedie"
   
   # - Iterate across loan space using a multi-threaded setup
