@@ -104,15 +104,19 @@ aicTable_LS <- function(data_train, variables, fldSpellID="DefSpell_Key",
 # Optional: pass newdata for OOS MAE/RMSE.
 evalLS <- function(model_full, dat_train, targetFld, model_base = NULL) {
   
+  # - Unit test conditions | Internal
+  # model_full<-modGLM_full; dat_train<-datCredit_train;
+  # targetFld<-"LossRate_Real"; model_base<-modGLM_base
+  
   # Get actuals
   y_tr  <- dat_train[[targetFld]]
   # Get predictions
-  mu_tr <- predict(model_full, newdata = dat_train, type = "response")
+  mu_tr <- predict(model_full, newdata=dat_train, type="response")
   
   # Calculate RMSE
-  rmse_tr <- sqrt(mean((mu_tr - y_tr)^2))
+  rmse_tr <- sqrt(mean((mu_tr - y_tr)^2, na.rm=T))
   # Calculate MAE
-  mae_tr  <- mean(abs(mu_tr - y_tr))
+  mae_tr  <- mean(abs(mu_tr - y_tr), na.rm=T)
   # Get AIC of full model
   aic_full <- AIC(model_full)
   # Get AIC of base model

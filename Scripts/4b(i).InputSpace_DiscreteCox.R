@@ -407,6 +407,7 @@ corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 # - Refine variables given insights from correlation analyses
 ### NOTE: - Inflation adjusted variables preferred over their non-adjusted counterparts
 ###       - Principal, balance, and instalment all kept regardless of their correlations, each contains unique information
+###       - Age-to-term and balance-to-principal are kept regardless of their high correlation, since each contains unique information
 vars <- c("Principal_Real", "InterestRate_Margin_imputed_mean", "pmnt_method_grp",
           "Balance_Real_1", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
           "BalanceToPrincipal_1", "slc_acct_pre_lim_perc_imputed_med")
@@ -621,7 +622,7 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 ### CONCLUSION: [log(TimeInDefSpell):DefSpell_Num_binned] is not significant, refitting model
 
 
-# --- 8.2 Model refinement
+# --- 8.2 Model refinement | Remove insignificant variables
 # - Initialise set of variables
 vars <- c("log(TimeInDefSpell)", "DefSpell_Num_binned",
           "InterestRate_Nom", "g0_Delinq_SD_4", "pmnt_method_grp",
@@ -648,7 +649,7 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 ###             [DefaultStatus1_Aggr_Prop_Lag_12]; [NewLoans_Aggr_Prop]; [g0_Delinq_Any_Aggr_Prop_Lag_12];
 ###             [g0_Delinq_Ave]; [M_Inflation_Growth_12]
 
-### CONCLUSION: All variables are significant, using this as the final selection
+### CONCLUSION: All variables are significant
 
 
 
@@ -723,6 +724,7 @@ pack.ffdf(paste0(genObjPath,"CoxDisc_advanced_fits"), Table_CoxDisc)
 # Modeling object
 modLR_Adv <- copy(modLR); rm(modLR); gc()
 save(modLR_Adv, file=paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
+
 
 
 

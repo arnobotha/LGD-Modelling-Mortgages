@@ -486,6 +486,23 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 ###               [M_Repo_Rate_2]; [M_Inflation_Growth_3]
 
 
+# --- 6.2 Model refinement | Expert judgement
+# - Remove [M_Repo_Rate_6]
+vars <- c("PrevDefaults", "DefSpell_Num_binned",
+          "ArrearsToBalance_1_Aggr_Prop", "Balance_Real_1", 'DefSpell_Age',
+          "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2", 'InterestRate_Nom',
+          "DefaultStatus1_Aggr_Prop_Lag_12", "g0_Delinq_Ave", "M_DTI_Growth_6",
+          "Principal_Real", "M_RealGDP_Growth_12", "g0_Delinq_Num",
+          "M_Repo_Rate_2", "M_Inflation_Growth_3")
+
+# - Fit model
+modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
+              data=datCredit_train, family="binomial")
+summary(modLR)
+evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 67 873; McFadden R^2: 32.18%; AUC: 87.11%
+
+
 
 
 # ------ 6. Final 
@@ -513,7 +530,7 @@ datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)]
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Final variables
-vars <- c("PrevDefaults", "M_Repo_Rate_6", "DefSpell_Num_binned",
+vars <- c("PrevDefaults", "DefSpell_Num_binned",
           "ArrearsToBalance_1_Aggr_Prop", "Balance_Real_1", 'DefSpell_Age',
           "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2", 'InterestRate_Nom',
           "DefaultStatus1_Aggr_Prop_Lag_12", "g0_Delinq_Ave", "M_DTI_Growth_6",

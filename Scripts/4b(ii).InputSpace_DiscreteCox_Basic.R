@@ -52,8 +52,8 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 ### NOTE: Selection based on expert judgement only
 
 # - Final variables
-vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned", "g0_Delinq_Lag_1",
-                "M_Inflation_Growth_9","g0_Delinq_Any_Aggr_Prop_Lag_1")
+vars_basic <- c("log(TimeInDefSpell)", "DefSpell_Num_binned", "g0_Delinq_Lag_1",
+                "M_Inflation_Growth_9", "g0_Delinq_Any_Aggr_Prop_Lag_1")
 ### NOTE: These variables reflect basic information relating to:
 ###         1) the time spent in default;
 ###         2) the account-level delinquency;
@@ -71,7 +71,7 @@ coeftest(modLR_basic, vcov.=robust_se)
 
 # - Model fit and accuracy
 evalLR(modLR_basic, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 212 108;  McFadden R^2: 4.36%; AUC:  70.13%.
+### RESULTS: AIC: 212 108;  McFadden R^2: 4.36%; AUC:  70.13%
 
 # - Test goodness-of-fit using AIC-measure over single-factor models
 (aicTable_CoxDisc_basic <- aicTable(datCredit_train, vars_basic,

@@ -67,7 +67,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [g0_Delinq_SD_5]; [g0_Delinq_SD_4]; [g0_Delinq_SD_6]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-staistics: [g0_Delinq_SD_6]; [g0_Delinq_SD_5]; [g0_Delinq_SD_4]
+### RESULTS: Best C-statistics: [g0_Delinq_SD_6]; [g0_Delinq_SD_5]; [g0_Delinq_SD_4]
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
 ###               [g0_Delinq_SD_6]; [g0_Delinq_SD_5]; [g0_Delinq_SD_4]
@@ -86,7 +86,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [g0_Delinq_Any_Aggr_Prop_Lag_4]; [g0_Delinq_Any_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_12]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [g0_Delinq_Any_Aggr_Prop_Lag_12]; [g0_Delinq_Any_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_5]
+### RESULTS: Best C-statistics: [g0_Delinq_Any_Aggr_Prop_Lag_12]; [g0_Delinq_Any_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_5]
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
 ###               [g0_Delinq_Any_Aggr_Prop_Lag_12]; [g0_Delinq_Any_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_5]
@@ -105,7 +105,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_2]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_2]
+### RESULTS: Best C-statistics: [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_2]
 
 ### CONCLUSION: Select the top 3 variables:
 ###               [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_2]
@@ -122,7 +122,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [g0_Delinq_Ave]; [CuringEvents_Aggr_Prop]; [ArrearsToBalance_Aggr_Prop]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [g0_Delinq_Ave]; [CuringEvents_Aggr_Prop]; [ArrearsToBalance_Aggr_Prop]
+### RESULTS: Best C-statistics: [g0_Delinq_Ave]; [CuringEvents_Aggr_Prop]; [ArrearsToBalance_Aggr_Prop]
 
 ### CONCLUSION: Select the top 3 variables:
 ###               [g0_Delinq_Ave]; [CuringEvents_Aggr_Prop]; [ArrearsToBalance_Aggr_Prop]
@@ -142,7 +142,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [PrevDefaults]; [g0_Delinq_Num]; [g0_Delinq_Lag_1]; [slc_acct_arr_dir_3]; [slc_acct_arr_dir_Change_Ind]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num]; [Arrears]; [slc_past_due_amt_imputed_med]
+### RESULTS: Best C-statistics: [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num]; [Arrears]; [slc_past_due_amt_imputed_med]
 
 ### CONCLUSION: Select the top 5 variables (preference given to C-statistic rankings):
 ###               [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num]; [Arrears]; [slc_past_due_amt_imputed_med]
@@ -193,7 +193,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2]
+### RESULTS: Best C-statistics: [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2]
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
 ###               [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2]
@@ -210,7 +210,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [NewLoans_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]; [AgeToTerm_Aggr_Mean]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [AgeToTerm_Aggr_Mean]; [NewLoans_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]
+### RESULTS: Best C-statistics: [AgeToTerm_Aggr_Mean]; [NewLoans_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
 ###               [AgeToTerm_Aggr_Mean]; [NewLoans_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]
@@ -275,7 +275,7 @@ vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean",
 # - Correlation analysis towards obtaining clusters of correlated variables
 corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 ### RESULTS:
-# Absolute correlations of  96%  found for  [Principal_Real] and [Principal ]
+# Absolute correlations of  96%  found for  [Principal_Real] and [Principal]
 # Absolute correlations of  92%  found for  [Principal_Real] and [Balance_Real_1] 
 # Absolute correlations of  87%  found for  [Principal]  and  [Balance_Real_1] 
 # Absolute correlations of  91%  found for  [Principal_Real] and [Balance_1] 
@@ -293,6 +293,7 @@ corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 # - Refine variables given insights from correlation analyses
 ### NOTE: - Inflation adjusted variables preferred over their non-adjusted counterparts
 ###       - Principal, balance, and instalment all kept regardless of their correlations, each contains unique information
+###       - Age-to-term and balance-to-principal are kept regardless of their high correlation, since each contains unique information
 vars <- c("Principal_Real", "InterestRate_Margin_imputed_mean", "pmnt_method_grp",
           "Balance_Real_1", "Instalment_Real", "InterestRate_Nom", "AgeToTerm",
           "BalanceToPrincipal_1", "slc_acct_pre_lim_perc_imputed_med")
@@ -304,7 +305,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [InterestRate_Nom]; [pmnt_method_grp]; [BalanceToPrincipal_1]; [Balance_Real_1]; [Principal_Real]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [AgeToTerm]; [Balance_Real_1]; [Instalment_Real]; [Principal_Real]; [InterestRate_Nom]
+### RESULTS: Best C-statistics: [AgeToTerm]; [Balance_Real_1]; [Instalment_Real]; [Principal_Real]; [InterestRate_Nom]
 
 ### CONCLUSION: Select the top 5 variables (preference given to C-statistic rankings):
 ###               [AgeToTerm]; [Balance_Real_1]; [Instalment_Real];
@@ -326,7 +327,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [M_Repo_Rate_9]; [M_Repo_Rate_6]; [M_Repo_Rate_4]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [M_Repo_Rate_9]; [M_Repo_Rate_12]; [M_Repo_Rate_6]
+### RESULTS: Best C-statistics: [M_Repo_Rate_9]; [M_Repo_Rate_12]; [M_Repo_Rate_6]
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
 ###               [M_Repo_Rate_9]; [M_Repo_Rate_12]; [M_Repo_Rate_6]
@@ -345,7 +346,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [M_Inflation_Growth_3]; [M_Inflation_Growth_2]; [M_Inflation_Growth_1]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [M_Inflation_Growth_9]; [M_Inflation_Growth_6]; [M_Inflation_Growth_3]
+### RESULTS: Best C-statistics: [M_Inflation_Growth_9]; [M_Inflation_Growth_6]; [M_Inflation_Growth_3]
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
 ###               [M_Inflation_Growth_9]; [M_Inflation_Growth_6]; [M_Inflation_Growth_3]
@@ -364,7 +365,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [M_RealGDP_Growth_9]; [M_RealGDP_Growth_12]; [M_RealGDP_Growth_6]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [M_RealGDP_Growth_12]; [M_RealGDP_Growth_9]; [M_RealGDP_Growth_6]
+### RESULTS: Best C-statistics: [M_RealGDP_Growth_12]; [M_RealGDP_Growth_9]; [M_RealGDP_Growth_6]
 
 ### CONCLUSION: Select the top 3 variables:
 ###               [M_RealGDP_Growth_12]; [M_RealGDP_Growth_9]; [M_RealGDP_Growth_6]
@@ -382,7 +383,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [M_RealIncome_Growth_12]; [M_RealIncome_Growth_9]; [M_RealIncome_Growth_6]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [M_RealIncome_Growth_12]; [M_RealIncome_Growth_9]; [M_RealIncome_Growth_6]
+### RESULTS: Best C-statistics: [M_RealIncome_Growth_12]; [M_RealIncome_Growth_9]; [M_RealIncome_Growth_6]
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
 ###               [M_RealIncome_Growth_12]; [M_RealIncome_Growth_9]; [M_RealIncome_Growth_6]
@@ -400,7 +401,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [M_DTI_Growth_12]; [M_DTI_Growth_9]; [M_DTI_Growth_6]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-staistics: [M_DTI_Growth_9]; [M_DTI_Growth_6]; [M_DTI_Growth_12]
+### RESULTS: Best C-statistics: [M_DTI_Growth_9]; [M_DTI_Growth_6]; [M_DTI_Growth_12]
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
 ###               [M_DTI_Growth_9]; [M_DTI_Growth_6]; [M_DTI_Growth_12] 
@@ -418,7 +419,7 @@ table_Assess[order(AIC)]
 ### RESULTS: Best AIC-results: [M_Emp_Growth_6]; [M_Emp_Growth_9]; [M_Emp_Growth_3]
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-satistics: [M_Emp_Growth_6]; [M_Emp_Growth_12]; [M_Emp_Growth_9]
+### RESULTS: Best C-statistics: [M_Emp_Growth_6]; [M_Emp_Growth_12]; [M_Emp_Growth_9]
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
 ###               [M_Emp_Growth_6]; [M_Emp_Growth_12]; [M_Emp_Growth_9]
@@ -521,7 +522,7 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ###             Refit model without these variables
 
 
-# --- 6.2 Model refinements
+# --- 6.2 Model refinements | Removing insignificant variables - Part I
 # - Initialize variables to be tested
 vars <- c("PrevDefaults", "DefSpell_Num_binned", "NewLoans_Aggr_Prop",
           "InterestRate_Nom", "DefSpell_Age", "g0_Delinq_Num", "Arrears",
@@ -545,7 +546,7 @@ evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ###             Refit model without this variables
 
 
-# --- 6.3 Model refinements
+# --- 6.3 Model refinements | Removing insignificant variables - Part II
 # - Initialize variables to be tested
 vars <- c("PrevDefaults", "DefSpell_Num_binned", "NewLoans_Aggr_Prop",
           "InterestRate_Nom", "DefSpell_Age", "g0_Delinq_Num", "Arrears",
@@ -564,7 +565,7 @@ summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ### RESULTS: AIC: 67 365; R^2: 11.05 RMSE: 19.64%; MAE: 10.00%
 
-### CONCLUSION: All varaibles significant, we therefore select:
+### CONCLUSION: All variables significant, we therefore select:
 ###             [PrevDefaults]; [DefSpell_Num_binned]; [NewLoans_Aggr_Prop]
 ###             [InterestRate_Nom]; [DefSpell_Age]; [g0_Delinq_Num]; [Arrears];
 ###             [DefaultStatus1_Aggr_Prop_Lag_12];
