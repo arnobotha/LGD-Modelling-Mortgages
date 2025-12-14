@@ -495,14 +495,14 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ###             [AgeToTerm_Aggr_Mean]; [g0_Delinq_SD_5]
 
 
-# --- 6.2 Model refinements | Enriching the input space based on expert judgement
-# - Add a lagged inflation variable
+# --- 6.2 Model refinements | Enriching the input space based on expert judgement - Part I
+# - Remove [g0_Delinq_SD_5] since [g0_Delinq_SD_6] is already present
 vars <- c("PrevDefaults", "DefSpell_Maturity_Aggr_Mean", "M_Repo_Rate_6",
           "DefSpell_Age", "g0_Delinq_Any_Aggr_Prop_Lag_5", "g0_Delinq_Num",
           "g0_Delinq_SD_6", "g0_Delinq_Any_Aggr_Prop_Lag_12", "slc_past_due_amt_imputed_med",
           "Balance_Real_1", "InterestRate_Nom", "DefaultStatus1_Aggr_Prop_Lag_2",
           "DefaultStatus1_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Ave",
-          "AgeToTerm_Aggr_Mean", "g0_Delinq_SD_5", "M_Inflation_Growth_12"
+          "AgeToTerm_Aggr_Mean"
 )
 
 # - Fit model
@@ -512,7 +512,27 @@ modGLM_full <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " 
 # - Evaluate model
 summary(modGLM_full)
 evalLS(modGLM_full, datCredit_train,targetFld="LossRate_Real", modGLM_base)
-### RESULTS: AIC: -37 561; R^2: 13.34; RMSE: 19.39%; MAE: 10.78%
+### RESULTS: AIC: -37 526; R^2: 13.31; RMSE: 19.39%; MAE: 10.78%
+
+
+# --- 6.2 Model refinements | Enriching the input space based on expert judgement - Part II
+# - Add a lagged inflation variable
+vars <- c("PrevDefaults", "DefSpell_Maturity_Aggr_Mean", "M_Repo_Rate_6",
+          "DefSpell_Age", "g0_Delinq_Any_Aggr_Prop_Lag_5", "g0_Delinq_Num",
+          "g0_Delinq_SD_6", "g0_Delinq_Any_Aggr_Prop_Lag_12", "slc_past_due_amt_imputed_med",
+          "Balance_Real_1", "InterestRate_Nom", "DefaultStatus1_Aggr_Prop_Lag_2",
+          "DefaultStatus1_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Ave",
+          "AgeToTerm_Aggr_Mean", "M_Inflation_Growth_12"
+)
+
+# - Fit model
+modGLM_full <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                   data=datCredit_train,family = gaussian(link = "identity"))
+
+# - Evaluate model
+summary(modGLM_full)
+evalLS(modGLM_full, datCredit_train,targetFld="LossRate_Real", modGLM_base)
+### RESULTS: AIC: -37 545; R^2: 13.33; RMSE: 19.39%; MAE: 10.78%
 
 ### CONCLUSION: Select variables from automated variable selection procedure:
 ###             [PrevDefaults]; [DefSpell_Maturity_Aggr_Mean]; [M_Repo_Rate_6]
@@ -520,7 +540,7 @@ evalLS(modGLM_full, datCredit_train,targetFld="LossRate_Real", modGLM_base)
 ###             [g0_Delinq_SD_6]; [g0_Delinq_Any_Aggr_Prop_Lag_12]; [slc_past_due_amt_imputed_med];
 ###             [Balance_Real_1]; [InterestRate_Nom]; [DefaultStatus1_Aggr_Prop_Lag_2];
 ###             [DefaultStatus1_Aggr_Prop]; [g0_Delinq_Any_Aggr_Prop_Lag_9]; [g0_Delinq_Ave];
-###             [AgeToTerm_Aggr_Mean]; [g0_Delinq_SD_5]
+###             [AgeToTerm_Aggr_Mean]; [M_Inflation_Growth_12]
 
 
 
@@ -560,7 +580,7 @@ vars <- c("PrevDefaults", "DefSpell_Maturity_Aggr_Mean", "M_Repo_Rate_6",
           "g0_Delinq_SD_6", "g0_Delinq_Any_Aggr_Prop_Lag_12", "slc_past_due_amt_imputed_med",
           "Balance_Real_1", "InterestRate_Nom", "DefaultStatus1_Aggr_Prop_Lag_2",
           "DefaultStatus1_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Ave",
-          "AgeToTerm_Aggr_Mean", "g0_Delinq_SD_5", "M_Inflation_Growth_12"
+          "AgeToTerm_Aggr_Mean", "M_Inflation_Growth_12"
 )
 
 # - Fit model
@@ -570,7 +590,7 @@ modGLM <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))
 # - Evaluate model
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: -37 561; R^2: 13.34; RMSE: 19.39%; MAE: 10.78%
+### RESULTS: AIC: -37 545; R^2: 13.33; RMSE: 19.39%; MAE: 10.78%
 
 
 # --- 9.3 Save objects
