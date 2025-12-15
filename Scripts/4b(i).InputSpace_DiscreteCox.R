@@ -639,7 +639,7 @@ modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))
 # - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 49 836; McFadden R^2: 77.66%; AUC: 99.66%
+### RESULTS: AIC: 49 836; McFadden R^2: 77.55%; AUC: 99.66%
 ###          Variables from step-wise selection procedure:
 ###             [log(TimeInDefSpell)]; [DefSpell_Num_binned];
 ###             [InterestRate_Nom]; [g0_Delinq_SD_4]; [pmnt_method_grp];
@@ -693,7 +693,7 @@ modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + ")
 # - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 49 836; McFadden R^2: 77.66%; AUC: 99.66%
+### RESULTS: AIC: 49 836; McFadden R^2: 77.55%; AUC: 99.66%
 
 # - Summary with robust SEs
 robust_se <- vcovHC(modLR, type="HC0")
@@ -723,7 +723,7 @@ GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelT
 pack.ffdf(paste0(genObjPath,"CoxDisc_advanced_fits"), Table_CoxDisc)
 # Modeling object
 modLR_Adv <- copy(modLR); rm(modLR); gc()
-save(modLR_Adv, file=paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
+saveRDS(modLR_Adv, file=paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
 
 

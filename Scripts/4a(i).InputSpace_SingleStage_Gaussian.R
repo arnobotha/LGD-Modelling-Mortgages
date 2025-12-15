@@ -595,7 +595,7 @@ evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 # --- 9.3 Save objects
 modGLM_OneStage_Gaus <- copy(modGLM); rm(modGLM); gc()
-save(modGLM_OneStage_Gaus, file=paste0(genObjPath,"OneStage_Gaus_Model.rds"))
+saveRDS(modGLM_OneStage_Gaus, file=paste0(genObjPath,"OneStage_Gaus_Model.rds"))
 
 
 

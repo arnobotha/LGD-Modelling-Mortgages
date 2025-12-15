@@ -476,8 +476,28 @@ summary(modGLM_step)
 evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ### RESULTS: AIC: -612; R^2: -1.84; RMSE: 52.52%; MAE: 21.67%
 
+
+# --- 6.2 Model refinement | Remove [AgeToTerm] following ad-hoc analyses
+### NOTE: Adding [AgeToTerm] to the input space results in negative R^2 values
+# - Initialize variables to be tested
+vars <- c("pmnt_method_grp", "Principal_Real",
+          "Balance_Real_1", "g0_Delinq_SD_6", "AgeToTerm_Aggr_Mean",
+          "slc_acct_arr_dir_3", "PrevDefaults",
+          "M_RealIncome_Growth_12", "NewLoans_Aggr_Prop", "Instalment_Real",
+          "M_DTI_Growth_3"
+)
+
+# - Fit model
+modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+               data=datCredit_train)
+
+# - Evaluate model
+summary(modGLM)
+evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
+### RESULTS: AIC: 461; R^2: 21.80; RMSE: 27.57%; MAE: 22.43%
+
 ### CONCLUSION: Select variables from automated variable selection procedure:
-###             [AgeToTerm]; [pmnt_method_grp]; [Principal_Real]
+###             [pmnt_method_grp]; [Principal_Real]
 ###             [Balance_Real_1]; [g0_Delinq_SD_6]; [AgeToTerm_Aggr_Mean];
 ###             [slc_acct_arr_dir_3]; [PrevDefaults];
 ###             [M_RealIncome_Growth_12]; [NewLoans_Aggr_Prop]; [Instalment_Real];
@@ -518,7 +538,7 @@ modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
 
 # --- 9.2 Fit and evaluate final model
 # - Initialize variables to be tested
-vars <- c("AgeToTerm", "pmnt_method_grp", "Principal_Real",
+vars <- c("pmnt_method_grp", "Principal_Real",
           "Balance_Real_1", "g0_Delinq_SD_6", "AgeToTerm_Aggr_Mean",
           "slc_acct_arr_dir_3", "PrevDefaults",
           "M_RealIncome_Growth_12", "NewLoans_Aggr_Prop", "Instalment_Real",
@@ -532,12 +552,12 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
 # - Evaluate model
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: -612; R^2: -1.84; RMSE: 52.52%; MAE: 21.67%
+### RESULTS: AIC: 462; R^2: 21.80; RMSE: 27.57%; MAE: 22.43%
 
 
 # --- 9.3 Save objects
 modGLM_Severity_CPG <- copy(modGLM); rm(modGLM); gc()
-save(modGLM_Severity_CPG, file=paste0(genObjPath,"Severity_CPH_Model.rds"))
+saveRDS(modGLM_Severity_CPG, file=paste0(genObjPath,"Severity_CPH_Model.rds"))
 
 
 

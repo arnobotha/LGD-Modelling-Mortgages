@@ -551,7 +551,7 @@ coeftest(modLR, vcov.=robust_se)
 
 # - Other diagnostics
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 67 678; McFadden R^2: 32.38%; AUC: 87.25%
+### RESULTS: AIC: 67 873; McFadden R^2: 32.18%; AUC: 87.11%
 
 # - Test goodness-of-fit using AIC-measure over single-factor models
 (aicTable_LR <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
@@ -574,7 +574,7 @@ GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, ,legPos=c(0.6,0.4), panel
 # Model analytics
 pack.ffdf(paste0(genObjPath,"LR_fits"), Table_LR)
 # Modeling object
-save(modLR, file=paste0(genObjPath,"LR_Model.rds"))
+saveRDS(modLR, file=paste0(genObjPath,"LR_Model.rds"))
 
 
 
