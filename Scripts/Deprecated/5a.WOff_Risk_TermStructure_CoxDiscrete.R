@@ -71,18 +71,18 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
 
 # --- 1.4 Additional parameters
-# - Generalised Yuden Index cut-offs
+# - Youden Index cut-offs
 # Basic discrete-time model
 thresh_dth <-0.1037777
 # Advanced discrete-time model
 thresh_dth_bas <- 0.00795927
-# classic logit model
+# Classical logit model
 thres_classic <- 0.2352999
 
 
 
 
-# ------ 2. Constructing the emprical term-structure of write-off using a Kaplan-Meier estimator
+# ------ 2. Constructing the empirical term-structure of write-off using a Kaplan-Meier estimator
 
 # --- 2.1 Preliminaries
 # - Create pointer to the appropriate data object 
@@ -190,11 +190,11 @@ datCredit[!is.na(DefSpell_Num), EventRate_classic := shift(Survival_classic, typ
 
 # --- 4.1 Prelimanaries
 # - Dichotomise predictions of all models
-datCredit <- datCredit[,Youden_bas:= ifelse(EventRate_bas>thresh_dth_bas,1,0)]
-datCredit <- datCredit[,Youden_adv:= ifelse(EventRate_adv>thresh_dth,1,0)]
-datCredit <- datCredit[,Youden_classic:= ifelse(EventRate_WOff>thres_classic,1,0)]
+datCredit <- datCredit[,Youden_bas:=ifelse(EventRate_bas>thresh_dth_bas,1,0)]
+datCredit <- datCredit[,Youden_adv:=ifelse(EventRate_adv>thresh_dth,1,0)]
+datCredit <- datCredit[,Youden_classic:=ifelse(EventRate_classic>thres_classic,1,0)]
 
-# - Fit surival objects based on the dicotomised data
+# - Fit survival objects based on the dicotomised data
 KM_WOff_adv <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=Youden_adv==1, type="counting") ~ 1, 
                        id=DefSpell_Key, data=datCredit)
 KM_WOff_bas <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=Youden_bas==1, type="counting") ~ 1, 
@@ -214,7 +214,7 @@ datSurv_sub_adv <- datSurv_sub_adv %>%
   mutate(Hazard_Actual=Event_n/AtRisk_n) %>%
   # Estiamte cummulative hazard
   mutate(CHaz = cumsum(Hazard_Actual)) %>%
-  # Probability mass function f(t)=S(t-1)-S(t)
+  # Probability mass function f(t)=h(t)*S(t-1)
   mutate(EventRate = Hazard_Actual*shift(SurvivalProb_KM, n=1, fill=1)) %>%
   # Filter data for events only
   filter(Event_n > 0 | Censored_n >0) %>% as.data.table()
@@ -232,7 +232,7 @@ datSurv_sub_bas <- datSurv_sub_bas %>%
   mutate(Hazard_Actual = Event_n/AtRisk_n) %>%
   # Estiamte cummulative hazard
   mutate(CHaz = cumsum(Hazard_Actual)) %>%
-  # Probability mass function f(t)=S(t-1)-S(t)
+  # Probability mass function f(t)=h(t)*S(t-1)
   mutate(EventRate = Hazard_Actual*shift(SurvivalProb_KM, n=1, fill=1)) %>%
   # Filter data for events only
   filter(Event_n > 0 | Censored_n >0) %>% as.data.table()
@@ -250,13 +250,13 @@ datSurv_sub_classic <- datSurv_sub_classic %>%
   mutate(Hazard_Actual = Event_n/AtRisk_n) %>% 
   # Estiamte cummulative hazard
   mutate(CHaz = cumsum(Hazard_Actual)) %>%
-  # Probability mass function f(t)=S(t-1)-S(t)
+  # Probability mass function f(t)=h(t)*S(t-1)
   mutate(EventRate = Hazard_Actual*shift(SurvivalProb_KM, n=1, fill=1)) %>%
   # Filter data for events only
   filter(Event_n > 0 | Censored_n >0) %>% as.data.table()
 # Order data
 setorder(datSurv_sub_classic, Time)
-# Estiamte the at-risk proportion
+# Estimate the at-risk proportion
 datSurv_sub_classic[,AtRisk_perc := AtRisk_n / max(AtRisk_n, na.rm=T)]
 
 
@@ -266,8 +266,11 @@ datSurv_sub_classic[,AtRisk_perc := AtRisk_n / max(AtRisk_n, na.rm=T)]
 # --- 5.1 Aggregate survival data across observations
 # - Aggregate event probabilities of non-dichotomised models to period-level
 datSurv_exp <- datCredit[,.(EventRate_bas = mean(EventRate_bas, na.rm=T),
+                            EventRate_bas_Youden = mean(Youden_bas, na.rm=T),
                             EventRate_adv = mean(EventRate_adv, na.rm=T),
+                            EventRate_adv_Youden = mean(Youden_adv, na.rm=T),
                             EventRate_classic = mean(EventRate_classic, na.rm=T),
+                            EventRate_classic_Youden = mean(Youden_classic, na.rm=T),
                             EventRate_Emp = sum(DefSpell_Event)/.N,
                             EventRate_IPCW = sum(Weight*DefSpell_Event)/sum(Weight)),
                          by=list(TimeInDefSpell)]
@@ -294,100 +297,113 @@ datSurv_exp <- datSurv_exp %>%
     datSurv_sub_classic %>% dplyr::select(Time, EventRate),   
     by = c("TimeInDefSpell" = "Time")          
   ) %>%
-  rename(EventRate_LR_Youden = EventRate)
+  rename(EventRate_classic_Youden = EventRate)
 
 
 # --- 5.2 Estiamte survival probabilities
 # - Assign missing observations for very small predictions of the 
-datSurv_exp$EventRate_classic[datSurv_exp$EventRate_classic>0.02] <- NA
+# datSurv_exp$EventRate_classic[datSurv_exp$EventRate_classic>0.02] <- NA
 ### MM: Why are we doing this?
+
+# - Order data
 setorder(datSurv_exp, TimeInDefSpell)
 
+# - Estimate the portfolio-level average survival probabilities
+# Basic model
 datSurv_exp[, Survival_bas := 1 - cumsum(coalesce(EventRate_bas,0))]
-datSurv_exp[, Survival_adv := 1 - cumsum(coalesce(EventRate_adv,0))]
-datSurv_exp[, Survival_IPCW := 1 - cumsum(coalesce(EventRate_IPCW,0))]
-datSurv_exp[, Survival_classic := 1 - cumsum(coalesce(EventRate_classic,0))]
-datSurv_exp[, Survival_adv_Youden := 1 - cumsum(coalesce(EventRate_adv_Youden,0))]
 datSurv_exp[, Survival_bas_Youden := 1 - cumsum(coalesce(EventRate_bas_Youden,0))]
-datSurv_exp[, Survival_LR_Youden := 1 - cumsum(coalesce(EventRate_LR_Youden,0))]
+# Advanced model
+datSurv_exp[, Survival_adv := 1 - cumsum(coalesce(EventRate_adv,0))]
+datSurv_exp[, Survival_adv_Youden := 1 - cumsum(coalesce(EventRate_adv_Youden,0))]
+# Classical model
+datSurv_exp[, Survival_classic := 1 - cumsum(coalesce(EventRate_classic,0))]
+datSurv_exp[, Survival_classic_Youden := 1 - cumsum(coalesce(EventRate_classic_Youden,0))]
+# Inverse probability of censoring
+datSurv_exp[, Survival_IPCW := 1 - cumsum(coalesce(EventRate_IPCW,0))]
 
 
 # --- 5.3 [SANITY CHECK] Graphing survival quantities
 plot(datSurv_exp[TimeInDefSpell <= 120, EventRate_Emp], type="b")
 lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_adv], type="b", col="red")
+lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_adv_Youden], type="b", col="green")
 lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_bas], type="b", col="blue")
-lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_WOff], type="b", col="cyan")
+lines(datSurv_exp[TimeInDefSpell <= 120, EventRate_classic], type="b", col="cyan")
 
 
 
 
 # ------ 6 . Graphing the event density / probability mass function f(t)
 
-# - General parameters
-sMaxSpellAge <- 120 # max for [DefSpell_Age], as determined in earlier analyses (script 3c
-sMaxSpellAge_graph <- 120 # max for [DefSpell_Age] for graphing purposes
-
-# - Determine population average survival and event rate across loans per time period
-# Event probability ("term-structure"): Actual vs Expected
-#plot(datSurv_sub[Time <= 300, Time], datSurv_sub[Time <= 300, EventRate], type="b")
-#lines(datSurv_exp[TimeInDefSpell <= 300, TimeInDefSpell], datSurv_exp[TimeInDefSpell <= 300, EventRate_adv], type="b", col="red")
-#lines(datSurv_exp[TimeInDefSpell <= 300, TimeInDefSpell], datSurv_exp[TimeInDefSpell <= 300, EventRate_Emp], type="b", col="blue")
-#lines(datSurv_exp[TimeInDefSpell <= 300, TimeInDefSpell], datSurv_exp[TimeInDefSpell <= 300, EventRate_IPCW], type="b", col="gray")
-
+# --- 6.1 Preliminaries
+# - Cut-offs for analysis and graphs 
+sMaxSpellAge <- 120 # Max for [DefSpell_Age], as determined in earlier analyses (script 3c)
+sMaxSpellAge_graph <- 120 # Max for [DefSpell_Age] for graphing purposes
 
 # - Fitting natural cubic regression splines
+# Knots
 sDf_Act <- 12; sDf_Exp <- 12
+# Actuals
 smthEventRate_Act <- lm(EventRate ~ ns(Time, df=sDf_Act), data=datSurv_sub[Time <= sMaxSpellAge,])
-smthEventRate_Exp_bas <- lm(EventRate_bas ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
-smthEventRate_Exp_adv <- lm(EventRate_adv ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
-smthEventRate_Exp_classic <- lm(EventRate_WOff ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
-smthEventRate_Exp_adv_Youden<- lm(EventRate_adv_Youden ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
-smthEventRate_Exp_bas_Youden<- lm(EventRate_bas_Youden ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
-smthEventRate_Exp_LR_Youden<- lm(EventRate_LR_Youden ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell <= sMaxSpellAge])
+# Basic model
+smthEventRate_Exp_bas <- lm(EventRate_bas ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell<=sMaxSpellAge])
+smthEventRate_Exp_bas_Youden<- lm(EventRate_bas_Youden ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell<=sMaxSpellAge])
+# Advanced model
+smthEventRate_Exp_adv <- lm(EventRate_adv ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell<=sMaxSpellAge])
+smthEventRate_Exp_adv_Youden<- lm(EventRate_adv_Youden ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell<=sMaxSpellAge])
+# Classical model
+smthEventRate_Exp_classic <- lm(EventRate_classic ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell<=sMaxSpellAge])
+smthEventRate_Exp_classic_Youden<- lm(EventRate_classic_Youden ~ ns(TimeInDefSpell, df=sDf_Exp), data=datSurv_exp[TimeInDefSpell<=sMaxSpellAge])
 
-
-
-summary(smthEventRate_Act); summary(smthEventRate_Exp_bas); summary(smthEventRate_Exp_adv); summary(smthEventRate_Exp_classic)
-summary(smthEventRate_Exp_adv_Youden);summary(smthEventRate_Exp_bas_Youden); summary(smthEventRate_Exp_bas_Youden)
+# - [SANITY CHECK] Evaluate splines
+# summary(smthEventRate_Act); summary(smthEventRate_Exp_bas); summary(smthEventRate_Exp_adv); summary(smthEventRate_Exp_classic)
+# summary(smthEventRate_Exp_adv_Youden);summary(smthEventRate_Exp_bas_Youden); summary(smthEventRate_Exp_bas_Youden)
 
 # - Render predictions based on fitted smoother, with standard errors for confidence intervals
+# Actuals
 vPredSmth_Act <- predict(smthEventRate_Act, newdata=datSurv_sub, se=T)
+# Basic model
 vPredSmth_Exp_bas <- predict(smthEventRate_Exp_bas, newdata=datSurv_exp, se=T)
-vPredSmth_Exp_adv <- predict(smthEventRate_Exp_adv, newdata=datSurv_exp, se=T)
-vPredSmth_Exp_classic <- predict(smthEventRate_Exp_classic, newdata=datSurv_exp, se=T)
-vPredSmth_Exp_adv_Youden <- predict(smthEventRate_Exp_adv_Youden, newdata=datSurv_exp, se=T)
 vPredSmth_Exp_bas_Youden <- predict(smthEventRate_Exp_bas_Youden, newdata=datSurv_exp, se=T)
-vPredSmth_Exp_LR_Youden <- predict(smthEventRate_Exp_LR_Youden, newdata=datSurv_exp, se=T)
-
-
-
+# Advanced model
+vPredSmth_Exp_adv <- predict(smthEventRate_Exp_adv, newdata=datSurv_exp, se=T)
+vPredSmth_Exp_adv_Youden <- predict(smthEventRate_Exp_adv_Youden, newdata=datSurv_exp, se=T)
+# Classical model
+vPredSmth_Exp_classic <- predict(smthEventRate_Exp_classic, newdata=datSurv_exp, se=T)
+vPredSmth_Exp_classic_Youden <- predict(smthEventRate_Exp_classic_Youden, newdata=datSurv_exp, se=T)
 
 # - Add smoothed estimate to graphing object
+# Actuals
 datSurv_sub[, EventRate_spline := vPredSmth_Act$fit]
+# Basic model
 datSurv_exp[, EventRate_spline_bas := vPredSmth_Exp_bas$fit]
-datSurv_exp[, EventRate_spline_adv := vPredSmth_Exp_adv$fit]
-datSurv_exp[, EventRate_spline_classic := vPredSmth_Exp_classic$fit]
-datSurv_exp[, EventRate_spline_adv_Youden := vPredSmth_Exp_adv_Youden$fit]
 datSurv_exp[, EventRate_spline_bas_Youden := vPredSmth_Exp_bas_Youden$fit]
-datSurv_exp[, EventRate_spline_LR_Youden := vPredSmth_Exp_LR_Youden$fit]
+# Advanced model
+datSurv_exp[, EventRate_spline_adv := vPredSmth_Exp_adv$fit]
+datSurv_exp[, EventRate_spline_adv_Youden := vPredSmth_Exp_adv_Youden$fit]
+# Classical model
+datSurv_exp[, EventRate_spline_classic := vPredSmth_Exp_classic$fit]
+datSurv_exp[, EventRate_spline_classic_Youden := vPredSmth_Exp_classic_Youden$fit]
 
-# - Create graphing data object
+
+# --- 6.2 Create graphing data
+# - Initialise graphing data
 datGraph <- rbind(datSurv_sub[,list(Time, EventRate, Type="a_Actual")],
                   datSurv_sub[,list(Time, EventRate=EventRate_spline, Type="b_Actual_spline")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_bas, Type="c_Expected_bas")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_bas, Type="d_Expected_spline_bas")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_adv, Type="e_Expected_adv")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_adv, Type="f_Expected_spline_adv")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_WOff, Type="g_Expected_LR")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_classic, Type="h_Expected_spline_LR")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_adv_Youden, Type="i_Expected_Youden_adv")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_adv_Youden, Type="j_Expected_spline_Youden_adv")]
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_bas, Type="c_Expected_bas")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_bas, Type="d_Expected_spline_bas")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_adv, Type="e_Expected_adv")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_adv, Type="f_Expected_spline_adv")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_adv_Youden, Type="i_Expected_Youden_adv")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_adv_Youden, Type="j_Expected_spline_Youden_adv")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_classic, Type="g_Expected_classic")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_classic, Type="h_Expected_spline_classic")]
 )
+### MM: There are no data for the basic and classical Youden models here?
 
 # - Create different groupings for graphing purposes
-datGraph[Type %in% c("a_Actual","c_Expected_bas", "e_Expected_adv", "g_Expected_LR","i_Expected_Youden_adv","k_Expected_Youden_classic"), EventRatePoint := EventRate ]
-datGraph[Type %in% c("b_Actual_spline","d_Expected_spline_bas", "f_Expected_spline_adv", "h_Expected_spline_LR","j_Expected_spline_Youden_adv"), EventRateLine := EventRate ]
-datGraph[, FacetLabel := "Term-structure of write-off risk"]
+datGraph[Type %in% c("a_Actual","c_Expected_bas", "e_Expected_adv", "g_Expected_classic","i_Expected_Youden_adv","k_Expected_Youden_classic"), EventRatePoint := EventRate ]
+datGraph[Type %in% c("b_Actual_spline","d_Expected_spline_bas", "f_Expected_spline_adv", "h_Expected_spline_classic","j_Expected_spline_Youden_adv"), EventRateLine := EventRate ]
+datGraph[, FacetLabel:="Term-structure of write-off risk"]
 
 # - Aesthetic engineering
 chosenFont <- "Cambria"
@@ -395,10 +411,12 @@ mainEventName <- "Write-off"
 
 # - Calculate MAE between event rates
 datFusion <- merge(datSurv_sub[Time <= sMaxSpellAge], 
-                   datSurv_exp[TimeInDefSpell <= sMaxSpellAge,list(Time=TimeInDefSpell, EventRate_bas, EventRate_adv, EventRate_WOff, EventRate_adv_Youden,EventRate_LR_Youden)], by="Time")
+                   datSurv_exp[TimeInDefSpell <= sMaxSpellAge,list(Time=TimeInDefSpell, EventRate_bas,
+                                                                   EventRate_adv, EventRate_classic,
+                                                                   EventRate_adv_Youden,EventRate_classic_Youden)], by="Time")
 MAE_eventProb_bas <- mean(abs(datFusion$EventRate - datFusion$EventRate_bas), na.rm=T)
 MAE_eventProb_adv <- mean(abs(datFusion$EventRate - datFusion$EventRate_adv), na.rm=T)
-MAE_eventProb_classic <- mean(abs(datFusion$EventRate - datFusion$EventRate_WOff), na.rm=T)
+MAE_eventProb_classic <- mean(abs(datFusion$EventRate - datFusion$EventRate_classic), na.rm=T)
 MAE_eventProb_adv_Youden <- mean(abs(datFusion$EventRate - datFusion$EventRate_adv_Youden), na.rm=T)
 
 
@@ -412,9 +430,9 @@ length(vCol)
 vLabel2 <- c("b_Actual_spline"=paste0("Empirical Spline"), 
              "d_Expected_spline_bas"=paste0("Exp spline: DtH-Basic A"),
              "f_Expected_spline_adv"=paste0("Exp spline: DtH-Advanced A"),
-             "h_Expected_spline_LR"=paste0("Exp spline: LR A"),
+             "h_Expected_spline_classic"=paste0("Exp spline: LR A"),
              "j_Expected_spline_Youden_adv"=paste0("Exp spline: DtH-Advanced B"),
-             "a_Actual"="Emprirical", "c_Expected_bas"="Exp: DtH-Basic A", "e_Expected_adv"="Exp: DtH-Advanced A","g_Expected_LR"="Exp: LR A",
+             "a_Actual"="Emprirical", "c_Expected_bas"="Exp: DtH-Basic A", "e_Expected_adv"="Exp: DtH-Advanced A","g_Expected_classic"="Exp: LR A",
              "i_Expected_Youden_adv"="Exp: DtH-Advanced B")
 vSize <- c(0.2,0.3,0.2,0.3,0.2,0.3, 0.2, 0.3, 0.2, 0.3,0.2,0.3)
 vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid","dashed", "solid","dashed", "solid","dashed", "solid")
@@ -428,6 +446,7 @@ vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid","dashed",
     theme(text=element_text(family=chosenFont),legend.position = "bottom",
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
+    coord_cartesian(ylim=c(0,0.0325)) +
     # Main graph
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
@@ -463,8 +482,8 @@ ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_
 datGraph_OOB <- rbind(
                   datSurv_sub[,list(Time, EventRate, Type="a_Actual")],
                   datSurv_sub[,list(Time, EventRate=EventRate_spline, Type="b_Actual_spline")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_LR_Youden, Type="c_Expected_Youden_classic")],
-                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_LR_Youden, Type="d_Expected_spline_Youden_classic")],
+                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_classic_Youden, Type="c_Expected_Youden_classic")],
+                  datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_classic_Youden, Type="d_Expected_spline_Youden_classic")],
                   datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_bas_Youden, Type="e_Expected_Youden_bas")],
                   datSurv_exp[, list(Time=TimeInDefSpell, EventRate=EventRate_spline_bas_Youden, Type="f_Expected_spline_Youden_bas")]
 )
@@ -480,8 +499,8 @@ mainEventName <- "Write-off"
 
 # - Calculate MAE between event rates
 datFusion_OOB <- merge(datSurv_sub[Time <= sMaxSpellAge], 
-                   datSurv_exp[TimeInDefSpell <= sMaxSpellAge,list(Time=TimeInDefSpell,EventRate_bas_Youden,EventRate_LR_Youden)], by="Time")
-MAE_eventProb_LR_Youden <- mean(abs(datFusion_OOB$EventRate - datFusion_OOB$EventRate_LR_Youden), na.rm=T)
+                   datSurv_exp[TimeInDefSpell <= sMaxSpellAge,list(Time=TimeInDefSpell,EventRate_bas_Youden,EventRate_classic_Youden)], by="Time")
+MAE_eventProb_classic_Youden <- mean(abs(datFusion_OOB$EventRate - datFusion_OOB$EventRate_classic_Youden), na.rm=T)
 MAE_eventProb_bas_Youden <- mean(abs(datFusion_OOB$EventRate - datFusion_OOB$EventRate_bas_Youden), na.rm=T)
 
 
@@ -510,7 +529,7 @@ vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid")
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
     # Annotations
-    annotate("text", y=0.2,x=100, label=paste0("MAE (LR B): ", percent(MAE_eventProb_LR_Youden, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.2,x=100, label=paste0("MAE (LR B): ", percent(MAE_eventProb_classic_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3) + 
     annotate("text", y=0.18,x=100, label=paste0("MAE (DtH-Basic B): ", percent(MAE_eventProb_bas_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3) +

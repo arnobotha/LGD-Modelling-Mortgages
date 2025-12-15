@@ -478,13 +478,14 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 
 # --- 6.2 Model refinement | Remove [AgeToTerm] following ad-hoc analyses
-### NOTE: Adding [AgeToTerm] to the input space results in negative R^2 values
+### NOTE: - Removing [AgeToTerm] to the input space results in negative R^2 values
+### NOTE: - Adding [DefSpell] to the input space as this 
 # - Initialize variables to be tested
 vars <- c("pmnt_method_grp", "Principal_Real",
           "Balance_Real_1", "g0_Delinq_SD_6", "AgeToTerm_Aggr_Mean",
           "slc_acct_arr_dir_3", "PrevDefaults",
           "M_RealIncome_Growth_12", "NewLoans_Aggr_Prop", "Instalment_Real",
-          "M_DTI_Growth_3"
+          "M_DTI_Growth_3", "DefSpell_Age"
 )
 
 # - Fit model
@@ -494,7 +495,7 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
 # - Evaluate model
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 461; R^2: 21.80; RMSE: 27.57%; MAE: 22.43%
+### RESULTS: AIC: 3 266; R^2: 2.52%; RMSE: 30.78%; MAE: 25.94%
 
 ### CONCLUSION: Select variables from automated variable selection procedure:
 ###             [pmnt_method_grp]; [Principal_Real]
