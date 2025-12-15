@@ -4,35 +4,49 @@
 calc_AIC_LS <- function(formula, data_train, variables="", it=NA, logPath="", 
                         fldSpellID="DefSpell_Key", modelType="tweedie") {
   # - Testing conditions
-  # j <- 1; formula=TimeDef_Form(TimeDef,variables[j], strataVar=strataVar); 
+  # j<-1; formula<-TimeDef_Form(TimeDef,variables[j], strataVar=strataVar); variables<-variables[j]
+  # data_train<-data_train; it=j; logPath=genPath;  fldSpellID=fldSpellID; modelType<-modelType
   
   tryCatch({
     if (modelType=="tweedie") {
-      model <- cpglm(formula,data= data_train)# Fit tweedie model 
-      data_train$score <- predict(model, newdata= data_train, type="response")
-      AIC <- AIC(model) # Calculate AIC of the model.
+      # - Tweedie model
+      # Fit model
+      model <- cpglm(formula,data= data_train)
+      # Generate model predictions
+      data_train$score <- predict(model, newdata=data_train, type="response")
+      # Calculate AIC of the model
+      AIC <- AIC(model)
+      # Get model deviance
       Dev <- deviance(model)
+      # Calculate C-index
       c_ind <- rcorr.cens(data_train$score, data_train$LossRate_Real)[["C Index"]]
+      a<-summary(model)
+      a$r
+      
     } else if (modelType=="gaussian") {
-      model <- glm(formula, family = gaussian(link = "identity"), data = data_train) # Fit gaussian
-      data_train$score <- predict(model, newdata= data_train, type="response")
-      AIC <- AIC(model) # Calculate AIC of the model.
+      # - Gaussian model
+      model <- glm(formula, family=gaussian(link="identity"), data=data_train)
+      # Generate model predictions
+      data_train$score <- predict(model, newdata=data_train, type="response")
+      # Calculate AIC of the model
+      AIC <- AIC(model)
+      # Get model deviance
       Dev <- deviance(model)
-      c_ind <- NA
+      # Calculate C-index
+      c_ind <- rcorr.cens(data_train$score, data_train$LossRate_Real)[["C Index"]]
+      
     } else stop("Unknown model type in calc_AIC().")
     
-    if (!is.na(it)) {# Output the number of models built, where the log is stored in a text file afterwards.
+    # - Output the number of models built, where the log is stored in a text file afterwards.
+    if (!is.na(it)) {
       cat(paste0("\n\t ", it,") Single-factor model built. "),
           file=paste0(logPath,"AIC_log_LS.txt"), append=T)
     }
     
-    # Return results as a data.table
-    if (modelType=="tweedie") {
-      return(data.table(Variable = variables, AIC = AIC, Deviance= Dev, C=c_ind,pValue=summary(model)$coefficients[1,4]))
-    } else if (modelType=="gaussian") {
-      return(data.table(Variable = variables, AIC = AIC,Deviance= Dev,C=c_ind, pValue=summary(model)$coefficients[1,4]))
+    # - Return results as a data.table
+    if (modelType %in% c("tweedie","gaussian")) {
+      return(data.table(Variable=variables, AIC=AIC, Deviance=Dev, C=c_ind,pValue=summary(model)$coefficients[1,4]))
     }
-    
     
   }, error=function(e) {
     AIC <- Inf
@@ -44,6 +58,7 @@ calc_AIC_LS <- function(formula, data_train, variables="", it=NA, logPath="",
     }
     return(data.table(Variable = variables, AIC = AIC,Deviance= Dev, pValue=NA,C=c_ind)) 
   })
+  
 }
 
 
@@ -55,8 +70,10 @@ calc_AIC_LS <- function(formula, data_train, variables="", it=NA, logPath="",
 aicTable_LS <- function(data_train, variables, fldSpellID="DefSpell_Key",
                         TimeDef, numThreads=6, genPath, strataVar="", modelType="tweedie") {
   # - Testing conditions
-  # data_train <- datCredit; TimeDef=Cox_Discrete","PerfSpell_Event; numThreads=6
-  # fldSpellID<-" DefSpell_Key"; variables<-"g0_Delinq_SD_4"; strataVar="DefSpell_Num"
+  # data_train<-datCredit_train
+  # variables<-c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq_Any_Aggr_Prop_Lag_2")
+  # fldSpellID<-" DefSpell_Key"; TimeDef<-c("Cox_Discrete","LossRate_Real"); numThreads<-6; genPath<-genObjPath
+  # strataVar<-"DefSpell_Num"; modelType<-"Tweedie"
   
   # - Iterate across loan space using a multi-threaded setup
   ptm <- proc.time() #IGNORE: for computation time calculation
@@ -82,28 +99,39 @@ aicTable_LS <- function(data_train, variables, fldSpellID="DefSpell_Key",
 }
 
 
-# Evaluate Tweedie cpglm performance (no weights)
-#), MAE, RMSE
+# --- Function to evaluate a cpglm model's performance (no weights)
 # Optional: supply model_base or let the function fit an intercept-only baseline.
 # Optional: pass newdata for OOS MAE/RMSE.
-evalLS <- function(model_full,dat_train, targetFld,model_base = NULL) {
+evalLS <- function(model_full, dat_train, targetFld, model_base = NULL) {
   
+  # - Unit test conditions | Internal
+  # model_full<-modGLM_full; dat_train<-datCredit_train;
+  # targetFld<-"LossRate_Real"; model_base<-modGLM_base
   
+  # Get actuals
   y_tr  <- dat_train[[targetFld]]
-  mu_tr <- predict(model_full, newdata = dat_train, type = "response")
-  rmse_tr <- sqrt(mean((mu_tr - y_tr)^2))
-  mae_tr  <- mean(abs(mu_tr - y_tr))
+  # Get predictions
+  mu_tr <- predict(model_full, newdata=dat_train, type="response")
   
+  # Calculate RMSE
+  rmse_tr <- sqrt(mean((mu_tr - y_tr)^2, na.rm=T))
+  # Calculate MAE
+  mae_tr  <- mean(abs(mu_tr - y_tr), na.rm=T)
+  # Get AIC of full model
   aic_full <- AIC(model_full)
+  # Get AIC of base model
   aic_base <- AIC(model_base)
-  dev_full <- deviance(model_full)        # residual deviance of full model
-  dev_base <- deviance(model_base)        # residual deviance of baseline
+  # Get residual deviance of full model
+  dev_full <- deviance(model_full)
+  # Get residual deviance of baseline model
+  dev_base <- deviance(model_base)
   
-  # Pseudo R^2 (deviance explained): 1 - D_full / D_base
+  # Calculate Pseudo R^2 (deviance explained): 1 - D_full / D_base
   SS_res <- sum((y_tr - mu_tr)^2)
   SS_tot <- sum((y_tr - mean(y_tr))^2)
-  
   R2 <- 1 - (SS_res / SS_tot)
+  
+  # Combine results and return data.table
   data.table(AIC_full = aic_full,AIC_base = aic_base, dAIC = aic_full - aic_base,
              Deviance_full = dev_full,
              Deviance_base = dev_base,
