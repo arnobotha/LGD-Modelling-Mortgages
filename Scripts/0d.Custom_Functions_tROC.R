@@ -463,12 +463,14 @@ tROC <- function(datGiven, cox, month_Start=0, month_End, sLambda=0.05, estMetho
 #         [reportFlag]: An indicator whether thread-specific results should be reported within a communal text file in 
 #                       tracking the overall progress of the function whilst running on larger datasets
 #         [logPath]: A given path directory in which the log file is stored in tracking the performance of the multithreaded loop
+#         [threshold]: A given threshold to dichotomise marker values
 # Output: [AUC]: The time-dependent Area under the curve (AUC) in summarising the corresponding time-dependent ROC-graph
 #         [ROC_graph]: The associated ROC-graph as a ggplot-object
 tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.05, estMethod="NN-0/1", numDigits=2, 
                        fld_ID=NA, fld_Event="MainEvent_Ind", eventVal=1, fld_StartTime="Start", fld_EndTime="Stop",
                        Graph=TRUE, graphName="timedROC-Graph", genFigPathGiven=paste0(getwd(),"/"), numThreads=4, 
-                       caseStudyName="Main",reportFlag=T, logPath=paste0(getwd(),"/"), predType="exp") {
+                       caseStudyName="Main",reportFlag=T, logPath=paste0(getwd(),"/"), predType="exp",
+                       threshold=NA) {
   
   # ------ Preliminaries 
   # -- Testing Conditions
@@ -487,6 +489,7 @@ tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.0
   # graphName="ROC_CoxDisc_Basic_TimeVar"; genFigPathGiven=paste0(genFigPath, "tROC-Analyses/");
   # caseStudyName=paste0("CoxDisc_PWPST_", predictTime); numThreads=12; logPath=genPath
   # month_Start=0; Graph=T; predType="response"; reportFlag=T
+  # threshold=0.5
   
   
   # -- Error handling
@@ -522,6 +525,12 @@ tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.0
   # - Score the given dataset using the given Cox regression model towards obtaining marker 
   # values (option: linear predictors)
   datGiven[, Marker := round(predict(modGiven, newdata=datGiven, type=predType),numDigits)]
+  
+  # - Dichotomise marker values given a specifc threshold
+  if (!is.na(threshold)){
+    datGiven[, Marker:=ifelse(Marker>threshold,1,0)]
+  }
+  
   # - Let the unique marker values represent our threshold space, which is standard practice in ROC-analysis
   thresholds <- datGiven$Marker %>% unique() %>% sort()
   nThresh <- length(thresholds) # number of such unique thresholds for iteration purposes

@@ -210,6 +210,7 @@ ggsave(gPlot, file=paste0(genFigPath, "R2Plot_V2.png"), width=1200/dpi, height=1
 
 # - Cleanup
 rm(datPlot, gPlot, PseudoR2_Table)
+### MM: Mark this plot for deletion
 
 
 # ------ 4. Model-level diagnostics and associated analytics
@@ -329,6 +330,7 @@ ggsave(g_ROC_compar, file=paste0(genFigPath, "ROC_Curves_Comparison.png"), width
 
 # - Cleanup
 rm(datPlot_ROC, dat_anno, g_ROC_compar)
+### MM: Consider plot for deletion
 
 
 
@@ -375,7 +377,7 @@ ggsave(g_model_diag_compar, file=paste0(genFigPath, "Diagnostics_Comparison.png"
 
 # - Clean up
 rm(datPlot_diag, g_model_diag_compar,coefDeter_Adv, coefDeter_Basic, coefDeter_LR); gc()
-
+### MM: Consider deletion, but check if it is actually useful
 
 
 
@@ -428,11 +430,11 @@ vEventRates_stErr <- c(sd(BasAUC$AUC_Val, na.rm=T) / sqrt(BasAUC[, .N]),
                        sd(AdvAUC$AUC_Val, na.rm=T) / sqrt(AdvAUC[, .N]) )
 vMargin <- qnorm(1-(1-confLevel)/2) * vEventRates_stErr
 vLabel <- c(paste0("'TTC-mean over '*italic(t)*' for '*italic(A[t])*' : ", sprintf("%.2f",vEventRates_Mean[1]*100),
-                   "% ± ", sprintf("%1.3f", vMargin[1]*100),"%'"),
+                   "% ? ", sprintf("%1.3f", vMargin[1]*100),"%'"),
             paste0("'TTC-mean over '*italic(t)*' for '*italic(B[t])*' : ", sprintf("%.2f",vEventRates_Mean[3]*100),
-                   "% ± ", sprintf("%1.3f", vMargin[3]*100),"%'"),
+                   "% ? ", sprintf("%1.3f", vMargin[3]*100),"%'"),
             paste0("'TTC-mean over '*italic(t)*' for '*italic(C[t])*' : ", sprintf("%.2f",vEventRates_Mean[2]*100),
-                   "% ± ", sprintf("%1.3f", vMargin[2]*100),"%'") )
+                   "% ? ", sprintf("%1.3f", vMargin[2]*100),"%'") )
 datAnnotate[, Label := vLabel]
 
 # - Graphing parameters

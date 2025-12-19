@@ -33,7 +33,6 @@
 
 # ----------------- 1. Load & prepare data for tROC-analyses
 
-
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
@@ -402,6 +401,7 @@ objROC1_LR <- tROC.multi(datGiven=datValid_classic, modGiven=modLR_classic, mont
 objROC1_LR$AUC; objROC1_LR$ROC_graph
 proc.time() - ptm
 ### RESULTS: AUC up to t: 94.66%, achieved in 1659.32 secs
+### MM: Need
 
 
 ptm <- proc.time() #IGNORE: for computation time calculation;
@@ -438,6 +438,7 @@ vmodel <- c("DtH-Advanced A","DtH-Basic A", "Logistic Regression A")
 pack.ffdf(paste0(genPath,"WOffSurvModel-CoxDisc-bas"), objROC5_CDH_CoxDisc_bas);
 pack.ffdf(paste0(genPath,"WOffSurvModel-CoxDisc-adv"), objROC5_CDH_CoxDisc_adv);
 pack.ffdf(paste0(genPath,"WOffSurvModel-CoxDisc-LR"), objROC1_LR );
+### MM: Need another version of this for the B-series models
 
 # ------ Advanced discrete-time hazard model
 
