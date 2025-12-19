@@ -1,10 +1,11 @@
-# ======================================= INPUT SPACE: ONE-STAGE-GAUSSIAN============================
-# Divide data into thematic groups and perform data analysis on them to compile an input space for 
-# a single stage model with a Gaussian link function.
-# ------------------------------------------------------------------------------------------------------
+# ========================= INPUT SPACE: ONE-STAGE-GAUSSIAN ====================
+# Divide data into thematic groups and perform data analysis on them towards
+# compiling an input space for a single stage model with a
+# Gaussian link function.
+# ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Mohammed Gabru (MG)
-# ------------------------------------------------------------------------------------------------------
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller
+# ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
 #   - 1.Data_Import.R
@@ -16,11 +17,11 @@
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:
-#   - datCredit_train_CDH | Prepared from script 2g
-#   - datCredit_valid_CDH | Prepared from script 2g
+#   - datCredit_train_CDH | Training dataset prepared in script 2g
+#   - datCredit_valid_CDH | Validation dataset prepared in script 2g
 #
 # -- Outputs:
-#   - Input_Space
+#   - modGLM_OneStage_Gaus | Final single stage Gaussian modeling object
 # ------------------------------------------------------------------------------------------------------
 
 
@@ -495,33 +496,18 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ###             [AgeToTerm_Aggr_Mean]; [g0_Delinq_SD_5]
 
 
-# --- 6.2 Model refinements | Enriching the input space based on expert judgement - Part I
-# - Remove [g0_Delinq_SD_5] since [g0_Delinq_SD_6] is already present
+# --- 6.2 Model refinements | Adjusting the input space based on expert judgement
+### NOTE: The following changes have been made:
+### Removed 1) [g0_Delinq_SD_5] since [g0_Delinq_SD_6] is already present
+###         2) [g0_Delinq_Any_Aggr_Prop_Lag_5] and [g0_Delinq_Any_Aggr_Prop_Lag_9] since [g0_Delinq_Any_Aggr_Prop_Lag_12] is already present
+###         3) [DefaultStatus1_Aggr_Prop_Lag_2] since [DefaultStatus1_Aggr_Prop_Lag_2] is already present
+###         4) [g0_Delinq_Ave] due to insignificance upon removing previous variables
+### Added   5) [M_Inflation_Growth_12]
 vars <- c("PrevDefaults", "DefSpell_Maturity_Aggr_Mean", "M_Repo_Rate_6",
-          "DefSpell_Age", "g0_Delinq_Any_Aggr_Prop_Lag_5", "g0_Delinq_Num",
+          "DefSpell_Age", "g0_Delinq_Num",
           "g0_Delinq_SD_6", "g0_Delinq_Any_Aggr_Prop_Lag_12", "slc_past_due_amt_imputed_med",
-          "Balance_Real_1", "InterestRate_Nom", "DefaultStatus1_Aggr_Prop_Lag_2",
-          "DefaultStatus1_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Ave",
-          "AgeToTerm_Aggr_Mean"
-)
-
-# - Fit model
-modGLM_full <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                   data=datCredit_train,family = gaussian(link = "identity"))
-
-# - Evaluate model
-summary(modGLM_full)
-evalLS(modGLM_full, datCredit_train,targetFld="LossRate_Real", modGLM_base)
-### RESULTS: AIC: -37 526; R^2: 13.31; RMSE: 19.39%; MAE: 10.78%
-
-
-# --- 6.2 Model refinements | Enriching the input space based on expert judgement - Part II
-# - Add a lagged inflation variable
-vars <- c("PrevDefaults", "DefSpell_Maturity_Aggr_Mean", "M_Repo_Rate_6",
-          "DefSpell_Age", "g0_Delinq_Any_Aggr_Prop_Lag_5", "g0_Delinq_Num",
-          "g0_Delinq_SD_6", "g0_Delinq_Any_Aggr_Prop_Lag_12", "slc_past_due_amt_imputed_med",
-          "Balance_Real_1", "InterestRate_Nom", "DefaultStatus1_Aggr_Prop_Lag_2",
-          "DefaultStatus1_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Ave",
+          "Balance_Real_1", "InterestRate_Nom",
+          "DefaultStatus1_Aggr_Prop",
           "AgeToTerm_Aggr_Mean", "M_Inflation_Growth_12"
 )
 
@@ -532,16 +518,15 @@ modGLM_full <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " 
 # - Evaluate model
 summary(modGLM_full)
 evalLS(modGLM_full, datCredit_train,targetFld="LossRate_Real", modGLM_base)
-### RESULTS: AIC: -37 545; R^2: 13.33; RMSE: 19.39%; MAE: 10.78%
+### RESULTS: AIC: -37 265; R^2: 13.03; RMSE: 19.42%; MAE: 10.71%
 
 ### CONCLUSION: Select variables from automated variable selection procedure:
 ###             [PrevDefaults]; [DefSpell_Maturity_Aggr_Mean]; [M_Repo_Rate_6]
 ###             [DefSpell_Age]; [g0_Delinq_Any_Aggr_Prop_Lag_5]; [g0_Delinq_Num];
 ###             [g0_Delinq_SD_6]; [g0_Delinq_Any_Aggr_Prop_Lag_12]; [slc_past_due_amt_imputed_med];
-###             [Balance_Real_1]; [InterestRate_Nom]; [DefaultStatus1_Aggr_Prop_Lag_2];
+###             [Balance_Real_1]; [InterestRate_Nom];
 ###             [DefaultStatus1_Aggr_Prop]; [g0_Delinq_Any_Aggr_Prop_Lag_9]; [g0_Delinq_Ave];
 ###             [AgeToTerm_Aggr_Mean]; [M_Inflation_Growth_12]
-
 
 
 
@@ -576,10 +561,10 @@ modGLM_base <- glm(LossRate_Real~1, data=datCredit_train, family=gaussian(link="
 # --- 9.2 Fit and evaluate final model
 # - Initialize variables to be tested
 vars <- c("PrevDefaults", "DefSpell_Maturity_Aggr_Mean", "M_Repo_Rate_6",
-          "DefSpell_Age", "g0_Delinq_Any_Aggr_Prop_Lag_5", "g0_Delinq_Num",
+          "DefSpell_Age", "g0_Delinq_Num",
           "g0_Delinq_SD_6", "g0_Delinq_Any_Aggr_Prop_Lag_12", "slc_past_due_amt_imputed_med",
-          "Balance_Real_1", "InterestRate_Nom", "DefaultStatus1_Aggr_Prop_Lag_2",
-          "DefaultStatus1_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Ave",
+          "Balance_Real_1", "InterestRate_Nom",
+          "DefaultStatus1_Aggr_Prop",
           "AgeToTerm_Aggr_Mean", "M_Inflation_Growth_12"
 )
 
@@ -590,7 +575,7 @@ modGLM <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))
 # - Evaluate model
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: -37 545; R^2: 13.33; RMSE: 19.39%; MAE: 10.78%
+### RESULTS: AIC: -37 265; R^2: 13.03; RMSE: 19.42%; MAE: 10.71%
 
 
 # --- 9.3 Save objects

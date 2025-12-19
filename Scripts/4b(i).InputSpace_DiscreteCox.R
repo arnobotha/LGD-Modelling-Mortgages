@@ -1,10 +1,10 @@
-# ======================================= INPUT SPACE: DISCRETE COX ADVANCED============================
-# Partition data into thematic groups and perform data analysis on them to compile an input space for 
-# and advanced discrete-time hazard model.
-# ------------------------------------------------------------------------------------------------------
+# ===================== INPUT SPACE: DISCRETE COX ADVANCED =====================
+# Partition data into thematic groups and perform data analysis on them in
+# compiling an input space for an advanced discrete-time hazard model.
+# ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG), Marcel Muller (MM)
-# ------------------------------------------------------------------------------------------------------
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
+# ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
 #   - 1.Data_Import.R
@@ -16,12 +16,12 @@
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:
-#   - datCredit_train_CDH | Prepared from script 2g
-#   - datCredit_valid_CDH | Prepared from script 2g
+#   - datCredit_train_CDH | Training dataset as prepared in script 2g
+#   - datCredit_valid_CDH | Validation dataset prepared in script 2g
 #
 # -- Outputs:
-#   - Input_Space
-# ------------------------------------------------------------------------------------------------------
+#   - modLR_Adv | Final discrete-time hazard modeling object
+# ------------------------------------------------------------------------------
 
 
 # ------ 1. Preliminaries
@@ -597,7 +597,8 @@ modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = "
 summary(modLR_full)
 evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC: 909 035; McFadden R^2: -309.88%; AUC: 83.07%
-### NOTE: Quasi-complete separation occurred in fitting the model, will correct with the automated variable selection procedure
+### NOTE: Quasi-complete separation may have occurred in fitting the model,
+###       will probably be corrected in the automated variable selection procedure
 
 # - Stepwise forward selection using AIC
 ptm <- proc.time() # for runtime calculations (ignore)
@@ -619,18 +620,34 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 ###             [DefaultStatus1_Aggr_Prop_Lag_12]; [NewLoans_Aggr_Prop]; [g0_Delinq_Any_Aggr_Prop_Lag_12];
 ###             [g0_Delinq_Ave]; [M_Inflation_Growth_12]
 
-### CONCLUSION: [log(TimeInDefSpell):DefSpell_Num_binned] is not significant, refitting model
+### CONCLUSION: [log(TimeInDefSpell):DefSpell_Num_binned] is not significant, proceed to model refinement step
 
 
-# --- 8.2 Model refinement | Remove insignificant variables
+# --- 8.2 Model refinement | Adjusting the input space based on expert judgement
+### NOTE: The following refinements are made given their contributions to 
+###       improving the term-structure of write-off
+### Replaced: 1) [log(TimeInDefSpell)] with [Time_binned] -> Binning time enables non-linearities to be better incorporated
+### Added:    4) [log(TimeInDefSpell)*DefSpell_Num_binned]
+###           5) [g0_Delinq_Lag_1]
+###           6) [InterestRate_Margin_Aggr_Med_2]
+###           7) [M_DTI_Growth_12]
+### Removed:  8) [DefaultStatus1_Aggr_Prop_Lag_9]
+###           9) [g0_Delinq_SD_4]
+###           10) [g0_Delinq_SD_6]
+###           11) [g0_Delinq_Any_Aggr_Prop_Lag_1]
+###           12) [g0_Delinq_Any_Aggr_Prop_Lag_12]
+###           13) [slc_acct_arr_dir_3]
+###           14) [slc_curing_ind]
 # - Initialise set of variables
-vars <- c("log(TimeInDefSpell)", "DefSpell_Num_binned",
-          "InterestRate_Nom", "g0_Delinq_SD_4", "pmnt_method_grp",
-          "slc_past_due_amt_imputed_med", "DefaultStatus1_Aggr_Prop_Lag_9",
-          "slc_curing_ind", "Principal_Real", "g0_Delinq_Any_Aggr_Prop_Lag_1",
-          "M_Repo_Rate_12", "slc_acct_arr_dir_3", "g0_Delinq_SD_6",
-          "DefaultStatus1_Aggr_Prop_Lag_12", "NewLoans_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_12",
-          "g0_Delinq_Ave", "M_Inflation_Growth_12")
+vars <- c("Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
+          "InterestRate_Nom", "pmnt_method_grp",
+          "Principal_Real",
+          "M_Repo_Rate_12", "NewLoans_Aggr_Prop",
+          "DefaultStatus1_Aggr_Prop_Lag_12",
+          "g0_Delinq_Ave", "M_Inflation_Growth_12",
+          "g0_Delinq_Lag_1", "InterestRate_Margin_Aggr_Med_2",
+          "M_DTI_Growth_12", "M_RealIncome_Growth_9", "Balance_Real_1"
+)
 
 # - Fit model
 modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
@@ -639,15 +656,18 @@ modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))
 # - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 49 836; McFadden R^2: 77.55%; AUC: 99.66%
-###          Variables from step-wise selection procedure:
-###             [log(TimeInDefSpell)]; [DefSpell_Num_binned];
-###             [InterestRate_Nom]; [g0_Delinq_SD_4]; [pmnt_method_grp];
-###             [slc_past_due_amt_imputed_med]; [DefaultStatus1_Aggr_Prop_Lag_9];
-###             [slc_curing_ind]; [Principal_Real]; [g0_Delinq_Any_Aggr_Prop_Lag_1];
-###             [M_Repo_Rate_12]; [slc_acct_arr_dir_3]; [g0_Delinq_SD_6];
-###             [DefaultStatus1_Aggr_Prop_Lag_12]; [NewLoans_Aggr_Prop]; [g0_Delinq_Any_Aggr_Prop_Lag_12];
-###             [g0_Delinq_Ave]; [M_Inflation_Growth_12]
+### RESULTS: AIC: 79 024; McFadden R^2: 64.39%; AUC: 98.58%
+
+### CONCLUSION: Select these as the final variables:
+###             [Time_Binned], [log(TimeInDefSpell)],
+###             [DefSpell_Num_binned], [log(TimeInDefSpell):DefSpell_Num_binned],
+###             [InterestRate_Nom], [pmnt_method_grp],
+###             [Principal_Real],
+###             [M_Repo_Rate_12], [NewLoans_Aggr_Prop],
+###             [DefaultStatus1_Aggr_Prop_Lag_12],
+###             [g0_Delinq_Ave], [M_Inflation_Growth_12],
+###             [g0_Delinq_Lag_1], [InterestRate_Margin_Aggr_Med_2],
+###             [M_DTI_Growth_12], [M_RealIncome_Growth_9], [Balance_Real_1]
 
 ### CONCLUSION: All variables are significant
 
@@ -678,22 +698,24 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # --- 9.2 Fit and evaluate final model
 # - Final variables
-vars <- c("log(TimeInDefSpell)", "DefSpell_Num_binned",
-          "InterestRate_Nom", "g0_Delinq_SD_4", "pmnt_method_grp",
-          "slc_past_due_amt_imputed_med", "DefaultStatus1_Aggr_Prop_Lag_9",
-          "slc_curing_ind", "Principal_Real", "g0_Delinq_Any_Aggr_Prop_Lag_1",
-          "M_Repo_Rate_12", "slc_acct_arr_dir_3", "g0_Delinq_SD_6",
-          "DefaultStatus1_Aggr_Prop_Lag_12", "NewLoans_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_12",
-          "g0_Delinq_Ave", "M_Inflation_Growth_12")
+vars <- c("Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
+          "InterestRate_Nom", "pmnt_method_grp",
+          "Principal_Real",
+          "M_Repo_Rate_12", "NewLoans_Aggr_Prop",
+          "DefaultStatus1_Aggr_Prop_Lag_12",
+          "g0_Delinq_Ave", "M_Inflation_Growth_12",
+          "g0_Delinq_Lag_1", "InterestRate_Margin_Aggr_Med_2",
+          "M_DTI_Growth_12", "M_RealIncome_Growth_9", "Balance_Real_1"
+)
 
 # - Fit model
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
+modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
+             data=datCredit_train, family="binomial")
 
 # - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 49 836; McFadden R^2: 77.55%; AUC: 99.66%
+### RESULTS: AIC: 79 024; McFadden R^2: 64.39%; AUC: 98.58%
 
 # - Summary with robust SEs
 robust_se <- vcovHC(modLR, type="HC0")
@@ -702,20 +724,21 @@ coeftest(modLR, vcov.=robust_se)
 
 # - Test goodness-of-fit using AIC-measure from single-factor models
 (aicTable_CoxDisc <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [InterestRate_Nom]; [g0_Delinq_SD_4]; [slc_past_due_amt_imputed_med]; [slc_curing_ind]; [slc_acct_arr_dir_3];
-###                         [g0_Delinq_SD_6]; [log(TimeInDefSpell)]
+### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [log(TimeInDefSpell)*DefSpell_Num_binned]; [g0_Delinq_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12];
+###                         [g0_Delinq_Ave]; [InterestRate_Margin_Aggr_Med_2]
 
 # - Test accuracy using c-statistic from single-factor models
 (concTable_CoxDisc <- concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [InterestRate_Nom]; [g0_Delinq_SD_4]; [g0_Delinq_SD_6]; [slc_past_due_amt_imputed_med]; [slc_curing_ind];
-###                         [slc_acct_arr_dir_3]; [log(TimeInDefSpell)]
+### RESULTS: Top variables: [InterestRate_Nom]; [log(TimeInDefSpell)*DefSpell_Num_binned]; [Time_Binned]; [g0_Delinq_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12];
+###                         [g0_Delinq_Ave]; [InterestRate_Margin_Aggr_Med_2]
 
 # - Combine results into a single object
 (Table_CoxDisc <- concTable_CoxDisc[,1:2] %>% left_join(aicTable_CoxDisc, by ="Variable"))
 
+# - Additional goodness of fit tests
 GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Advanced",
                 fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Adv", ".png"), dpi=280)
-### RESULTS: KS-statistic = 96%; Harell's c = 99.657%; AIC = 49 836
+### RESULTS: KS-statistic = 94%; Harrell's c = 98.578%; AIC = 79 024
 
 
 # --- 9.3 Save objects

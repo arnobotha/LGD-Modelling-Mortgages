@@ -1,10 +1,10 @@
-# ======================================= INPUT SPACE: LOGISTIC REGRESSION============================
-# Divide data into thematic groups and perform data analysis on them to compile an input space for 
-# an advanced logistic regression model.
-# ------------------------------------------------------------------------------------------------------
+# ========================= INPUT SPACE: LOGISTIC REGRESSION ===================
+# Divide data into thematic groups and perform data analysis on them towards
+# compiling an input space for an advanced logistic regression model.
+# ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG), Marcel Muller (MM)
-# ------------------------------------------------------------------------------------------------------
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
+# ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
 #   - 1.Data_Import.R
@@ -16,12 +16,12 @@
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:
-#   - datCredit_train_CDH | Prepared from script 2g
-#   - datCredit_valid_CDH | Prepared from script 2g
+#   - datCredit_train_CDH | Training dataset prepared in script 2g
+#   - datCredit_valid_CDH | Validation dataset prepared in script 2g
 #
 # -- Outputs:
-#   - Input_Space
-# ------------------------------------------------------------------------------------------------------
+#   - modLR | Final logistic regression modeling object
+# ------------------------------------------------------------------------------
 
 # ------ 1. Preliminaries
 # --- 1.1. Load data
@@ -486,8 +486,9 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 ###               [M_Repo_Rate_2]; [M_Inflation_Growth_3]
 
 
-# --- 6.2 Model refinement | Expert judgement
-# - Remove [M_Repo_Rate_6]
+# --- 6.2 Model refinements | Adjusting the input space based on expert judgement
+### NOTE: The following changes have been made:
+### Removed: 1) [M_Repo_Rate_6]
 vars <- c("PrevDefaults", "DefSpell_Num_binned",
           "ArrearsToBalance_1_Aggr_Prop", "Balance_Real_1", 'DefSpell_Age',
           "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2", 'InterestRate_Nom',
@@ -505,7 +506,7 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 
 
 
-# ------ 6. Final 
+# ------ 7. Final 
 
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()

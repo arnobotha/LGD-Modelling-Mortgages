@@ -1,10 +1,10 @@
-# ======================================= INPUT SPACE: DISCRETE COX Basic============================
-# Divide data into thematic groups and perform data analysis on them to compile an input space for 
-# a basic discrete-time hazard model.
-# ------------------------------------------------------------------------------------------------------
+# =================== INPUT SPACE: DISCRETE COX Basic ==========================
+# Divide data into thematic groups and perform data analysis on them towards
+# compiling an input space for a basic discrete-time hazard model.
+# ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG), Marcel Muller (MM)
-# ------------------------------------------------------------------------------------------------------
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
+# ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
 #   - 1.Data_Import.R
@@ -16,12 +16,15 @@
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:
-#   - datCredit_train_CDH | Prepared from script 2g
-#   - datCredit_valid_CDH | Prepared from script 2g
+#   - datCredit_train_CDH | Training dataset prepared in script 2g
+#   - datCredit_valid_CDH | Training dataset prepared in script 2g
 #
 # -- Outputs:
-#   - Input_Space
-# ------------------------------------------------------------------------------------------------------
+#   - modLR_basic | Final discrete-time hazard modeling object
+# ------------------------------------------------------------------------------
+
+
+
 
 # ------ 1. Preliminaries
 # --- 1.1 Load data

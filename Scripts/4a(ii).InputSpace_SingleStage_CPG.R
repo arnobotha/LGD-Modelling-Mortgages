@@ -1,10 +1,11 @@
-# ======================================= INPUT SPACE: LOSS SEVERITY============================
-# Divide data into thematic groups and perform data analysis on them to compile an input space for 
-# a single stage model with a Compound Poisson Gamma link function.
-# ------------------------------------------------------------------------------------------------------
+# ========================= INPUT SPACE: LOSS SEVERITY =========================
+# Divide data into thematic groups and perform data analysis on them towards
+# compiling an input space for a single stage model with a
+# Compound Poisson Gamma (CPG) link function.
+# ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Mohammed Gabru (MG)
-# ------------------------------------------------------------------------------------------------------
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM)
+# ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
 #   - 1.Data_Import.R
@@ -16,12 +17,12 @@
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:
-#   - datCredit_train_CDH | Prepared from script 2g
-#   - datCredit_valid_CDH | Prepared from script 2g
+#   - datCredit_train_CDH | Training dataset prepared in script 2g
+#   - datCredit_valid_CDH | Validation dataset prepared in script 2g
 #
 # -- Outputs:
-#   - Input_Space
-# ------------------------------------------------------------------------------------------------------
+#   - modGLM_OneStage_CPM | Final single stage CPM modeling object
+# ------------------------------------------------------------------------------
 
 
 
@@ -517,39 +518,21 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ###             [AgeToTerm_Aggr_Mean]; [M_Repo_Rate_9]; [M_DTI_Growth_6]; [M_RealGDP_Growth_12];
 ###             [M_RealIncome_Growth_9]; [AgeToTerm]; [Balance_Real_1]
 
-### CONCLUSION: The following varaibles are insignificant:
+### CONCLUSION: The following variables are insignificant:
 ###               [M_RealIncome_Growth_6]; [M_DTI_Growth_12]; [M_DTI_Growth_6]
 ###             Refit model without these variables
 
 
-# --- 6.2 Model refinements | Removing insignificant variables - Part I
+# --- 6.2 Model refinements | Adjusting the input space based on expert judgement
+### NOTE: The following changes have been made:
+###       Removed:  1) [M_RealIncome_Growth_6]
+###                 2) [M_DTI_Growth_12]
+###                 3) [M_DTI_Growth_6]
+###                 4) [AgeToTerm_Aggr_Mean]
+###       Replaced: 5) [Arrears] with [slc_past_due_amt_imputed_med]
 # - Initialize variables to be tested
 vars <- c("PrevDefaults", "DefSpell_Num_binned", "NewLoans_Aggr_Prop",
-          "InterestRate_Nom", "DefSpell_Age", "g0_Delinq_Num", "Arrears",
-          "DefaultStatus1_Aggr_Prop_Lag_12",
-          "ArrearsToBalance_1_Aggr_Prop", "g0_Delinq_Ave",
-          "AgeToTerm_Aggr_Mean", "M_Repo_Rate_9", "M_RealGDP_Growth_12",
-          "M_RealIncome_Growth_9", "AgeToTerm", "Balance_Real_1"
-)
-
-# - Fit model
-modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-               data=datCredit_train)
-
-# - Evaluate model
-summary(modGLM)
-evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 67 365; R^2: 11.03; RMSE: 19.64%; MAE: 10.02%
-
-### CONCLUSION: The following variables are insignificant:
-###               [AgeToTerm_Aggr_Mean]
-###             Refit model without this variables
-
-
-# --- 6.3 Model refinements | Removing insignificant variables - Part II
-# - Initialize variables to be tested
-vars <- c("PrevDefaults", "DefSpell_Num_binned", "NewLoans_Aggr_Prop",
-          "InterestRate_Nom", "DefSpell_Age", "g0_Delinq_Num", "Arrears",
+          "InterestRate_Nom", "DefSpell_Age", "g0_Delinq_Num", "slc_past_due_amt_imputed_med",
           "DefaultStatus1_Aggr_Prop_Lag_12",
           "ArrearsToBalance_1_Aggr_Prop", "g0_Delinq_Ave",
           "M_Repo_Rate_9", "M_RealGDP_Growth_12",
@@ -563,7 +546,7 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
 # - Evaluate model
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 67 365; R^2: 11.05 RMSE: 19.64%; MAE: 10.00%
+### RESULTS: AIC: 67 338; R^2: 11.35; RMSE: 19.61%; MAE: 10.00%
 
 ### CONCLUSION: All variables significant, we therefore select:
 ###             [PrevDefaults]; [DefSpell_Num_binned]; [NewLoans_Aggr_Prop]
@@ -606,7 +589,7 @@ modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
 # --- 9.2 Fit and evaluate final model
 # - Initialize variables to be tested
 vars <- c("PrevDefaults", "DefSpell_Num_binned", "NewLoans_Aggr_Prop",
-          "InterestRate_Nom", "DefSpell_Age", "g0_Delinq_Num", "Arrears",
+          "InterestRate_Nom", "DefSpell_Age", "g0_Delinq_Num", "slc_past_due_amt_imputed_med",
           "DefaultStatus1_Aggr_Prop_Lag_12",
           "ArrearsToBalance_1_Aggr_Prop", "g0_Delinq_Ave",
           "M_Repo_Rate_9", "M_RealGDP_Growth_12",
@@ -620,7 +603,7 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
 # - Evaluate model
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 67 365; R^2: 11.05 RMSE: 19.64%; MAE: 10.00%
+### RESULTS: AIC: 67 338; R^2: 11.35; RMSE: 19.61%; MAE: 10.00%
 
 
 # --- 9.3 Save objects

@@ -799,16 +799,13 @@ rm(datMV, list_merge_variables, results_missingness, datMV_Check1, datMV_Check2)
 # - Create binned version of [TimeInPerfSpell] for discrete-time hazard models
 timeBinning <- function(x) {
   case_when(
-    0 < x & x <= 3 ~ "01.[1,3]", 3 < x & x <= 6 ~ "02.(3,6]",
-    6 < x & x <= 9 ~ "03.(6,9]", 9 < x & x <= 12 ~ "04.(9,12]",
-    12 < x & x <= 15 ~ "05.(12,15]", 15 < x & x <= 18 ~ "06.(15,18]",
-    18 < x & x <= 21 ~ "07.(18,21]", 21 < x & x <= 24 ~ "08.(21,24]",
-    24 < x & x <= 30 ~ "09.(24,30]", 30 < x & x <= 36 ~ "10.(30,36]",
-    36 < x & x <= 42 ~ "11.(36,42]", 42 < x & x <= 48 ~ "12.(42,48]",
-    48 < x & x <= 54 ~ "13.(48,54]", 54 < x & x <= 60 ~ "14.(54,60]",
-    60 < x & x <= 72 ~ "15.(60,72]", 72 < x & x <= 84 ~ "16.(72,84]",
-    84 < x & x <= 96 ~ "17.(84,96]", 96 < x & x <= 108 ~ "18.(96,108]",
-    108 < x & x <= 120 ~ "19.(108,120]",TRUE ~ "20.120+"
+    0 < x & x <= 6 ~ "01.[1,6]",
+    6 < x & x <= 18 ~ "02.(6,18]", 18 < x & x <= 28 ~ "03.(18,28]",
+    28 < x & x <= 36 ~ "04.(28,36]", 36 < x & x <= 42 ~ "05.(36,42]",
+    42 < x & x <= 48 ~ "06.(42,48]", 48 < x & x <= 54 ~ "07.(48,54]",
+    54 < x & x <= 60 ~ "08.(54,60]", 60 < x & x <= 72 ~ "09.(60,72]",
+    72 < x & x <= 84 ~ "10.(72,84]", 84 < x & x <= 96 ~ "11.(84,96]",
+    96 < x & x <= 108 ~ "12.(96,108]", TRUE ~ "(20.108+"
   )
 }
 datCredit_prep[, Time_Binned := timeBinning(TimeInDefSpell)]
@@ -868,14 +865,16 @@ gc()
 # - [SANITY CHECKS]
 if (timeDef_TFD) {
   # Can the subsample be reconstituted?
-  check.1 <- datCredit_prep[,.N] == datCredit_train_TFD[,.N] + datCredit_valid_TFD[,.N] + datCredit_prep[get(clusVar_Spell) %in% vSpellKeys_MultiSpell,.N] # Should be TRUE
+  check.1 <- datCredit_prep[!is.na(DefSpell_Key),.N] == datCredit_train_TFD[,.N] + datCredit_valid_TFD[,.N]
+  + datCredit_prep[get(clusVar_Spell) %in% vSpellKeys_MultiSpell,.N] # Should be TRUE
   # Does the training set contain only first-time spells?
   check.2 <- datCredit_train_TFD[get(spellNum) == 1,.N] == datCredit_train_TFD[,.N] # Should be TRUE
   # Does the validation spell contain spell numbers other than 1?
   (check.3 <- datCredit_valid_TFD[get(spellNum) != 1,.N] > 0) # Should be TRUE
 } else {
   # Can the subsample be reconstituted?
-  check.1 <- datCredit_prep[,.N] == datCredit_train_CDH[,.N] + datCredit_valid_CDH[,.N]
+  check.1 <- datCredit_prep[,.N] == datCredit_train_CDH[,.N]
+  + datCredit_valid_CDH[,.N]
   # Does the training set contain only first-time spells?
   check.2 <- T # Irrelevant for this time definition, so assign default
   # Does the validation spell contain spell numbers other than 1?
@@ -902,8 +901,11 @@ pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
 
 
 # --- 4.3 Clean up
-suppressWarnings(rm(dat_keys_smp_perf, dat_keys_smp_perf,  dat_train_keys_perf, dat_train_keys_def, datCredit_train_perf, datCredit_train_def,  datCredit_valid_perf, datCredit_valid_def,
-                    check.4_a, check.4_b, check.4_c, check.5_a, check.5_b, datCredit_prep, datStrata_prep_min, datCredit_train_CDH, datCredit_valid_CDH));gc()
+suppressWarnings(rm(dat_keys_smp_perf, dat_keys_smp_perf,  dat_train_keys_perf,
+                    dat_train_keys_def, datCredit_train_perf, datCredit_train_def,
+                    datCredit_valid_perf, datCredit_valid_def, check.1, check.2, check.3,
+                    check.4_a, check.4_b, check.4_c, check.5_a, check.5_b, datCredit_prep,
+                    datStrata_prep_min, datCredit_train_CDH, datCredit_valid_CDH));gc()
 
 
 

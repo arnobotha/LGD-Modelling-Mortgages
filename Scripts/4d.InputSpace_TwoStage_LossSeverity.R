@@ -1,9 +1,9 @@
-# ======================================= INPUT SPACE: LOSS SEVERITY-TWO STAGE============================
-# Divide data into thematic groups and perform data analysis on them to compile an input space for 
-# the loss severity component.
+# ==================== INPUT SPACE: LOSS SEVERITY-TWO STAGE ====================
+# Divide data into thematic groups and perform data analysis on them towards
+# compiling an input space for the loss severity component.
 # ------------------------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Mohammed Gabru (MG)
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
@@ -16,11 +16,11 @@
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:
-#   - datCredit_train_CDH | Prepared from script 2g
-#   - datCredit_valid_CDH | Prepared from script 2g
+#   - datCredit_train_CDH | Training dataset prepared in script 2g
+#   - datCredit_valid_CDH | Validation dataset prepared in script 2g
 #
 # -- Outputs:
-#   - Input_Space
+#   - modGLM_Severity_CPG | Final severity modeling object
 # ------------------------------------------------------------------------------------------------------
 
 
@@ -478,8 +478,9 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 
 # --- 6.2 Model refinement | Remove [AgeToTerm] following ad-hoc analyses
-### NOTE: - Removing [AgeToTerm] to the input space results in negative R^2 values
-### NOTE: - Adding [DefSpell] to the input space as this 
+### NOTE: The following changes have been made:
+### Removed: 1) [AgeToTerm] -> Results in negative R^2 values
+### Added:   2) [DefSpell_Age]
 # - Initialize variables to be tested
 vars <- c("pmnt_method_grp", "Principal_Real",
           "Balance_Real_1", "g0_Delinq_SD_6", "AgeToTerm_Aggr_Mean",

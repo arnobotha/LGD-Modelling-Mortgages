@@ -3,7 +3,7 @@
 # the loss severity component.
 # ------------------------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM)
+# SCRIPT AUTHOR(S): Marcel Muller (MM), Mohammed Gabru (MG)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
@@ -30,118 +30,134 @@
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
 # - Use only default spells
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
 # - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+rm(datCredit_train_CDH); gc()
 
 # - Weigh write-off cases as one, determined interactively based on calibration success (script 6e)
 datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
-datCredit_valid[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 
 # - Set [DefSpell_Age]=[TimeInDefSpell] to facilitate predictions
 datCredit_train[, DefSpell_Age:=TimeInDefSpell]
-datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
 
 
 # --- 1.3 Load models
 # - Basic discrete-time hazard model
-modLR_Bas <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
+modLR_bas <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
 
 # - Advanced discrete-time hazard model
-modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
+modLR_adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
 # - Classic logit model
-modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
+modLR_classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
 
 
 
 # ------ 2.  Estimate event rates
 
-# --- 2.1 Estimate survival quantities for the discrete time models
+# --- 2.1 Estimate survival quantities
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-datCredit_train[, Hazard_bas := predict(modLR_Bas, newdata=datCredit_train, type = "response")]
-datCredit_train[, Hazard_adv := predict(modLR_Adv, newdata=datCredit_train, type = "response")]
+# Basic model
+datCredit_train[, Hazard_bas:=predict(modLR_bas, newdata=datCredit_train, type = "response")]
+# Advanced model
+datCredit_train[, Hazard_adv:=predict(modLR_adv, newdata=datCredit_train, type = "response")]
+# Classical model
+datCredit_train[, Hazard_classic:=predict(modLR_classic, newdata=.SD[], type = "response")]
 
 # - Derive survival probability S(t) = prod ( 1- hazard)
-datCredit_train[, Survival_bas := cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
-datCredit_train[, Survival_adv := cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
+# Basic model
+datCredit_train[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
+# Advanced model
+datCredit_train[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
+# Classical model
+datCredit_train[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
 # - Derive discrete density, or event probability f(t) = S(t-1) * h(t)
-datCredit_train[, EventRate_bas := shift(Survival_bas, type="lag", n=1, fill=1) * Hazard_bas, by=list(DefSpell_Key)]
-datCredit_train[, EventRate_adv := shift(Survival_adv, type="lag", n=1, fill=1) * Hazard_adv , by=list(DefSpell_Key)]
+# Basic model
+datCredit_train[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) * Hazard_bas, by=list(DefSpell_Key)]
+# Advanced model
+datCredit_train[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) * Hazard_adv , by=list(DefSpell_Key)]
+# Classical model
+datCredit_train[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1)*Hazard_classic, by=list(DefSpell_Key)]
 
 
-# --- 2.2 Estimate survival quantities for the classical model
-# - Score using classical write-off-model each instance of [TimeInDefSpell] as [DefSpell_Age]
-datCredit_train[, DefSpell_Age2 := TimeInDefSpell]
+# --- 2.2 Filtering and combining the training and validation sets
+# - Filter to maximum spell counter
+# datCredit_train <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
 
-# - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-datCredit_train[!is.na(DefSpell_Num), Hazard_classic := predict(modLR_classic, newdata=.SD[], type = "response")]
+# - Identify where the loss rate is out of bounds and not feasible
+datCredit_train <- datCredit_train[, OOB_Ind:=ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
 
-# - Derive survival probability S(t) = prod ( 1- hazard)
-datCredit_train[!is.na(DefSpell_Num), Survival_classic := cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
+# - Subset to include only relevant data
+datCredit_train <- subset(datCredit_train, OOB_Ind==0)
 
-# - Derive discrete density, or event probability f(t) = S(t-1) * h(t)
-datCredit_train[!is.na(DefSpell_Num), EventRate_classic := shift(Survival_classic, type="lag", n=1, fill=1)*Hazard_classic, by=list(DefSpell_Key)]
-
-
-# --- 2.3 Forecast survival quantities
-# - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-datCredit_valid[, Hazard_adv := predict(modLR, newdata=datCredit_valid, type = "response")]
-datCredit_valid[, Hazard_bas := predict(modLR_basic, newdata=datCredit_valid, type = "response")]
-
-# - Derive survival probability S(t) = prod (1- hazard)
-datCredit_valid[, Survival_adv := cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
-datCredit_valid[, Survival_bas := cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
-
-# - Derive discrete density, or event probability f(t) = S(t-1) . h(t)
-datCredit_valid[, EventRate_adv := shift(Survival_adv, type="lag", n=1, fill=1) * Hazard_adv, by=list(DefSpell_Key)]
-datCredit_valid[, EventRate_bas := shift(Survival_bas, type="lag", n=1, fill=1) *Hazard_bas, by=list(DefSpell_Key)]
-
-
-
-# - Score using classical PD-model each instance of TimeInDefSpell as DefSpell_Age
-datCredit_valid[, DefSpell_Age2 := TimeInDefSpell]
-datCredit_valid[!is.na(DefSpell_Num), Hazard_classic := predict(modLR_classic, newdata=.SD[], type = "response")]
-datCredit_valid[!is.na(DefSpell_Num), Survival_classic := cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
-datCredit_valid[!is.na(DefSpell_Num), EventRate_classic := shift(Survival_classic, type="lag", n=1, fill=1)* Hazard_classic, by=list(DefSpell_Key)]
-
-
-
-# - filter to maximum spell counter
-datCredit_train <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
-datCredit_valid <- datCredit_valid[, .SD[which.max(DefSpell_Counter)], by = LoanID]
-
-# Identify where the loss rate is out of bounds and not feasible
-datCredit_train <- datCredit_train[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
-datCredit_valid <- datCredit_valid[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
-
-# Subset to include only relevant data
-datCredit_train <- subset(datCredit_train, OOB_Ind == 0)
-datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
-
-
-datCredit <- rbind(datCredit_train,datCredit_valid)
 
 
 
 # ------ 3. Determining the thresholds for dichotomisation
+# --- 3.1 Determine thresholds | Discrete time models
+# - Calculate prevalence of write-offs
+(q1 <- mean(datCredit_train$DefSpell_Event,na.rm=TRUE))
+### RESULTS: Prevalence = 0.01111503
+
+# - Calculate the cost multiple
+(a <- (1-q1)/q1)
+### RESULTS: Cost-multiple = 88.96827
+
 # - Basic model
-thresh_dth_bas <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_bas,
-                                   model_name = "DTH-basic")
+(thresh_dth_bas <- GenYoudenIndex(Trained_Model=modLR_bas,Train_DataSet=datCredit_train,
+                                  Target="DefSpell_Event", a=1))
+### RESULTS: Threshold at a = 1 = 0.367664
+### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.8245152
 
 # - Advanced model
-thresh_dth <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_adv,
-                               model_name = "DTH-advanced")
+(thresh_dth_adv <- GenYoudenIndex(Trained_Model=modLR_adv,Train_DataSet=datCredit_train,
+                                  Target="DefSpell_Event", a=1))
+### RESULTS: Threshold at a = 1 = 0.4334193
+### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.02465015
+
+thresh_glm <- 0.2352999
+thresh_dth <- 0.1037777
+thresh_dth_bas <-  0.00795927
+
+
+# --- 3.2 Determine thresholds | Classical models
+# - Subset data for training of the one-stage model
+datCredit_train_classic <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
+
+# - Calculate prevalence of write-offs
+(q1 <- mean(datCredit_train_classic$DefSpell_Event,na.rm=TRUE))
+### RESULTS: Prevalence = 0.2243023
+
+(a <- (1-q1)/q1)
+### RESULTS: Cost-multiple = 3.458269
 
 # - Classical model
-thresh_glm <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_classic,
-                               model_name = "Logistic regression")
+(thresh_lr_classic <- GenYoudenIndex(Trained_Model=modLR_classic,Train_DataSet=datCredit_train_classic,
+                                     Target="DefSpell_Event", a=1))
+### RESULTS: Threshold at a = 1 = 0.4173624
+### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.2358849
+
+
+
+# --- 3.2 Save thresholds to disk
+# - Combine thresholds into a single list
+thres_lst <- list("Basic"=thresh_dth_bas$cutoff,
+                  "Advanced"=thresh_dth_adv$cutoff,
+                  "Classical"=thresh_lr_classic$cutoff)
+
+# - Save list to disk
+saveRDS(thres_lst, file=paste0(genObjPath,"Classification_Thresholds.rds"))
+
+
+# --- 3.3 Clean-up
+suppressWarnings(rm(datCredit_train, datCredit_train_classic,
+                    modLR_adv, modLR_bas, modLR_classic, thresh_dth_bas,
+                    thresh_dth_adv, thresh_lr_classic, thres_lst))
+gc()
 
 

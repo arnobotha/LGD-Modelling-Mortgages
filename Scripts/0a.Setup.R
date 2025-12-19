@@ -41,6 +41,7 @@ require(doParallel)
 require(Hmisc)
 require(moments) # for using skewness() function
 require(regclass) # for VIF
+require(DEoptimR) # For optimisation via differential evolution algorithms
 
 # for modelling
 require(survival) # for survival modelling
