@@ -18,7 +18,8 @@
 #   - 4b(i).InputSpace_DiscreteCox.R
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
-
+#   - 4e.Dichotomisation
+#
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
@@ -29,8 +30,6 @@
 # -- Outputs:
 #   - <Analytics> | tROC-graphs
 # ==============================================================================
-
-
 
 
 # ------ 1. Prelimanaries

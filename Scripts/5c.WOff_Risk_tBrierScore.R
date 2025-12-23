@@ -12,16 +12,19 @@
 #   - 2c.Data_Prepare_Credit_Advanced2.R
 #   - 2d.Data_Enrich.R
 #   - 2f.Data_Fusion1.R
-#   - 3b.Data_Fusion2_PWP_ST.R
-#   - 5a(i).CoxPropHaz_PWP_Advanced.R
-#   - 5a(i).CoxPropHaz_PWP_Basic.R
-#   - 5b(i).CoxDiscreteTime_Advanced.R
-#   - 5b(ii).CoxDiscreteTime_Basic.R
+#   - 2g.Data_Fusion2.R
+#   - 4b(i).InputSpace_DiscreteCox.R
+#   - 4b(ii).InputSpace_DiscreteCox_Basic.R
+#   - 4c.InputSpace_LogisticRegression.R
+#   - 4e.Dichotomisation 
 
 # -- Inputs:
-#   - datCredit_train_PWPST | Prepared from script 3b
-#   - datCredit_valid_PWPST | Prepared from script 3b
-#
+#   - datCredit_train_CDH | Prepared from script 2g
+#   - datCredit_valid_CDH | Prepared from script 2g
+#   - modLR_Bas | Basic discrete time model as fitted in script 4b(ii)
+#   - modLR_Adv | Advanced discrete time model as fitted in script 4b(i)
+#   - modLR_Classic | Classical logistic regression model as fitted in script 4c
+#   - thres_lst | Thresholds for classifying predictions as determined in script 4e
 # -- Outputs:
 #   - <Analytics> | Graphs
 # ------------------------------------------------------------------------------
@@ -47,15 +50,16 @@ datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 datCredit_valid[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 
 # - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
-datCredit_train_classic <- copy(datCredit_train); datCredit_train_classic[, DefSpell_Age:=TimeInDefSpell]
-datCredit_valid_classic <- copy(datCredit_valid); datCredit_valid_classic[, DefSpell_Age:=TimeInDefSpell]
+# Training dataset
+datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
+# Validation dataset
+datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
 
 # - Remove unfiltered data
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
-datCredit_classic <- rbind(datCredit_train_classic, datCredit_valid_classic)
 
 
 # --- 1.2 Load models
@@ -83,14 +87,14 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 
 # --- 1.4 Dichotomise model predictions using estimated thresholds
 # - Make predictions using the fitted models
-datCredit_valid[, prob_basic:=predict(modLR_Bas, newdata=datCredit_valid, type="response")]
-datCredit_valid[, prob_adv:=predict(modLR_Adv, newdata=datCredit_valid, type="response")]
-datCredit_valid_classic[, prob_classic:=predict(modLR_Classic, newdata=datCredit_valid_classic, type="response")]
+datCredit[, prob_basic:=predict(modLR_Bas, newdata=datCredit, type="response")]
+datCredit[, prob_adv:=predict(modLR_Adv, newdata=datCredit, type="response")]
+datCredit[, prob_classic:=predict(modLR_Classic, newdata=datCredit, type="response")]
 
 # - Dichotomise predictions
-datCredit_valid[, DefSpell_Event_Bas_Youden:=ifelse(prob_basic>thresh_dth_bas,1,0)]
-datCredit_valid[, DefSpell_Event_Adv_Youden:=ifelse(prob_adv>thresh_dth_adv,1,0)]
-datCredit_valid_classic[, DefSpell_Event_Classic_Youden:=ifelse(prob_classic>thresh_classic,1,0)]
+datCredit[, DefSpell_Event_Bas_Youden:=ifelse(prob_basic>thresh_dth_bas,1,0)]
+datCredit[, DefSpell_Event_Adv_Youden:=ifelse(prob_adv>thresh_dth_adv,1,0)]
+datCredit[, DefSpell_Event_Classic_Youden:=ifelse(prob_classic>thresh_classic,1,0)]
 
 
 
@@ -100,41 +104,47 @@ datCredit_valid_classic[, DefSpell_Event_Classic_Youden:=ifelse(prob_classic>thr
 # --- 2.1 Basic discrete-time hazard model | A-series (non-dichotomised)
 (objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_Bas, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
-                               fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist"))
+                               fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist"))
 ### RESULTS: Integrated Brier Score = 8.420888%
 
 
 # --- 2.2 Advanced discrete-time hazard model | A-series (non-dichotomised)
 (objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
-                               fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist"))
+                               fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist"))
 ### RESULTS: Integrated Brier Score = 1.770236%
 
 
 # --- 2.3 Classical logistic regression model | A-series (non-dichotomised)
-(objCoxDisc_classic <- tBrierScore(datCredit_classic, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
+(objCoxDisc_classic <- tBrierScore(datCredit, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                    fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
-                                   fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist"))
-### RESULTS: Integrated Brier Score = 0.09663241%
+                                   fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist"))
+### RESULTS: Integrated Brier Score = 14.10252%
 
 
 # --- 2.4 Basic discrete-time hazard model | B-series (dichotomised)
 (objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_Bas, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
-                               fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist"))
+                               fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist"))
 
 
 # --- 2.5 Advanced discrete-time hazard model | B-series (dichotomised)
-objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
-                              fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
-                              fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist")
+(objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
+                               fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
+                               fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist"))
+
+
+# --- 2.5 Advanced discrete-time hazard model | B-series (dichotomised)
+(objCoxDisc_classic <- tBrierScore(datCredit, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
+                                   fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
+                                   fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist"))
 
 
 
 
 # ------ 3. Graph tBS-values across models
 
-# --- 3.1 Discrete-time hazard models
+# --- 3.1 Discrete-time hazard models | A series (non-dichotomised)
 # - Data fusion across models
 datGraph <- rbind(data.table(objCoxDisc_bas$tBS, Type="a_Basic"),
                   data.table(objCoxDisc_adv$tBS, Type="b_Advanced"))
@@ -208,33 +218,37 @@ ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_CoxDisc.png"), width=1600
 
 
 
+# ------ 4. Compare Brier scores at a specific time period across models
 
+# --- 4.1 Create a object for comparing Brier scores
+# - Extract time-dependent Brier scores for each model
 tBS_Adv <- objCoxDisc_adv$tBS
 tBS_Bas <- objCoxDisc_bas$tBS
-tBS_LR <- objCoxDisc_adv$tBS
-tBS_Adv <- tBS_Adv[TimeInDefSpell==44,]
-tBS_Bas <- tBS_Bas[TimeInDefSpell==44,]
-tBS_LR <- tBS_LR[DefSpell_Age2==44,]
-tBrier_Adv <- tBS_Adv$Brier
-tBrier_Bas <- tBS_Bas$Brier
-tBrier_LR <- tBS_LR$Brier
+tBS_Classic <- objCoxDisc_classic$tBS
+
+# - Extract time-dependent Brier scores at time 44 for each model
+(tBrier_Bas <- as.numeric(tBS_Bas[TimeInDefSpell==44,Brier]))
+(tBrier_Adv <- as.numeric(tBS_Adv[TimeInDefSpell==44,Brier]))
+(tBrier_Classic <- as.numeric(tBS_Classic[TimeInDefSpell==44,Brier]))
 
 # - Create a single table containing the three R^2 measures for each of the models
-brier_Table <- data.table(
-  Model = c("DtH-Advanced A","DtH-Basic A", "Logistic Regression" ),
-  Brier = c(tBrier_Bas, tBrier_Adv, tBrier_LR)
-)
-# - Save table to specified path
-pack.ffdf(paste0(genObjPath,"brier_Table"), brier_Table)
+(datBrier <- data.table(Model=c("DtH-Basic A","DtH-Advanced A", "Logistic Regression"),
+                        Brier=c(tBrier_Bas, tBrier_Adv, tBrier_Classic)))
 
-datPlot<-data.table(Statistic=rep(c("Models "),
-                                  each=3),Model=rep(c("a_Basic","b_Advanced", "c_Logistic_Regression"),times=1),Value=
-                      as.numeric(sub("%","",c(brier_Table$Brier)))/100)
+# - Save table to specified path
+saveRDS(datBrier, paste0(genObjPath,"Brier_Table.rds"))
+
+
+# --- 4.2 Visualise the time-dependent Brier scores at the chosen time point (44)
+# - Create plotting dataset
+datPlot<-data.table(Statistic=rep(c("Models "),each=3),
+                    Model=rep(c("a_Basic","b_Advanced", "c_Logistic_Regression"),times=1),
+                    Value=as.numeric(sub("%","",c(brier_Table$Brier)))/100)
 
 # - Aesthetic engineering
 datPlot[, Label:=paste0(sprintf("%.2f", Value*100),"%")]
 
-
+# - Graphing parameters
 chosenFont <- "Cambria"
 vCol1 <- c(
   "a_Basic" = brewer.pal(9, "BuGn")[5],
@@ -248,60 +262,31 @@ vLabel <- list(
   "b_Advanced" = "DtH-Advanced A",
   "c_Logistic_Regression" = "Logistic Regression A"
 )
-gPlot <- ggplot(datPlot, aes(x = Statistic, y = Value, group = Model)) + 
+
+# - Plot
+(gPlot <- ggplot(datPlot, aes(x = Statistic, y = Value, group = Model)) + 
   theme_minimal() +
-  theme(
-    legend.position = "bottom",
+  theme(legend.position = "bottom",
     text = element_text(family = chosenFont),
-    axis.title.x = element_text(margin = margin(t = 5))
-  ) +
+    axis.title.x = element_text(margin = margin(t = 5))) +
   labs(y=bquote("Time-dependent Brier Score "*italic(B)[s](italic(t))), x="") +
   geom_col(aes(colour = Model, fill = Model), position = position_dodge(width = 0.9)) +
-  geom_label(
-    aes(label = Label),
+  geom_label(aes(label = Label),
     fill = vCol2,
     colour = vCol3,
     position = position_dodge(width = 0.9),
     size = 3,
-    label.padding = unit(0.15, "lines")
-  ) +
+    label.padding = unit(0.15, "lines")) +
   scale_colour_manual(name = "Model:", values = vCol1, labels = vLabel) +
   scale_fill_manual(name = "Model:", values = vCol1, labels = vLabel) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)))
 
-# Saving the graph to specified path
+# - Save graph
 dpi <- 180
-ggsave(gPlot, file=paste0(genFigPath, "BrierPlot_V2.png"), width=1200/dpi, height=1000/dpi, dpi=400, bg="white")
-
-# -- Cleanup
-rm(gInner, datGraph, gOuter, objCoxDisc_adv,objCoxDisc_bas ,plot.full)
+ggsave(gPlot, file=paste0(genFigPath, "BrierPlot_v2.png"), width=1200/dpi, height=1000/dpi, dpi=400, bg="white")
 
 
+# --- 4.3 Cleanup
+suppressWarnings(rm(gInner, datGraph, gOuter, objCoxDisc_adv,objCoxDisc_bas ,plot.full)); gc(0)
 
 
-
-##### TO-DO
-# - Compare tBS for Cox PH model with that obtained from pec(). And debug!
-
-library(riskRegression)
-
-y <- Score(list("Cox.bas"=cox_PWPST_basic),
-           formula=as.formula(paste0("Hist(TimeInPerfSpell,DefaultStatus1) ~ 1")),
-           data=datCredit_train, conf.int=FALSE, summary=c("risks","IPA","ibs"),
-           times=1:120,ncpus=4, parallel="multicore") 
-
-plot(y$Brier$score$Brier)
-
-
-
-library(pec)
-
-test <- pec(
-  object = list("Cox.bas" = cox_PWPST_basic),
-  formula = Surv(TimeInPerfSpell, PerfSpell_Event) ~ 1,
-  data = datCredit_train,
-  times = 1:120,
-  exact = T,
-  cens.model = "marginal"
-)
-### REESULTS: This does not work. Need to apply mind.

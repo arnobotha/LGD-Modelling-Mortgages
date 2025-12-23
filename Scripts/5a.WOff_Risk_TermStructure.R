@@ -16,7 +16,8 @@
 #   - 4b(i).InputSpace_DiscreteCox.R
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
-
+#   - 4e.Dichotomisation
+#
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
@@ -27,7 +28,6 @@
 # -- Outputs:
 #   - <Analytics> | Graphs
 # ------------------------------------------------------------------------------
-
 
 
 # ------ 1. Preliminaries
@@ -128,7 +128,7 @@ datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInD
 
 # --- 3.2 Calculate account-level survival quantities of interest
 # - Score using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
-datCredit[, DefSpell_Age:=TimeInDefSpell]
+datCredit[, DefSpell_Age2:=DefSpell_Age]; datCredit[, DefSpell_Age:=TimeInDefSpell]
 
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
