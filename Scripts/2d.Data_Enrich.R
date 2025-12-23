@@ -2,8 +2,8 @@
 # Engineer more advanced fields related to performance and default spells, followed by
 # calculating the realised LGD from resolved default spells. TruEnd-procedure applied.
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB)
 # ---------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R

@@ -1,11 +1,10 @@
 # ================================= DEFAULT SPELL ANALYSES =========================================
 # Analysing the default spells in various ways, including the maximum spell number (histogram),
-# the failure time histogram/densities per 
-# resolution type, and censoring present over time in default spell
+# the failure time histogram/densities per resolution type, and censoring present over time in default spell
 # Histogram and density of resolution over default spell age
 # ------------------------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Bernard Scheepers (BS), Marcel Muller (MM) , Mohammed Gabru (MG)
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Bernard Scheepers (BS), Marcel Muller (MM), Mohammed Gabru (MG)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R

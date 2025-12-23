@@ -4,8 +4,8 @@
 # sampling, a frequency analysis is conducted where observations/ records from stratum who have sizes
 # smaller than a specified threshold are excluded.
 # ------------------------------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha, Marcel Muller, Mohammed Gabru
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Marcel Muller (MM), Mohammed Gabru (MG)
 
 # DESCRIPTION:
 # This ancillary & exploratory script implements a given subsampling- and resampling scheme using advanced

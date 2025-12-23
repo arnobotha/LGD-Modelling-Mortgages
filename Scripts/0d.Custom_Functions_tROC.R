@@ -3,7 +3,7 @@
 # graphing of ROC-graphs and their summary statistics (AUC), as part of testing
 # the discrimination power (prediction accuracy) of a given Cox regression model
 # --------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha (AB), Bernard Scheepers (BS), Mohammed Gabru (MG)
 # VERSION: 2.0 (Apr-2025)
 # ================================================================================

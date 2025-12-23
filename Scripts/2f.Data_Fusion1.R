@@ -2,8 +2,8 @@
 # Applying exclusions, data fusion between credit and macroeconomic datasets, followed by
 # engineering some basic features that must precede any (non-clustered) subsampling
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha, Marcel Muller, Mohammed Gabru
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Marcel Muller (MM), Mohammed Gabru (MG)
 
 # DESCRIPTION:
 # This script performs the following high-level tasks:

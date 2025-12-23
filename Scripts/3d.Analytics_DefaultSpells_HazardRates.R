@@ -1,11 +1,11 @@
 # ============================== HAZARD & EVENT RATE ANALYSIS =========================================
 # Analysis performed on the hazard rate of different default spells. The 
-# analysis aids in the decision making about a suitable cut-off point beyond 
+# analysis aids in the decision-making about a suitable cut-off point beyond 
 # which all default spells are grouped together.
-# # Refer to LifetimePD-TermStructure-RecurrentEvents for varieties of KM-analysis across 
-# including/excluding left-truncation and first-spell vs multi-spell.
+# # Refer to LifetimePD-TermStructure-RecurrentEvents codebase on Github for varieties of KM-analysis
+# across including/excluding left-truncation and first-spell vs multi-spell.
 # ------------------------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha (AB), Bernard Scheepers (BS), Mohammed Gabru (MG)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:

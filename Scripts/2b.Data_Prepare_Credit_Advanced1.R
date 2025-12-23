@@ -1,8 +1,8 @@
 # ================================== DATA PREPARATION ===================================
 # Apply various advanced data treatments, in preparation for applyin the TruEnd-procedure
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha, Marcel Muller
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Marcel Muller (MM)
 # ---------------------------------------------------------------------------------------
 # DESCRIPTION:
 # In continuing with script 2a, this script applies the following Advanced Data Treatments:

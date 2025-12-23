@@ -1,8 +1,8 @@
 # ================================== DATA PREPARATION ===================================
 # Perform various data checks, conduct data cleaning, apply exclusions, treat missingness
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha, Marcel Muller
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Marcel Muller (MM)
 # ---------------------------------------------------------------------------------------
 # DESCRIPTION:
 # This script prepares raw imported credit data into a much more meaningful form to 

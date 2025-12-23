@@ -1,7 +1,7 @@
 # ============================== CUSTOM FUNCTIONS ==============================
 # Defining custom functions used across various projects
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha, Marcel Muller
 
 # DESCRIPTION:

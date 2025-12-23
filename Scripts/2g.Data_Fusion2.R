@@ -3,8 +3,8 @@
 # Finally, analyse and fix basic deficiencies within the input space, followed by
 # some basic feature engineering towards cultivating a comprehensive input space
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha , Marcel Muller (MM), Roland Breedt (RB), 
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Marcel Muller (MM), Roland Breedt (RB), 
 #                   Bernard Scheepers (BS), Mohammed Gabru (MG)
 #
 # DESCRIPTION:
@@ -39,7 +39,7 @@
 # =======================================================================================
 
 
-### MM: We aren't using any version/derivative of the [Balance_adj] variable, so why not delete all its engineering?
+
 
 # ------ 1. Preliminaries
 
@@ -906,7 +906,3 @@ suppressWarnings(rm(dat_keys_smp_perf, dat_keys_smp_perf,  dat_train_keys_perf,
                     datCredit_valid_perf, datCredit_valid_def, check.1, check.2, check.3,
                     check.4_a, check.4_b, check.4_c, check.5_a, check.5_b, datCredit_prep,
                     datStrata_prep_min, datCredit_train_CDH, datCredit_valid_CDH));gc()
-
-
-
-

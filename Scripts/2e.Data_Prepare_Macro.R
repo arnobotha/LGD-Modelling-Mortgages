@@ -2,8 +2,8 @@
 # Use the macroeconomic dataset, performing various data preparation steps on it, and
 # create features using the macroeconomic variables that can be used in model development
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha, Esmerelda Oberholzer
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Esmerelda Oberholzer (EO)
 
 # DESCRIPTION:
 # This script prepares raw data into a more meaningful form to facilitate modelling.

@@ -1,8 +1,8 @@
 # =================================== SETUP =============================================
 # Setting up R environment, parameters, and function definitions
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB)
 
 # DESCRIPTION: 
 # This script installs and loads various libraries and packages, compiles all
@@ -10,6 +10,14 @@
 # ---------------------------------------------------------------------------------------
 # -- Inputs:
 #   - DelinqM.R | Delinquency measures and related functions
+#   - TruEnd.R | TruEnd-procedure and related functions
+#   - 0b.CustomFunctions_General.R | Various custom functions curated over various projects
+#   - 0c.Custom_Functions_VarSelect.R" | Variable selection functions
+#   - 0d.Custom_Functions_tROC.R | time-dependent ROC-analysis functions
+#   - 0e.Custom_Functions_tBrierScore.R | time-dependent Brier score analysis functions
+#   - 0f.Custom_Function_GoF.R | Goodness-of-fit functions
+#   - 0g.Custom_Functions_LossSeverity.R | Loss severity functions
+#   - 0h.Custom_Functions_Analysis.R | Model diagnostic functions
 # =======================================================================================
 
 
@@ -98,32 +106,21 @@ genRawPath <- "C:/Data/"
 
 # -- Path variables | User-dependent
 
-if (Sys.getenv("USERNAME") == "WRQ") {
+if (Sys.getenv("USERNAME") == "arnos") { # Kralkatorrik-machine
   # - Custom path where R-scripts are saved
-  path_cust <- "C:/Users/WRQ/OneDrive - FRG/Analytix/Research/LossModelling-Mortgages/Scripts/"
+  path_cust <- "E:/Backupz/Google Drive/WorkLife/Analytix/R&D Codebases/LGD-Modelling-Mortgages/Scripts/"
   
   # - Common path for storing important R-objects as back-up
-  genObjPath <- "C:/Users/WRQ/OneDrive - FRG/Analytix/Research/LossModelling-Mortgages/Objects/"
+  genObjPath <- "E:/Backupz/Google Drive/WorkLife/Analytix/R&D Codebases/LGD-Modelling-Mortgages/Objects/"
   
   # - Common path for saving important analytics (e.g., sampling)
-  genFigPath <- "C:/Users/WRQ/OneDrive - FRG/Analytix/Research/LossModelling-Mortgages/Figures/"
-  
-} else if (Sys.getenv("USERNAME") == "Arno Botha") {
-  # - Custom path where R-scripts are saved
-  
-  path_cust <- "E:/WorkLife/Analytix/Research/LossModelling-Mortgages/Scripts/"
-  
-  # - Common path for storing important R-objects as back-up
-  genObjPath <- "E:/WorkLife/Analytix/Research/LossModelling-Mortgages/Objects/"
-  
-  # - Common path for saving important analytics (e.g., sampling)
-  genFigPath <- "E:/WorkLife/Analytix/Research/LossModelling-Mortgages/Figures/"
+  genFigPath <- "E:/Backupz/Google Drive/WorkLife/Analytix/R&D Codebases/LGD-Modelling-Mortgages/Figures/"
   
   # - Common path for saving big data objects
-  genPath <- "E:/DataDump/FNB SLC/LossModelling-Mortgages_Data/"
+  genPath <- "E:/DataDump/RetailMortgages-FNB/LGD-Modelling-Mortgages_Data/"
   
   # - Common path for importing raw data
-  genRawPath <- "E:/DataDump/FNB SLC/"
+  genRawPath <- "E:/DataDump/RetailMortgages-FNB/"
   
 }  else if (Sys.getenv("USERNAME") == "R5667372") {
   # - Custom path where R-scripts are saved
@@ -142,7 +139,7 @@ if (Sys.getenv("USERNAME") == "WRQ") {
   # - Common path for importing raw data
   genRawPath <- "C:/Datadump/"
   
-} else if (Sys.getenv("USERNAME") == "u17202044") {
+} else if (Sys.getenv("USERNAME") == "u17202044") { # Tuks-machine
   # - Custom path where R-scripts are saved
   
   path_cust <- "C:/Users/u17202044/Documents/Repos/LGD-Modelling-Mortgages/Scripts/"
@@ -159,7 +156,7 @@ if (Sys.getenv("USERNAME") == "WRQ") {
   # - Common path for importing raw data
   genRawPath <- "C:/DataDump/RetailMortgages-FNB/"
 
-}else if (Sys.getenv("USERNAME") == "S37596233e") {
+}else if (Sys.getenv("USERNAME") == "S37596233e") { # BMI-machine
   # - Custom path where R-scripts are saved
   
   path_cust <- "C:/Users/gudu/Documents/Repo/LGD-Modelling-Mortgages/Scripts/"
@@ -191,8 +188,6 @@ source(paste0(path_cust,"0e.Custom_Functions_tBrierScore.R"))
 source(paste0(path_cust,"0f.Custom_Function_GoF.R"))
 source(paste0(path_cust,"0g.Custom_Functions_LossSeverity.R"))
 source(paste0(path_cust,"0h.Custom_Functions_Analysis.R"))
-
-
 
 # - Compile Delinquency Calculation Functions (CD, MD/DoD)
 source(paste0(path_cust,'DelinqM.R'))

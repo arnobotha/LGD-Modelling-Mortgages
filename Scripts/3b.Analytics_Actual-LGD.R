@@ -1,8 +1,8 @@
 # ==================================== LGD Analytics ====================================
 # High-level analytics on realised LGD quantities
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB)
 # ---------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
@@ -221,42 +221,3 @@ ymax <- max(ggplot_build(g1)$layout$panel_params[[1]]$y.range) * 0.975
 dpi <- 180
 ggsave(plot.full, file=paste0(genFigPath,"/AccountAge-Density.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
-
-
-
-
-# ------ 5. Analysis: Out-of-bounds realised loss rates
-
-
-
-
-### AB: SCRATCH-START
-
-# - Distributional analysis on negative loss rates
-describe(datCredit_TruEnd[LossRate_Real<0, LossRate_Real])
-### RESULTS: left-skewed distribution, mean of -204.4% and median of -21.1%. Very large negative outliers, up to -129,611%
-hist(datCredit_TruEnd[LossRate_Real<0 & LossRate_Real> -50, LossRate_Real], breaks="FD")
-
-# - Distributional analysis on >100% loss rates
-describe(datCredit_TruEnd[LossRate_Real>1, LossRate_Real])
-### SAFE: no such cases
-
-# - cures with non-zero loss rates?
-datCredit_TruEnd[DefSpellResol_Type_Hist == "Cured", .N] / datCredit_TruEnd[,.N] # 77% cures
-datCredit_TruEnd[DefSpellResol_Type_Hist == "Cured" & LossRate_Real != 0, .N] / datCredit_TruEnd[,.N] # 0
-### SAFE
-
-# - In case these two fields are necessary
-lookup[, ReceiptPV := sum(Receipt_Inf * (1+InterestRate_Nom/12)^(-1*TimeInDefSpell)), by=list(LoanID)]
-lookup[DefSpell_Age > 1, LossRate_Real2 := (Balance[1] - ReceiptPV[1]) / Balance[1], by=list(LoanID)]
-
-### AB: SCRATCH-END
-
-
-### AB: Produce failure time distribution from Kasmeer in preparing for survival modelling context
-
-
-
-# - Cleanup
-rm(datCredit_TruEnd_W, g1, g2, plot.full, datPlot, datAnnotate,
-   datCredit_TruEnd, datCreditAggr_TruEnd,datCredit_TruEnd_NOOB, datCreditAggr_TruEnd_W); gc()
