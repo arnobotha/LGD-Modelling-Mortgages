@@ -32,9 +32,9 @@
 # ----------------- 1. Max spell number ---
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_real')) unpack.ffdf(paste0(genPath,"creditdata_final4a"), tempPath)
+
 # - Aggregation to account-level
 # NOTE: Assign max conditionally since there are loans that are forever in performing spell and hence will have no 
-
 # information on default spells
 datAggr <- datCredit_real[, list(MaxDefNum = ifelse(all(is.na(DefSpell_Num)), 0, 
                                                      max(DefSpell_Num, na.rm=T)) ), by=list(LoanID)]
@@ -232,10 +232,10 @@ vLabels <- c(paste0("a_Written-off"="Written-off (", round(Resol_Type.props[1]*1
 (g1_Densities_Resol_Type <- ggplot(datSurv[DefSpell_Age<=120,], aes(x=DefSpell_Age, group=Resol_Type)) + theme_minimal() + 
     labs(y=bquote(plain('Empirical histogram & density ')), 
          x=bquote("Default spell age (months)"*~italic(t))) + 
-    theme(text=element_text(family=chosenFont),legend.position.inside=c(0.785,0.2), 
+    theme(text=element_text(family=chosenFont), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text = element_text(size=8, colour="gray50"), strip.text.y.right = element_text(angle=90),
-          legend.position=c(0.75,0.20)) + 
+          legend.position="inside",legend.position.inside=c(0.75,0.20)) + 
     # Graphs
     geom_histogram(aes(y=after_stat(density), colour=Resol_Type, fill=Resol_Type), position="identity",
                    alpha=0.75, linewidth=0.2) + 
@@ -254,10 +254,3 @@ ggsave(g1_Densities_Resol_Type, file=paste0(genFigPath,"WOff-FailureTime-Densiti
 
 # - Clean-up
 rm(datSurv, g1_Densities_Resol_Type)
-
-
-
-
-
-
-

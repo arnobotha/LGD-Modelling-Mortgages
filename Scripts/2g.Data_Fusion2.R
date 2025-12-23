@@ -93,6 +93,13 @@ if (all(is.na(stratifiers))){ # No stratifiers
 # - Save intermediary snapshots to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final_CDH_keys"), datKeys)
 
+# - Subsample credit dataset to default spells only | memory optimisation
+datCredit_smp <- subset(datCredit_real, !is.na(DefSpell_Key)) 
+
+# - Cleanup
+rm(datCredit_real); gc()
+
+
 
 
 
@@ -104,7 +111,7 @@ if (!exists('datInput.raw')) unpack.ffdf(paste0(genPath,"creditdata_input1"), te
 
 # [SANITY CHECK] Prevalence of overlapping fields in the input space and the main credit dataset
 # Find intersection between fields in input space and those perhaps already in the main credit dataset
-overlap_flds <- intersect(colnames(datCredit_real), colnames(datInput.raw))
+overlap_flds <- intersect(colnames(datCredit_smp), colnames(datInput.raw))
 check.fuse1 <- length(overlap_flds) == 0 # FALSE; duplicate columns exists.
 cat(check.fuse1 %?% 'SAFE: No overlapping fields in the input space and the main credit dataset' %:%
       'WARNING: Overlapping field(s) detected in the input space and the main credit dataset.')
@@ -118,7 +125,7 @@ if (check.fuse1 == 0) {cat('NOTE: The following fields overlap: ', overlap_flds,
 suppressWarnings( datInput.raw[, `:=`(slc_status_final_pred7 = NULL, slc_status_final = NULL, 
                                        datex = NULL)])
 # - Ensure variables are not present in dataset before fusion (useful during debugging)
-suppressWarnings( datCredit_real[, `:=`(slc_pmnt_method = NULL, slc_past_due_amt = NULL, slc_days_excess = NULL,
+suppressWarnings( datCredit_smp[, `:=`(slc_pmnt_method = NULL, slc_past_due_amt = NULL, slc_days_excess = NULL,
                                        slc_status_final_pred7 = NULL, slc_status_final = NULL, slc_curing_ind = NULL,
                                        slc_acct_pre_lim_perc = NULL, slc_acct_roll_ever_24 = NULL,
                                        slc_acct_arr_dir_3 = NULL, slc_acct_prepaid_perc_dir_12 = NULL, 
@@ -136,7 +143,7 @@ sum(is.na(data_grain_check$LoanID)); gc()
 # the data grain is broken in the cases where a Loan_ID does not exist - we are not interested in these accounts in any case
 
 # - Merge on LoanID and Date by performing a left-join
-datCredit_prep <- merge(datCredit_real, datInput.raw, by=c("Date", "LoanID"), all.x=T); gc()
+datCredit_prep <- merge(datCredit_smp, datInput.raw, by=c("Date", "LoanID"), all.x=T); gc()
 
 # - Check the data grain
 NROW(data_grain_check_merge <- datCredit_prep[, list(Freq = .N), by=list(LoanID, Date)][Freq>1,])==0
@@ -237,9 +244,7 @@ datCredit_prep[is.na(slc_acct_pre_lim_perc), .N] / datCredit_prep[,.N] * 100
 # Use median imputation, given 11.6% missingness degree, trading off the minor distributional distortion as a result
 
 datCredit_prep[, slc_acct_pre_lim_perc_imputed_med := 
-                ifelse(is.na(slc_acct_pre_lim_perc) | slc_acct_pre_lim_perc == "", 
-
-                                                                     median(slc_acct_pre_lim_perc, na.rm=TRUE), slc_acct_pre_lim_perc)]
+                ifelse(is.na(slc_acct_pre_lim_perc) | slc_acct_pre_lim_perc == "", median(slc_acct_pre_lim_perc, na.rm=TRUE), slc_acct_pre_lim_perc)]
 # [SANITY CHECK] Confirm treatment success
 cat( ( datCredit_prep[is.na(slc_acct_pre_lim_perc_imputed_med), .N ] == 0) %?% 
        'SAFE: Treatment successful for [slc_acct_pre_lim_perc_imputed_med].\n' %:% 
@@ -873,8 +878,7 @@ if (timeDef_TFD) {
   (check.3 <- datCredit_valid_TFD[get(spellNum) != 1,.N] > 0) # Should be TRUE
 } else {
   # Can the subsample be reconstituted?
-  check.1 <- datCredit_prep[,.N] == datCredit_train_CDH[,.N]
-  + datCredit_valid_CDH[,.N]
+  check.1 <- datCredit_prep[,.N] == datCredit_train_CDH[,.N] + datCredit_valid_CDH[,.N]
   # Does the training set contain only first-time spells?
   check.2 <- T # Irrelevant for this time definition, so assign default
   # Does the validation spell contain spell numbers other than 1?
@@ -905,4 +909,4 @@ suppressWarnings(rm(dat_keys_smp_perf, dat_keys_smp_perf,  dat_train_keys_perf,
                     dat_train_keys_def, datCredit_train_perf, datCredit_train_def,
                     datCredit_valid_perf, datCredit_valid_def, check.1, check.2, check.3,
                     check.4_a, check.4_b, check.4_c, check.5_a, check.5_b, datCredit_prep,
-                    datStrata_prep_min, datCredit_train_CDH, datCredit_valid_CDH));gc()
+                    datStrata_prep_min, datCredit_train_CDH, datCredit_valid_CDH, train_ids));gc()

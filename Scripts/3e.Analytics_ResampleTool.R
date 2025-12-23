@@ -546,7 +546,8 @@ datAggr_cohorts2 <- datAggr_cohorts %>% pivot_wider(id_cols = c(timeVar), names_
 
 # - Number of annotations "sets" to create and positioning in graph space
 anno_n <- length(resolDef_levels)
-x_pos <- min(datCredit$timeVar) + round((max(datCredit$timeVar) - min(datCredit$timeVar))/2) # x-position for the annotation
+# x-position for the annotation
+x_pos <- min(datCredit$timeVar) + round((max(datCredit$timeVar) - min(datCredit$timeVar))/2) + months(12)
 
 # -- Creating the annotation dataset
 # Basic design

@@ -20,7 +20,7 @@
 # -- Outputs:
 #   - <analytics>
 # =======================================================================================
-# Note: This script design is partly inspired by the TruEnd-codebase (Botha2024)
+# Note: This script design is partly inspired by the TruEnd-codebase (Botha2025)
 
 
 
@@ -55,7 +55,7 @@ datCredit_TruEnd[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)
 
 
 
-# ------ 2. Analysis: Account-level summaries: TruEnd vs NoTruEnd
+# ------ 2. Analysis: Account-level summaries
 
 # - General
 describe(datCreditAggr_TruEnd$LoanAge); hist(datCreditAggr_TruEnd$LoanAge, breaks="FD") # Mean: 97.9
@@ -74,9 +74,8 @@ hist(datCreditAggr_TruEnd[DefSpells_Num>0 & WOff==1, LoanAge], breaks="FD")
 
 
 
-# ------ 3. Analysis: LGD-Densities (TruEnd vs NoTruEnd)
+# ------ 3. Analysis: LGD-Densities
 # Graph the realised LGD statistical distributions of the two credit datasets, 
-# respectively treated and untreated with the TruEnd-procedure
 
 # - Filter out OOB-cases, purely for graphing purposes
 datCredit_TruEnd_NOOB <- subset(datCredit_TruEnd, OOB_Ind == 0)
@@ -84,8 +83,6 @@ datCredit_TruEnd_NOOB <- subset(datCredit_TruEnd, OOB_Ind == 0)
 # - assign explicit resolution outcomes
 datCredit_TruEnd_NOOB[, Event := ifelse(DefSpellResol_Type_Hist == "Cured", "Cure", "Write-off")]
 
-# - scenario for facetting
-datCredit_TruEnd_NOOB[, Scenario := "Treated with TruEnd-procedure"]
 
 # - subset for miniplot
 datCredit_TruEnd_W <- subset(datCredit_TruEnd_NOOB, Event == "Write-off")
@@ -113,7 +110,6 @@ mix_WC_TruEnd <- datCredit_TruEnd_W[, .N] / datCredit_TruEnd_NOOB[, .N] # overal
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text = element_text(size=8, colour="gray50"), 
           strip.text.y.right = element_text(angle=90)) + 
-    facet_grid(Scenario ~., scales="free") +  
     scale_x_continuous(breaks=pretty_breaks(), label=percent)
 )
 
@@ -152,12 +148,8 @@ ggsave(plot.full, file=paste0(genFigPath,"/LGD-Density_ResolvedDefaults.png"),wi
 
 
 
-# ------ 4. Analysis: Account Age Densities (TruEnd vs NoTruEnd)
+# ------ 4. Analysis: Account Age Densities
 # Graph the statistical distributions of account age for the two credit datasets, 
-# respectively treated and untreated with the TruEnd-procedure
-
-# - scenario for facetting
-datCreditAggr_TruEnd[, Scenario := "Treated with TruEnd-procedure"]
 
 # - subset for miniplot
 datCreditAggr_TruEnd_W <- subset(datCreditAggr_TruEnd, WOff  == 1)
@@ -186,7 +178,6 @@ mix_WOff_TruEnd <- datCreditAggr_TruEnd_W[, .N] / datCreditAggr_TruEnd[, .N] # o
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text = element_text(size=8, colour="gray50"), 
           strip.text.y.right = element_text(angle=90)) + 
-    facet_grid(Scenario ~., scales="free") +  
     scale_x_continuous(breaks=pretty_breaks(), label=comma)
 )
 
