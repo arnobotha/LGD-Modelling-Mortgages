@@ -18,7 +18,7 @@
 tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=300,
                         fldKey="DefSpell_Key", fldStart = "Start", fldStop="TimeInDefSpell",
                         fldEvent="DefSpell_Event", fldCensored="DefSpell_Censored", fldSpellAge="DefSpell_Age",
-                        fldSpellOutcome="DefSpellResol_Type_Hist") {
+                        fldSpellOutcome="DefSpellResol_Type_Hist", threshold=NA) {
   # Testing conditions
   # datGiven <- datCredit; modGiven <- cox_PWPST_basic ; predType <- "exp"; spellPeriodMax <- 300
   # fldKey <- "PerfSpell_Key"; fldStart <- "Start"; fldStop<-"TimeInPerfSpell";
@@ -55,23 +55,26 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
   
   
   # --- Calculate survival quantities of interest
-  # Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-  datGiven[, Hazard := predict(modGiven, newdata=datGiven, type = predType)]
-  if (predType=="response") {
-    # Derive survival probability S(t) = \prod ( 1- hazard), based on output of predict()
-    datGiven[, Survival := cumprod(1-Hazard), by=list(get(fldKey))] 
-  } else if (predType=="exp") {
-    # Calculate survival probability S(t,x)=exp(-H(t,x)), based on output of predict()
-    # NOTE: Hazard is actually the cumulative hazard in this context
-    datGiven[, Survival := exp(-Hazard), by=list(get(fldKey))] 
+  if (is.na(threshold)){
+    # Predict hazard h(t) = P(T=t | T>= t) in discrete-time
+    datGiven[, Hazard := predict(modGiven, newdata=datGiven, type = predType)]
+    if (predType=="response") {
+      # Derive survival probability S(t) = \prod ( 1- hazard), based on output of predict()
+      datGiven[, Survival := cumprod(1-Hazard), by=list(get(fldKey))] 
+    } else if (predType=="exp") {
+      # Calculate survival probability S(t,x)=exp(-H(t,x)), based on output of predict()
+      # NOTE: Hazard is actually the cumulative hazard in this context
+      datGiven[, Survival := exp(-Hazard), by=list(get(fldKey))] 
+    }
+    # - Merge censoring survival probability unto main set
+    datGiven <- merge(datGiven, datG, by=fldStop, all.x=T)
+    datGiven[is.na(G_t), G_t := 1] # Fill any missing G_t with 1 (no censoring information)
+    # - Merge event survival probability unto main set
+    datGiven <- merge(datGiven, datT, by=fldStop, all.x=T)
+    datGiven[is.na(Survival_0), Survival_0 := 1] # Fill any missing G_t with 1 (no censoring information)
+  } else {
+   
   }
-  # - Merge censoring survival probability unto main set
-  datGiven <- merge(datGiven, datG, by=fldStop, all.x=T)
-  datGiven[is.na(G_t), G_t := 1] # Fill any missing G_t with 1 (no censoring information)
-  # - Merge event survival probability unto main set
-  datGiven <- merge(datGiven, datT, by=fldStop, all.x=T)
-  datGiven[is.na(Survival_0), Survival_0 := 1] # Fill any missing G_t with 1 (no censoring information)
-  
   
   # --- Compute Censoring survival probability at age T_i for each subject (i,j), i..e, G_hat(T_i)
   # This requires mapping each subject's observed event time (Spell age) to g_hat(T_i)

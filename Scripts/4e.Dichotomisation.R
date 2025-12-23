@@ -32,7 +32,7 @@
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 
 # - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
+datCredit_train <- subset(datCredit_train_CDH,!is.na(DefSpell_Key))
 
 # - Remove previous objects from memory
 rm(datCredit_train_CDH); gc()
@@ -40,8 +40,11 @@ rm(datCredit_train_CDH); gc()
 # - Weigh write-off cases as one, determined interactively based on calibration success (script 6e)
 datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 
-# - Set [DefSpell_Age]=[TimeInDefSpell] to facilitate predictions
-datCredit_train[, DefSpell_Age:=TimeInDefSpell]
+# - Subset data for training of the one-stage model
+datCredit_train_classic <- datCredit_train[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
+
+# - Re-create 
+datCredit_train_classic[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist!="WOFF",0,1)]
 
 
 # --- 1.3 Load models
@@ -66,7 +69,7 @@ datCredit_train[, Hazard_bas:=predict(modLR_bas, newdata=datCredit_train, type =
 # Advanced model
 datCredit_train[, Hazard_adv:=predict(modLR_adv, newdata=datCredit_train, type = "response")]
 # Classical model
-datCredit_train[, Hazard_classic:=predict(modLR_classic, newdata=.SD[], type = "response")]
+datCredit_train_classic[, Hazard_classic:=predict(modLR_classic, newdata=.SD[], type = "response")]
 
 # - Derive survival probability S(t) = prod ( 1- hazard)
 # Basic model
@@ -74,7 +77,7 @@ datCredit_train[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
 # Advanced model
 datCredit_train[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
 # Classical model
-datCredit_train[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
+datCredit_train_classic[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
 # - Derive discrete density, or event probability f(t) = S(t-1) * h(t)
 # Basic model
@@ -82,18 +85,17 @@ datCredit_train[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) * 
 # Advanced model
 datCredit_train[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) * Hazard_adv , by=list(DefSpell_Key)]
 # Classical model
-datCredit_train[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1)*Hazard_classic, by=list(DefSpell_Key)]
+datCredit_train_classic[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1)*Hazard_classic, by=list(DefSpell_Key)]
 
 
-# --- 2.2 Filtering and combining the training and validation sets
-# - Filter to maximum spell counter
-# datCredit_train <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
-
+# --- 2.2 Filtering
 # - Identify where the loss rate is out of bounds and not feasible
-datCredit_train <- datCredit_train[, OOB_Ind:=ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_train[, OOB_Ind:=ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_train_classic[, OOB_Ind:=ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
 
 # - Subset to include only relevant data
 datCredit_train <- subset(datCredit_train, OOB_Ind==0)
+datCredit_train_classic <- subset(datCredit_train_classic, OOB_Ind==0)
 
 
 
@@ -109,37 +111,33 @@ datCredit_train <- subset(datCredit_train, OOB_Ind==0)
 ### RESULTS: Cost-multiple = 88.96827
 
 # - Basic model
-(thresh_dth_bas <- GenYoudenIndex(Trained_Model=modLR_bas,Train_DataSet=datCredit_train,
-                                  Target="DefSpell_Event", a=1))
-### RESULTS: Threshold at a = 1 = 0.367664
-### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.8245152
+(thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Trained_Model=modLR_bas,
+                                  Train_DataSet=datCredit_train, Target="DefSpell_Event",
+                                  prob_vals_given="EventRate_bas", a=1, replicate=100))
+### RESULTS: Threshold at a = 1 = 0.05467001
+### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.2642033
 
 # - Advanced model
-(thresh_dth_adv <- GenYoudenIndex(Trained_Model=modLR_adv,Train_DataSet=datCredit_train,
-                                  Target="DefSpell_Event", a=1))
-### RESULTS: Threshold at a = 1 = 0.4334193
-### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.02465015
-
-thresh_glm <- 0.2352999
-thresh_dth <- 0.1037777
-thresh_dth_bas <-  0.00795927
+(thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Trained_Model=modLR_adv,
+                                  Train_DataSet=datCredit_train, Target="DefSpell_Event",
+                                  prob_vals_given="EventRate_adv", a=1, replicate=100))
+### RESULTS: Threshold at a = 1 = 0.3894059
+### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.4333787
 
 
 # --- 3.2 Determine thresholds | Classical models
-# - Subset data for training of the one-stage model
-datCredit_train_classic <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
-
 # - Calculate prevalence of write-offs
 (q1 <- mean(datCredit_train_classic$DefSpell_Event,na.rm=TRUE))
-### RESULTS: Prevalence = 0.2243023
+### RESULTS: Prevalence = 0.1824916
 
 (a <- (1-q1)/q1)
-### RESULTS: Cost-multiple = 3.458269
+### RESULTS: Cost-multiple = 4.479705
 
 # - Classical model
-(thresh_lr_classic <- GenYoudenIndex(Trained_Model=modLR_classic,Train_DataSet=datCredit_train_classic,
-                                     Target="DefSpell_Event", a=1))
-### RESULTS: Threshold at a = 1 = 0.4173624
+(thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Trained_Model=modLR_classic,
+                                     Train_DataSet=datCredit_train_classic, Target="DefSpell_Event",
+                                     prob_vals_given="EventRate_classic", a=1))
+### RESULTS: Threshold at a = 1 = 0.564484
 ### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.2358849
 
 

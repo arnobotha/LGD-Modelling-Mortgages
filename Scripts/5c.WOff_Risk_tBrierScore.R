@@ -1,9 +1,9 @@
-# ========================================= TIME-DEPENDENT BRIER SCORES ================================
-# Calculate and compare the time-dependent Brier scores across survival models
-# ------------------------------------------------------------------------------------------------------
+# =========================== TIME-DEPENDENT BRIER SCORES ======================
+# Calculate and compare the time-dependent Brier scores across write-off models
+# ------------------------------------------------------------------------------
 # PROJECT TITLE: Default survival modelling
-# SCRIPT AUTHOR(S): Dr Arno Botha (AB)
-# ------------------------------------------------------------------------------------------------------
+# SCRIPT AUTHOR(S): Mohammed Garbu (MG), Marcel Muller (MM) Dr Arno Botha (AB)
+# ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
 #   - 1.Data_Import.R
@@ -24,128 +24,128 @@
 #
 # -- Outputs:
 #   - <Analytics> | Graphs
-# ------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
+# ------- 1. Load & prepare data for analysis
 
-
-
-
-# ----------------- 1. Load & prepare data for analysis
-
+# --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
+if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
 
 # - Use only default spells
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
 # Create start and stop columns
-datCredit_train[, Start := TimeInDefSpell - 1]
-datCredit_valid[, Start := TimeInDefSpell - 1]
+datCredit_train[, Start:=TimeInDefSpell-1]
+datCredit_valid[, Start:=TimeInDefSpell-1]
 
 # - Weigh default cases heavier. as determined interactively based on calibration success (script 6e)
-datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
-datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)] # for merging purposes
+datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
+datCredit_valid[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 
-# - Assign sample labels
-datCredit_train[, Sample := "Training"]
-datCredit_valid[, Sample := "Validation"]
+# - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
+datCredit_train_classic <- copy(datCredit_train); datCredit_train_classic[, DefSpell_Age:=TimeInDefSpell]
+datCredit_valid_classic <- copy(datCredit_valid); datCredit_valid_classic[, DefSpell_Age:=TimeInDefSpell]
 
-# Validation set
-datTrain_classic <- subset(datCredit_train, DefSpell_Counter==1)
-datValid_classic <- subset(datCredit_valid, DefSpell_Counter==1)
+# - Remove unfiltered data
+rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
-# - Assign target/response field for the classical PD-model
-datTrain_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
-datValid_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
-
-# - Create a copy of DefSpell_Age to serve as an input into the classical LGD-model
-datTrain_classic[, DefSpell_Age2 := DefSpell_Age]
-datValid_classic[, DefSpell_Age2 := DefSpell_Age]
-# ----------------- 2b. Fit a discrete-time hazard model on the resampled prepared data
-
-
-
-# ------ Basic discrete-time hazard model
-# - Initialize variables
-vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned", "g0_Delinq_Lag_1",
-                "M_Inflation_Growth_9","g0_Delinq_Any_Aggr_Prop_Lag_1")
-
-# - Fit discrete-time hazard model with selected variables
-modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
-                    data=datCredit_train, family="binomial", weights = Weight)
-
-
-
-# ------ Advanced discrete-time hazard model
-# - Initialize variables
-vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave", "g0_Delinq_Lag_1",
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_1","pmnt_method_grp","Principal",
-          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
-
-# - Fit discrete-time hazard model with selected variables
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial", weights = Weight)
-
-vars_classic <- c("g0_Delinq_Any_Aggr_Prop_Lag_12","DefaultStatus1_Aggr_Prop",
-                  "CuringEvents_Aggr_Prop","PrevDefaults",
-                  "DefSpell_Age2", "g0_Delinq_Num", "Arrears",
-                  "slc_past_due_amt_imputed_med", "DefSpell_Num_binned",
-                  "InterestRate_Margin_Aggr_Med", "AgeToTerm_Aggr_Mean", "AgeToTerm",
-                  "BalanceToPrincipal", "pmnt_method_grp",
-                  "M_RealIncome_Growth_12", "M_Inflation_Growth_3","M_DTI_Growth_6","M_Repo_Rate_2")
-
-# - Fit logistic regression model onto entire spell, similar to application credit scoring with an open-ended outcome window
-modLR_classic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_classic, collapse = " + "))),
-                      data=datTrain_classic, family="binomial")
-summary(modLR_classic)
-
-# ----------------- 3. Calculate time-dependent Brier scores across survival models
-
-# - Create pointer to the appropriate data object 
+# - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
-datCredit_LR <- rbind(datTrain_classic, datValid_classic)
-datCredit[, DefSpell_Age2 := TimeInDefSpell]
+datCredit_classic <- rbind(datCredit_train_classic, datCredit_valid_classic)
 
-# --- Basic discrete-time hazard model
 
-objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_basic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
+# --- 1.2 Load models
+# - Basic discrete-time hazard model
+modLR_Bas <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
+
+# - Advanced discrete-time hazard model
+modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
+
+# - Classical logit model
+modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
+
+
+# --- 1.3 Additional parameters
+# - Youden Index cut-offs
+# Load thresholds
+thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
+# Basic discrete-time model
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.05467001
+# Advanced discrete-time model
+(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3894059
+# Classical logit model
+(thresh_classic <- thresh_lst[["Classical"]]) # 0.5652506
+
+
+# --- 1.4 Dichotomise model predictions using estimated thresholds
+# - Make predictions using the fitted models
+datCredit_valid[, prob_basic:=predict(modLR_Bas, newdata=datCredit_valid, type="response")]
+datCredit_valid[, prob_adv:=predict(modLR_Adv, newdata=datCredit_valid, type="response")]
+datCredit_valid_classic[, prob_classic:=predict(modLR_Classic, newdata=datCredit_valid_classic, type="response")]
+
+# - Dichotomise predictions
+datCredit_valid[, DefSpell_Event_Bas_Youden:=ifelse(prob_basic>thresh_dth_bas,1,0)]
+datCredit_valid[, DefSpell_Event_Adv_Youden:=ifelse(prob_adv>thresh_dth_adv,1,0)]
+datCredit_valid_classic[, DefSpell_Event_Classic_Youden:=ifelse(prob_classic>thresh_classic,1,0)]
+
+
+
+
+# ------ 2. Calculate time-dependent Brier scores across write-off models
+
+# --- 2.1 Basic discrete-time hazard model | A-series (non-dichotomised)
+(objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_Bas, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
+                               fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
+                               fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist"))
+### RESULTS: Integrated Brier Score = 8.420888%
+
+
+# --- 2.2 Advanced discrete-time hazard model | A-series (non-dichotomised)
+(objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
+                               fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
+                               fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist"))
+### RESULTS: Integrated Brier Score = 1.770236%
+
+
+# --- 2.3 Classical logistic regression model | A-series (non-dichotomised)
+(objCoxDisc_classic <- tBrierScore(datCredit_classic, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
+                                   fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
+                                   fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist"))
+### RESULTS: Integrated Brier Score = 0.09663241%
+
+
+# --- 2.4 Basic discrete-time hazard model | B-series (dichotomised)
+(objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_Bas, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
+                               fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
+                               fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist"))
+
+
+# --- 2.5 Advanced discrete-time hazard model | B-series (dichotomised)
+objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                               fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                               fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist")
 
-# --- Advanced discrete-time hazard model
-
-objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
-                              fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
-                              fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist")
-
-# --- Advanced discrete-time hazard model
-
-objLR <- tBrierScore_classic(datCredit, modGiven=modLR_classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
-                              fldStart="Start", fldStop="DefSpell_Age2",fldCensored="DefSpell_Censored", 
-                              fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist")
 
 
-# ----------------- 4. Graph tBS-values across models
 
+# ------ 3. Graph tBS-values across models
 
-# --- Discrete-time hazard models
-
+# --- 3.1 Discrete-time hazard models
 # - Data fusion across models
 datGraph <- rbind(data.table(objCoxDisc_bas$tBS, Type="a_Basic"),
                   data.table(objCoxDisc_adv$tBS, Type="b_Advanced"))
 
 # - Aesthetic engineering
-datGraph[, FacetLabel := "Discrete-time hazard models"]
-zoomedSpellAge <- 48
+datGraph[, FacetLabel:="Discrete-time hazard models"]
+specified_SpellAge <- 48
 
 # - Recalculate Integrated tBS over zoomed spell age
-ibs_bas <- mean(objCoxDisc_bas$tBS[TimeInDefSpell <= zoomedSpellAge, Brier])
-ibs_adv <- mean(objCoxDisc_adv$tBS[TimeInDefSpell <= zoomedSpellAge, Brier])
+(ibs_bas <- mean(objCoxDisc_bas$tBS[TimeInDefSpell <= specified_SpellAge, Brier]))
+(ibs_adv <- mean(objCoxDisc_adv$tBS[TimeInDefSpell <= specified_SpellAge, Brier]))
 
 # - Graphing Parameters
 chosenFont <- "Cambria"
@@ -174,7 +174,7 @@ vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
 )
 
 # - Zoomed inset graph of tBS on a smaller time scale
-(gInner <- ggplot(datGraph[TimeInDefSpell<=zoomedSpellAge,], aes(x=TimeInDefSpell, y=Brier, group=Type)) + 
+(gInner <- ggplot(datGraph[TimeInDefSpell<=specified_SpellAge,], aes(x=TimeInDefSpell, y=Brier, group=Type)) + 
     theme_bw() + labs(y="", x="") + 
     theme(legend.position=c(0.75,0.40), text=element_text(size=12, family="Cambria"),
           #specific for plot-in-plot
@@ -204,14 +204,14 @@ vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
 
 # - Save plot
 dpi <- 280
-ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_CoxDisc.png"),width=1600/dpi, height=1200/dpi,dpi=dpi, bg="white")
+ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_CoxDisc.png"), width=1600/dpi, height=1200/dpi,dpi=dpi, bg="white")
 
 
 
 
 tBS_Adv <- objCoxDisc_adv$tBS
 tBS_Bas <- objCoxDisc_bas$tBS
-tBS_LR <- objLR$tBS
+tBS_LR <- objCoxDisc_adv$tBS
 tBS_Adv <- tBS_Adv[TimeInDefSpell==44,]
 tBS_Bas <- tBS_Bas[TimeInDefSpell==44,]
 tBS_LR <- tBS_LR[DefSpell_Age2==44,]

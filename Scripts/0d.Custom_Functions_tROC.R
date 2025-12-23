@@ -463,6 +463,7 @@ tROC <- function(datGiven, cox, month_Start=0, month_End, sLambda=0.05, estMetho
 #         [reportFlag]: An indicator whether thread-specific results should be reported within a communal text file in 
 #                       tracking the overall progress of the function whilst running on larger datasets
 #         [logPath]: A given path directory in which the log file is stored in tracking the performance of the multithreaded loop
+#         [MarkerGiven]: A given existing marker value
 #         [threshold]: A given threshold to dichotomise marker values
 # Output: [AUC]: The time-dependent Area under the curve (AUC) in summarising the corresponding time-dependent ROC-graph
 #         [ROC_graph]: The associated ROC-graph as a ggplot-object
@@ -470,7 +471,7 @@ tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.0
                        fld_ID=NA, fld_Event="MainEvent_Ind", eventVal=1, fld_StartTime="Start", fld_EndTime="Stop",
                        Graph=TRUE, graphName="timedROC-Graph", genFigPathGiven=paste0(getwd(),"/"), numThreads=4, 
                        caseStudyName="Main",reportFlag=T, logPath=paste0(getwd(),"/"), predType="exp",
-                       threshold=NA) {
+                       MarkerGiven=NA, threshold=NA) {
   
   # ------ Preliminaries 
   # -- Testing Conditions
@@ -489,7 +490,7 @@ tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.0
   # graphName="ROC_CoxDisc_Basic_TimeVar"; genFigPathGiven=paste0(genFigPath, "tROC-Analyses/");
   # caseStudyName=paste0("CoxDisc_PWPST_", predictTime); numThreads=12; logPath=genPath
   # month_Start=0; Graph=T; predType="response"; reportFlag=T
-  # threshold=0.5
+  # MarkerGiven=EventRate_bas ; threshold=0.5
   
   
   # -- Error handling
@@ -524,7 +525,11 @@ tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.0
   # -- Obtain Markers/prediction scores M_i for i=1,...,n cases (not necessarily subjects) and assign as thresholds
   # - Score the given dataset using the given Cox regression model towards obtaining marker 
   # values (option: linear predictors)
-  datGiven[, Marker := round(predict(modGiven, newdata=datGiven, type=predType),numDigits)]
+  if(is.na(MarkerGiven)){
+    datGiven[, Marker := round(predict(modGiven, newdata=datGiven, type=predType),numDigits)]
+  } else if (!is.na(MarkerGiven)) {
+    datGiven[, Marker := get(MarkerGiven)]  
+  }
   
   # - Dichotomise marker values given a specifc threshold
   if (!is.na(threshold)){

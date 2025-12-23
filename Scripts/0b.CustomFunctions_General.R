@@ -1055,55 +1055,67 @@ AUC_overTime <- function(DataSet, DateName, Target, Predictions){
 # -- Generalised Youden Index Function
 # - This function runs an optimisation procedure to find the Generalised Youden Index for a trained model.
 ### INPUT:
-# - Trained_Model: the trained classifier for which you want to obtain the optimal cutoff p_c
+# - optimise_type: how the optimisation should proceed, i.e., either:
+#                   1) Model: use the given modelling object to get forecasts determine a threshold
+#                   2) Pre-determined: use the given field in the training dataset to determine a threshold
+# - Trained_Model: the trained classifier for which you want to obtain the optimal cutoff p_c (required when specifying optomise_type="Model)
 # - Train_DataSet: The training dataset (in datatable format) which will be used to find p_c
 # - Target: Character string containing the name of the target variable (target variable should be numeric 0/1)
+# - prob_vals_given: a pre-determined probability field (used when optomise_type=Other)
 # - a: The cost multiple (or ratio) of a false negative relative to a false positive
 ### OUTPUT: 
 # - The output of the optimisation procedure; i.e., the optimal cut-off p_c and other information detailing whether the 
 #   algorithm converged.
 
-GenYoudenIndex<-function(Trained_Model, Train_DataSet, Target, a){
-  # Trained_Model<-modSICR_logit
-  # Train_DataSet<-datCredit_smp[960000:965000,]
-  # Target<-"SICR_target"; a<-4
+GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
+                         Target, prob_vals_given=NA, a, replicate=NA, numThreads=8){
+  # optimise_type<-"Pre-determined"; Trained_Model<-modLR_bas; Train_DataSet<-datCredit_train
+  # Target<-"DefSpell_Event"; prob_vals_given="EventRate_bas"; a<-1; replicate<-10; numThreads<-10
   
   require(data.table, DEoptimR)
   
   Train_DataSet <- copy(Train_DataSet) # reserve copy so that we do not change the object outside of this scope
   
-  # - ensure given target name does not coincide with the intended name used internally in this function
+  # - Ensure given target name does not coincide with the intended name used internally in this function
   # If not, then ensure the field doesn't already exist
   if (Target != "Target" & "Target" %in% colnames(Train_DataSet)){
     Train_DataSet[, Target := NULL]
   }
   
-  # - ensure target variable is numeric (and not factor)
+  # - Ensure target variable is numeric (and not factor)
   if (class(Train_DataSet[,get(Target)]) == "factor") {
     Train_DataSet[, Target := as.numeric(levels(get(Target)))[get(Target)]]
   } else Train_DataSet[, Target := get(Target)]
-  
-  # discard missingness
-  
+
+  # - Set the forecast field according to the specified optimisation type
+  if (optimise_type=="Model"){
+    # Generate forecasts given the modelling object
+    Train_DataSet[, prob_vals := predict(Trained_Model, Train_DataSet, type="response")] # Obtain predicted probabilities for the model
+    
+  } else if (optimise_type=="Pre-determined") {
+    # Set the forecasts equal to the given field
+    Train_DataSet[, prob_vals := get(prob_vals_given)]
+  }
   
   # - Calculate Prevalence Rate q1
   q1 <- mean(Train_DataSet$Target,na.rm=TRUE)
-  
+    
   # - Objective Function to be minimized (negative the function to be maximized)
   GYI_a <- function(pc){
     # pc <- 0.1
-    Train_DataSet[, prob_vals := predict(Trained_Model, Train_DataSet, type="response")] # Obtain predicted probabilities for the model
-    Train_DataSet[, class_vals := ifelse(prob_vals<=pc,0,1)] # Dichotomise the probability scores according to the cutoff pc
+    
+    # Dichotomise the probability scores according to the cut-off pc
+    Train_DataSet[, class_vals := ifelse(prob_vals<=pc,0,1)]
     
     # Discard missing cases
     Train_DataSet <- Train_DataSet[complete.cases(prob_vals)]
     
-    # - Safety Check for missingness in predictions
+    # Safety Check for missingness in predictions
     if(anyNA(Train_DataSet[,list(prob_vals,class_vals)])){
       stop("Missingness in predicted probabilities, Exit function...")
     }
     
-    # - Calculate the True Positive Rate & True Negative Rate given pc
+    # Calculate the True Positive Rate & True Negative Rate given pc
     TPR<-sum(Train_DataSet[,class_vals]==1 & Train_DataSet[,Target==1], na.rm=TRUE)/Train_DataSet[Target==1,.N]
     TNR<-sum(Train_DataSet[,class_vals]==0 & Train_DataSet[,Target==0], na.rm=TRUE)/Train_DataSet[Target==0,.N]
     
@@ -1111,16 +1123,51 @@ GenYoudenIndex<-function(Trained_Model, Train_DataSet, Target, a){
     Train_DataSet[, prob_vals := NULL]
     Train_DataSet[, class_vals := NULL]
     
-    # - The function to minimize
+    # The function to minimize
     -(TPR + (1-q1)/(a*q1)*TNR - 1)
+    
   }
-  # - Run Optimisation via a Differential Evolution algorithm
-  results <- JDEoptim(lower=0, upper=1, fn=GYI_a)
-  #optim(par=c(0,1), fn=GYI_a, lower=0, upper=1)
   
+  # - Run Optimisation via a Differential Evolution algorithm
+  if (is.na(replicate)){
+    results <- JDEoptim(lower=0, upper=1, fn=GYI_a)
+    # optim(par=c(0,1), fn=GYI_a, lower=0, upper=1)
+    
+  # - Run optimisation a [replicate] number of times in selecting the minimum threshold
+  ### NOPE: This is required in the instance of multiple global minima of the exact same magnitude
+  ###       In such instances, the JDEoptim-function will otherwise select a random global minima
+  } else {
+    ptm <- proc.time() #IGNORE: for computation time calculation
+    cl.port <- makeCluster(round(numThreads)); registerDoParallel(cl.port) # multi-threading setup
+    cat("New Job: Estimating optimal threshold for dichotomisation using a General Youden Index ..",
+        file="assesslog_GeneralYoudenIndex.txt", append=F)
+    
+    results_rep <- foreach(j=1:replicate, .combine='rbind', .verbose=F, .inorder=T,
+                      .packages=c('data.table', 'DEoptimR'),
+                      .export = c('Train_DataSet', 'a', 'q', 'GYI_a')) %dopar%
+      
+      { # ----------------- Start of Loop -----------------
+        # j <- 1 # testing condition
+        results <- JDEoptim(lower=0, upper=1, fn=GYI_a)
+        c(results$par,results$value)
+      } # ----------------- End of Loop -----------------
+    stopCluster(cl.port); proc.time() - ptm
+    
+    # Store results for export
+    results <- list(par=results_rep[which.min(results_rep[,1]),1],
+                   value=results_rep[1,which.min(results_rep[1,])],
+                   iter=replicate)
+     
+  }
+  
+  # - Return resutls
   return(list(cutoff=results$par, value=results$value, iterations=results$iter))
+  
 }
-# # - Unit test
+
+
+
+# - Unit test
 # require(ISLR); require(OptimalCutpoints); require(DEoptimR) # Robust Optimisation Tool		
 # datTrain <- data.table(ISLR::Default); datTrain[, `:=`(default=ifelse(default=="No",0,1), student=as.factor(student))]
 # datTrain[, default_fac := as.factor(default)]
@@ -1132,4 +1179,3 @@ GenYoudenIndex<-function(Trained_Model, Train_DataSet, Target, a){
 # # - Custom Gen_Youd_Ind function
 #Gen_Youd_Ind(logit_model,datTrain,"default",4) # Optimal Cut-off = 0.2120438; Optimal Criterion = -6.673423
 #Gen_Youd_Ind(logit_model,datTrain,"default_fac",4) # Optimal Cut-off = 0.2120438; Optimal Criterion = -6.673423
-

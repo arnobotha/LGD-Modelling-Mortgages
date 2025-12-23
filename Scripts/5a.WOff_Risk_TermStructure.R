@@ -13,12 +13,16 @@
 #   - 2d.Data_Enrich.R
 #   - 2f.Data_Fusion1.R
 #   - 2g.Data_Fusion2.R
-#   - 4a(i).InputSpace_DiscreteCox.R
-#   - 4a(ii).InputSpace_DiscreteCox_Basic.R
+#   - 4b(i).InputSpace_DiscreteCox.R
+#   - 4b(ii).InputSpace_DiscreteCox_Basic.R
+#   - 4c.InputSpace_LogisticRegression.R
 
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
+#   - modLR_Bas | Basic discrete time model as fitted in script 4b(ii)
+#   - modLR_Adv | Advanced discrete time model as fitted in script 4b(i)
+#   - modLR_Classic | Classical logistic regression model as fitted in script 4c
 #   - thres_lst | Thresholds for classifying predictions as determined in script 4e
 # -- Outputs:
 #   - <Analytics> | Graphs
@@ -55,34 +59,17 @@ modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 # - Classic logit model
 modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
-# vars <- c("g0_Delinq_Any_Aggr_Prop_Lag_12","DefaultStatus1_Aggr_Prop",
-#           "CuringEvents_Aggr_Prop","PrevDefaults",
-#           "DefSpell_Age", "g0_Delinq_Num", "Arrears",
-#           "slc_past_due_amt_imputed_med", "DefSpell_Num_binned",
-#           "InterestRate_Margin_Aggr_Med", "AgeToTerm_Aggr_Mean", "AgeToTerm",
-#           "BalanceToPrincipal", "pmnt_method_grp",
-#           "M_RealIncome_Growth_12", "M_Inflation_Growth_3","M_DTI_Growth_6","M_Repo_Rate_2")
-# vars <- c("PrevDefaults", "DefSpell_Num_binned",
-#           "ArrearsToBalance_1_Aggr_Prop", "Balance_Real_1", 'DefSpell_Age',
-#           "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2", 'InterestRate_Nom',
-#           "DefaultStatus1_Aggr_Prop_Lag_12", "g0_Delinq_Ave", "M_DTI_Growth_6",
-#           "Principal_Real", "M_RealGDP_Growth_12", "g0_Delinq_Num",
-#           "M_Repo_Rate_2", "M_Inflation_Growth_3")
-# modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-#               data=datCredit_train, family="binomial")
-# summary(modLR)
-
 
 # --- 1.3 Additional parameters
 # - Youden Index cut-offs
 # Load thresholds
 thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # Basic discrete-time model
-(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.2436271
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.05467001
 # Advanced discrete-time model
-(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.9999823
+(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3894059
 # Classical logit model
-(thres_classic <- thresh_lst[["Classical"]]) # 0.9901683
+(thres_classic <- thresh_lst[["Classical"]]) # 0.5652506
 
 
 
@@ -139,35 +126,27 @@ datAdd[, Counter:=0]
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
 
 
-# --- 3.2 Calculate account-level survival quantities of interest | Discrete-time models
+# --- 3.2 Calculate account-level survival quantities of interest
+# - Score using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
+datCredit[, DefSpell_Age:=TimeInDefSpell]
+
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
+datCredit[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
 # - Derive survival probability S(t) = prod(1 - hazard)
 datCredit[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
 datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
+datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
 # - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
 datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
 datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
+datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
 
 # - Remove added rows
 datCredit <- subset(datCredit, Counter > 0)
-
-
-# --- 3.3 Calculate account-level survival quantities of interest | Classic model
-# - Score using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
-datCredit[, DefSpell_Age:=TimeInDefSpell]
-
-# - Derive hazard rate
-datCredit[!is.na(DefSpell_Num), Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
-
-# - Derive survival probability S(t) = prod( 1- hazard)
-datCredit[!is.na(DefSpell_Num), Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
-
-# - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
-datCredit[!is.na(DefSpell_Num), EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
 
 
 # --- 3.4 Dichotomise model predictions
@@ -212,7 +191,7 @@ lines(datSurv_exp[TimeInDefSpell<=120, EventRate_classic_Youden], type="b", col=
 
 
 
-# ------ 4. Graphing the event density / probability mass function f(t) | Main graph
+# ------ 4. Preparing the graphing datasets
 
 # --- 4.1 Preliminaries
 # - Cut-offs for analysis and graphs 
@@ -317,7 +296,10 @@ datMAE <- datGraph %>%
 (MAE_eventProb_classic_Youden <- mean(abs(datMAE$a_Actual - datMAE$m_Expected_classic_Youden), na.rm=T))
 
 
-# --- 4.3 Graph of best fitting models
+
+
+# ------ 5. Graphing the event density / probability mass function f(t) | Best fitting model
+# --- 5.1 Preliminaries 
 # - Subset data
 datGraph_main <- subset(datGraph, Type %in% c("a_Actual", "b_Actual_spline", "c_Expected_bas",
                                               "d_Expected_spline_bas", "g_Expected_adv",
@@ -343,7 +325,9 @@ vShapeType <- c(15,NA,16,NA,17,NA,0,NA,1,NA)
 chosenFont <- "Cambria"
 mainEventName <- "Write-off"
 
-# - Create main graph 
+
+# --- 5.2 Create & save graph
+# - Graph
 (gsurv_ft <- ggplot(datGraph_main[Time <= sMaxSpellAge_graph,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
     labs(y=bquote(plain(Event~probability~~italic(w(t))*" ["*.(mainEventName)*"]"*"")), 
          x=bquote("Spell time (months)"*~italic(t))) + 
@@ -382,8 +366,8 @@ ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_
 
 
 
-# ------ 5. Graphing the event density / probability mass function f(t) | Supplementary graph
-# --- 5.1 Create graphing object
+# ------ 6. Graphing the event density / probability mass function f(t) | Worst fitting models graph
+# --- 6.1 Preliminaries
 # - Create graphing data object for the two that are out of range
 datGraph_OOB <- datGraph %>% subset(Type %in% c("a_Actual", "b_Actual_spline",
                                                 "e_Expected_bas_Youden", "f_Expected_spline_bas_Youden",
@@ -441,7 +425,7 @@ ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_
        width=2400/dpi, height=1800/dpi,dpi=dpi, bg="white")
 
 
-# --- 5.3 Cleanup
+# --- 6.3 Cleanup
 rm(gsurv_ft, km_Censoring, km_Default, datSurv_censoring, datSurv_exp, datSurv_act,
    datGraph, datMAE, smthEventRate_Act, smthEventRate_Exp_bas, smthEventRate_Exp_adv,
    vPredSmth_Act, vPredSmth_Exp_bas, vPredSmth_Exp_adv,
