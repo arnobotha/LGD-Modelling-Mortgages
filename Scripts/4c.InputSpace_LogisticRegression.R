@@ -543,7 +543,7 @@ modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + ")
               data=datCredit_train, family="binomial")
 summary(modLR)
 
-# - Test signifigance of variables
+# - Test significance of variables
 # Robust (sandwich) standard errors
 robust_se <- vcovHC(modLR, type="HC0")
 # Summary with robust SEs
@@ -576,6 +576,3 @@ GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, ,legPos=c(0.6,0.4), panel
 pack.ffdf(paste0(genObjPath,"LR_fits"), Table_LR)
 # Modeling object
 saveRDS(modLR, file=paste0(genObjPath,"LR_Model.rds"))
-
-
-

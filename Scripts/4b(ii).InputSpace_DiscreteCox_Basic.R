@@ -100,5 +100,3 @@ GoF_CoxSnell_KS(modLR_basic, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), 
 pack.ffdf(paste0(genObjPath,"CoxDisc_basic_fits"), Table_CoxDisc_basic)
 # Modeling object
 saveRDS(modLR_basic, file=paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
-
-

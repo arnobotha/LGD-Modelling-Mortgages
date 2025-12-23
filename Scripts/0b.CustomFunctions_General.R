@@ -1148,6 +1148,8 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
       
       { # ----------------- Start of Loop -----------------
         # j <- 1 # testing condition
+        cat(paste0("\n Replication: ", j, " done."),
+            file="assesslog_GeneralYoudenIndex.txt", append=T)
         results <- JDEoptim(lower=0, upper=1, fn=GYI_a)
         c(results$par,results$value)
       } # ----------------- End of Loop -----------------
