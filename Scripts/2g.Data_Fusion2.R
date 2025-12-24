@@ -93,9 +93,6 @@ if (all(is.na(stratifiers))){ # No stratifiers
 # - Save intermediary snapshots to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final_CDH_keys"), datKeys)
 
-# - Cleanup
-rm(datCredit_real); gc()
-
 
 
 
