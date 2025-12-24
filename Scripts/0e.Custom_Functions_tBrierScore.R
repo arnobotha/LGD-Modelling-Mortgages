@@ -11,9 +11,15 @@
 
 # --- Function to calculate time-dependent Brier Score (tBS) for a given object's predictions
 # Crafted using Graff1999 (DOI: 10.1002/(sici)1097-0258(19990915/30)18:17/18<2529::aid-sim274>3.0.co;2-5)
-# Input:    [datGiven]: given loan history; [modGiven]: fitted cox PH or discrete-time hazard model;
-#           [predType]: option to pass to predict(); [spellPeriodMax]: maximum period to impose upon spell ages
+# Input:    [datGiven]: given loan history
+#           [modGiven]: fitted cox PH or discrete-time hazard model
+#           [predType]: option to pass to predict()
+#           [spellPeriodMax]: maximum period to impose upon spell ages
 #           <fldNames>: Various field names for quantities of interest
+#           [threshold]: Threshold against which to dichotomise the model predictions
+#           [brierType]: The survival quantity to used in estimating the tBrier score; either
+#                         1) "Survival": The survival probability
+#                         2) "EventRate": The event rate
 # Output:   Vector of tBS-values; Integrated Brier Score (IBS)
 tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=300,
                         fldKey="DefSpell_Key", fldStart = "Start", fldStop="TimeInDefSpell",
@@ -66,9 +72,13 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
     datGiven[, Survival := exp(-Hazard), by=list(get(fldKey))] 
   }
   
-  # - Dichotomise predictions
-  if (!is.na(threshold)){
+  # - Estimate the event rate if specified
+  if (brierType=="EventRate"){
     datGiven[, EventRate:=shift(Survival,fill=1,n=1,type="lag")-Survival]
+  }
+  
+  # - Dichotomise the event rate if specified
+  if (!is.na(threshold)){
     datGiven[, Dichotomised_Ind:=ifelse(EventRate>threshold,1,0)]
   }
   
