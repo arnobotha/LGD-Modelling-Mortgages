@@ -74,7 +74,7 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
   
   # - Estimate the event rate if specified
   if (brierType=="EventRate"){
-    datGiven[, EventRate:=shift(Survival,fill=1,n=1,type="lag")-Survival]
+    datGiven[, EventRate:=shift(Survival,fill=1,n=1,type="lag")-Survival, by=list(get(fldKey))]
   }
   
   # - Dichotomise the event rate if specified
