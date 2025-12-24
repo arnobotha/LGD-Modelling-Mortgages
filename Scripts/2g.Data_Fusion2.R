@@ -93,9 +93,6 @@ if (all(is.na(stratifiers))){ # No stratifiers
 # - Save intermediary snapshots to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final_CDH_keys"), datKeys)
 
-# - Subsample credit dataset to default spells only | memory optimisation
-datCredit_smp <- subset(datCredit_real, !is.na(DefSpell_Key)) 
-
 # - Cleanup
 rm(datCredit_real); gc()
 
@@ -111,7 +108,7 @@ if (!exists('datInput.raw')) unpack.ffdf(paste0(genPath,"creditdata_input1"), te
 
 # [SANITY CHECK] Prevalence of overlapping fields in the input space and the main credit dataset
 # Find intersection between fields in input space and those perhaps already in the main credit dataset
-overlap_flds <- intersect(colnames(datCredit_smp), colnames(datInput.raw))
+overlap_flds <- intersect(colnames(datCredit_real), colnames(datInput.raw))
 check.fuse1 <- length(overlap_flds) == 0 # FALSE; duplicate columns exists.
 cat(check.fuse1 %?% 'SAFE: No overlapping fields in the input space and the main credit dataset' %:%
       'WARNING: Overlapping field(s) detected in the input space and the main credit dataset.')
@@ -125,7 +122,7 @@ if (check.fuse1 == 0) {cat('NOTE: The following fields overlap: ', overlap_flds,
 suppressWarnings( datInput.raw[, `:=`(slc_status_final_pred7 = NULL, slc_status_final = NULL, 
                                        datex = NULL)])
 # - Ensure variables are not present in dataset before fusion (useful during debugging)
-suppressWarnings( datCredit_smp[, `:=`(slc_pmnt_method = NULL, slc_past_due_amt = NULL, slc_days_excess = NULL,
+suppressWarnings( datCredit_real[, `:=`(slc_pmnt_method = NULL, slc_past_due_amt = NULL, slc_days_excess = NULL,
                                        slc_status_final_pred7 = NULL, slc_status_final = NULL, slc_curing_ind = NULL,
                                        slc_acct_pre_lim_perc = NULL, slc_acct_roll_ever_24 = NULL,
                                        slc_acct_arr_dir_3 = NULL, slc_acct_prepaid_perc_dir_12 = NULL, 
@@ -143,7 +140,7 @@ sum(is.na(data_grain_check$LoanID)); gc()
 # the data grain is broken in the cases where a Loan_ID does not exist - we are not interested in these accounts in any case
 
 # - Merge on LoanID and Date by performing a left-join
-datCredit_prep <- merge(datCredit_smp, datInput.raw, by=c("Date", "LoanID"), all.x=T); gc()
+datCredit_prep <- merge(datCredit_real, datInput.raw, by=c("Date", "LoanID"), all.x=T); gc()
 
 # - Check the data grain
 NROW(data_grain_check_merge <- datCredit_prep[, list(Freq = .N), by=list(LoanID, Date)][Freq>1,])==0

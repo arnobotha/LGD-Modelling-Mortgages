@@ -61,7 +61,7 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
 
 # --- 1.3 Additional parameters
-# - Youden Index cut-offs
+# - Generalised Youden Index cut-offs
 # Load thresholds
 thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # Basic discrete-time model
@@ -150,9 +150,9 @@ datCredit <- subset(datCredit, Counter > 0)
 
 
 # --- 3.4 Dichotomise model predictions
-datCredit <- datCredit[,Youden_bas:=ifelse(EventRate_bas>thresh_dth_bas,1,0)]
-datCredit <- datCredit[,Youden_adv:=ifelse(EventRate_adv>thresh_dth_adv,1,0)]
-datCredit <- datCredit[,Youden_classic:=ifelse(EventRate_classic>thres_classic,1,0)]
+datCredit[,Youden_bas:=ifelse(EventRate_bas>thresh_dth_bas,1,0)]
+datCredit[,Youden_adv:=ifelse(EventRate_adv>thresh_dth_adv,1,0)]
+datCredit[,Youden_classic:=ifelse(EventRate_classic>thres_classic,1,0)]
 
 
 # --- 3.5 Aggregate event rates to period-level
