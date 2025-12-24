@@ -91,7 +91,7 @@ evalLR(modLR_basic, modLR_base, datCredit_train, targetFld="DefSpell_Event", pre
 # - Combine results into a single object
 (Table_CoxDisc_basic <- concTable_CoxDisc_basic[,1:2] %>% left_join(aicTable_CoxDisc_basic, by ="Variable"))
 
-### MM: I can't run the following code, getting this error: "'DefSpell_ExitInd' not found"
+
 GoF_CoxSnell_KS(modLR_basic, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Basic",
                 fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Bas", ".png"), dpi=280)
 

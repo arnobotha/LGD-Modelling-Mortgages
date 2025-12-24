@@ -78,7 +78,7 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 # Load thresholds
 thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # Basic discrete-time model
-(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.05467001
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.0525335
 # Advanced discrete-time model
 (thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3894059
 # Classical logit model
@@ -131,10 +131,11 @@ datCredit[, DefSpell_Event_Classic_Youden:=ifelse(prob_classic>thresh_classic,1,
 # --- 2.5 Advanced discrete-time hazard model | B-series (dichotomised)
 (objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
-                               fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist"))
+                               fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
+                               threshold=thresh_dth_adv, brierType="EventRate"))
 
 
-# --- 2.5 Advanced discrete-time hazard model | B-series (dichotomised)
+# --- 2.6 Advanced discrete-time hazard model | B-series (dichotomised)
 (objCoxDisc_classic <- tBrierScore(datCredit, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                    fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                    fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist"))
@@ -215,6 +216,7 @@ vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
 # - Save plot
 dpi <- 280
 ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_CoxDisc.png"), width=1600/dpi, height=1200/dpi,dpi=dpi, bg="white")
+
 
 
 

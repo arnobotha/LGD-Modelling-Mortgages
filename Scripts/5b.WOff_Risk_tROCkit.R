@@ -36,16 +36,27 @@
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
 # - Use only default spells
+datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
 # Create start and stop columns
+datCredit_train[, Start:=TimeInDefSpell-1]
 datCredit_valid[, Start:=TimeInDefSpell-1]
 
 # - Weigh default cases heavier. as determined interactively based on calibration success (script 6e)
+datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 datCredit_valid[, Weight:=ifelse(DefSpell_Event==1,1,1)]
+
+# - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
+datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
+datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
+
+# - Combine training and validation dataset to enable more smooth graphs
+datCredit <- rbind(datCredit_train, datCredit_valid)
 
 
 # --- 1.2 Load models
@@ -64,7 +75,7 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 # Load thresholds
 thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # Basic discrete-time model
-(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.05467001
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.0525335
 # Advanced discrete-time model
 (thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3894059
 # Classical logit model
@@ -72,23 +83,20 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 
 
 # --- 1.4 Estimate event rates to facilitate the application of dichotomisation
-# - Score using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
-datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
-
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-datCredit_valid[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit_valid, type = "response")]
-datCredit_valid[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit_valid, type = "response")]
-datCredit_valid[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
+datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
+datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
+datCredit[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
 # - Derive survival probability S(t) = prod(1 - hazard)
-datCredit_valid[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
-datCredit_valid[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
-datCredit_valid[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
+datCredit[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
+datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
+datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
 # - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
-datCredit_valid[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
-datCredit_valid[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
-datCredit_valid[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
+datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
+datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
+datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
 
 
 
@@ -101,7 +109,7 @@ datCredit_valid[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fi
 # --- 2.1 tROC analyses using the CD-approach | Time-window chosen as first 6 months in default
 predictTime <- 6
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC6_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC6_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                       fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                       graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                       caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -114,7 +122,7 @@ objROC6_CDH_CoxDisc_bas$AUC; objROC6_CDH_CoxDisc_bas$ROC_graph
 # --- 2.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
 predictTime <- 12
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC12_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC12_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                        fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                        graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -127,7 +135,7 @@ objROC12_CDH_CoxDisc_bas$AUC; objROC12_CDH_CoxDisc_bas$ROC_graph
 # --- 2.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
 predictTime <- 24
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC24_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC24_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                        fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                        graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -140,7 +148,7 @@ objROC24_CDH_CoxDisc_bas$AUC; objROC24_CDH_CoxDisc_bas$ROC_graph
 # --- 2.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
 predictTime <- 48
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC48_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC48_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                        fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                        graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -168,7 +176,7 @@ saveRDS(objROC48_CDH_CoxDisc_bas, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_
 # --- 3.1 tROC analyses using the CD-approach | Time-window chosen as first 6 months in default
 predictTime <- 6
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC6_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC6_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                       fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                       graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                       caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -181,7 +189,7 @@ objROC6_CDH_CoxDisc_adv$AUC; objROC6_CDH_CoxDisc_adv$ROC_graph
 # --- 3.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
 predictTime <- 12
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC12_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC12_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                        fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                        graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -194,7 +202,7 @@ objROC12_CDH_CoxDisc_adv$AUC; objROC12_CDH_CoxDisc_adv$ROC_graph
 # --- 3.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
 predictTime <- 24
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC24_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC24_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                        fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                        graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -207,7 +215,7 @@ objROC24_CDH_CoxDisc_adv$AUC; objROC24_CDH_CoxDisc_adv$ROC_grap
 # --- 3.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
 predictTime <- 48
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC48_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC48_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                        fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                        graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -235,9 +243,9 @@ saveRDS(objROC48_CDH_CoxDisc_adv, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_
 # --- 4.1 tROC analyses using the CD-approach | Time-window chosen as first 6 months in default
 predictTime <- 6
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC6_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC6_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                         fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                        graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                        graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar_Dichotomised", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                         caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
                                         predType="response", MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
@@ -248,9 +256,9 @@ objROC6_CDH_CoxDisc_bas_B$AUC; objROC6_CDH_CoxDisc_bas_B$ROC_graph
 # --- 4.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
 predictTime <- 12
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC12_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC12_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                        fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                       graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                       graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar_Dichotomised", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
                                        predType="response", MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
@@ -261,9 +269,9 @@ objROC12_CDH_CoxDisc_bas_B$AUC; objROC12_CDH_CoxDisc_bas_B$ROC_graph
 # --- 4.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
 predictTime <- 24
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC24_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC24_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                          fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                         graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                         graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar_Dichotomised", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                          caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
                                          predType="response", MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
@@ -274,9 +282,9 @@ objROC24_CDH_CoxDisc_bas_B$AUC; objROC24_CDH_CoxDisc_bas_B$ROC_graph
 # --- 4.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
 predictTime <- 48
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC48_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC48_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                          fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                         graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                         graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar_Dichotomised", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                          caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
                                          predType="response",MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
@@ -302,9 +310,9 @@ saveRDS(objROC48_CDH_CoxDisc_bas_B, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Di
 # --- 5.1 tROC analyses using the CD-approach | Time-window chosen as first 6 months in default
 predictTime <- 6
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC6_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC6_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                         fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                        graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                        graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar_Dichotomised", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                         caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
                                         predType="response", MarkerGiven="EventRate_adv", threshold=thresh_dth_adv)
 proc.time() - ptm
@@ -315,9 +323,9 @@ objROC6_CDH_CoxDisc_adv_B$AUC; objROC6_CDH_CoxDisc_adv_B$ROC_graph
 # --- 5.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
 predictTime <- 12
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC12_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC12_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                          fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                         graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                         graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar_Dichotomised", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                          caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
                                          predType="response", MarkerGiven="EventRate_adv", threshold=thresh_dth_adv)
 proc.time() - ptm
@@ -328,9 +336,9 @@ objROC12_CDH_CoxDisc_adv_B$AUC; objROC12_CDH_CoxDisc_adv_B$ROC_graph
 # --- 5.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
 predictTime <- 24
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC24_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC24_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                          fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                         graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                         graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar_Dichotomised", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                          caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
                                          predType="response", MarkerGiven="EventRate_Adv", threshold=thresh_dth_adv)
 proc.time() - ptm
@@ -341,9 +349,9 @@ objROC24_CDH_CoxDisc_adv_B$AUC; objROC24_CDH_CoxDisc_adv_B$ROC_graph
 # --- 5.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
 predictTime <- 48
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC48_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC48_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                          fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                         graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                         graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar_Dichotomised", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                          caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
                                          predType="response", MarkerGiven="EventRate_adv", threshold=thresh_dth_adv)
 proc.time() - ptm
@@ -404,7 +412,7 @@ chosenFont <- "Cambria"
     theme(text = element_text(family=chosenFont), legend.position="inside", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
-          legend.position.inside = c(0.75,0.25),
+          legend.position.inside = c(0.65,0.25),
           legend.background = element_rect(fill="snow2", color="black",
                                            linetype="solid", linewidth=0.1)) +
     labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
@@ -422,7 +430,7 @@ chosenFont <- "Cambria"
     scale_y_continuous(label=percent) + scale_x_continuous(label=percent))
 
 # - Save graph
-dpi <- 300
+dpi <- 400
 ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel-CoxDisc-CDH-CombinedROC_Depedendence_bas.png")), 
        width=1800/dpi, height=1500/dpi, dpi=dpi, bg="white")
 
@@ -498,7 +506,7 @@ suppressWarnings( rm(gg, vLabels, vLabels_F, vecTROC, datGraph, dat,
                      cox_CDH_adv, cox_CDH_basic, modLR_Adv, modLR_Bas, 
                      objROC1_CDH_CoxDisc_adv, objROC2_CDH_CoxDisc_adv, objROC3_CDH_CoxDisc_adv, objROC4_CDH_CoxDisc_adv,
                      objROC1_CDH_CoxDisc_bas, objROC2_CDH_CoxDisc_bas, objROC3_CDH_CoxDisc_bas, objROC4_CDH_CoxDisc_bas,
-                     datCredit_train_CDH, datCredit_valid_CDH, datCredit_train, datCredit_valid
+                     datCredit_train_CDH, datCredit_valid_CDH, datCredit_train, datCredit
 ) )
 
 
@@ -651,7 +659,7 @@ suppressWarnings(rm(gg, vLabels, vLabels_F, vecTROC, datGraph, dat,
 # --- 7.1 Classical logistic regression model | A-series (non-dichotomised)
 predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation
-objROC44_LR <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Classic, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC44_LR <- tROC.multi(datGiven=datCredit, modGiven=modLR_Classic, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                           fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="DefSpell_Age",
                           graphName="WOffLRModel-ROC_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                           caseStudyName=paste0("LR_", predictTime), numThreads=12, logPath=genPath, 
@@ -664,7 +672,7 @@ objROC44_LR$AUC; objROC44_LR$ROC_graph
 # --- 7.2 Basic discrete-time model | A-series (non-dichotomised)
 predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation
-objROC44_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC44_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                        fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                        graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -677,7 +685,7 @@ objROC44_CDH_CoxDisc_bas$AUC; objROC44_CDH_CoxDisc_bas$ROC_graph
 # --- 7.3 Advanced discrete-time model | A-series (non-dichotomised)
 predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation
-objROC44_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC44_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                        fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                        graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -690,7 +698,7 @@ objROC44_CDH_CoxDisc_adv$AUC; objROC44_CDH_CoxDisc_adv$ROC_graph
 # --- 7.4 Classical logistic regression model | B-series (dichotomised)
 predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation
-objROC44_LR_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Classic, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC44_LR_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Classic, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                             fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="DefSpell_Age",
                             graphName="WOffLRModel-ROC_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                             caseStudyName=paste0("LR_", predictTime), numThreads=12, logPath=genPath, 
@@ -703,7 +711,7 @@ objROC44_LR_B$AUC; objROC44_LR_B$ROC_graph
 # --- 7.5 Basic discrete-time model | B-series (dichotomised)
 predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation
-objROC44_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC44_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                        fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                        graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
@@ -716,7 +724,7 @@ objROC44_CDH_CoxDisc_bas_B$AUC; objROC44_CDH_CoxDisc_bas_B$ROC_graph
 # --- 7.6 Advanced discrete-time model | B-series (dichotomised)
 predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation
-objROC44_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit_valid, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+objROC44_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                                          fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                          graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                          caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 

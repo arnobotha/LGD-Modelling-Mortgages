@@ -113,13 +113,15 @@ datCredit_train_classic <- subset(datCredit_train_classic, OOB_Ind==0)
 (thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Trained_Model=modLR_bas,
                                   Train_DataSet=datCredit_train, Target="DefSpell_Event",
                                   prob_vals_given="EventRate_bas", a=1, replicate=100))
-### RESULTS: Threshold at a = 1 = 0.05467001
+### NOTE: The runtime is 3-4 hours
+### RESULTS: Threshold at a = 1 = 0.0525335
 ### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.2642033
 
 # - Advanced model
 (thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Trained_Model=modLR_adv,
                                   Train_DataSet=datCredit_train, Target="DefSpell_Event",
                                   prob_vals_given="EventRate_adv", a=1, replicate=100))
+### NOTE: The runtime is 12+ hours
 ### RESULTS: Threshold at a = 1 = 0.3894059
 ### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.4333787
 
@@ -136,7 +138,7 @@ datCredit_train_classic <- subset(datCredit_train_classic, OOB_Ind==0)
 (thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Trained_Model=modLR_classic,
                                      Train_DataSet=datCredit_train_classic, Target="DefSpell_Event",
                                      prob_vals_given="EventRate_classic", a=1))
-### RESULTS: Threshold at a = 1 = 0.564484
+ ### RESULTS: Threshold at a = 1 = 0.564484
 ### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.2358849
 
 

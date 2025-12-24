@@ -75,7 +75,7 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 # Load thresholds
 thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # Basic discrete-time model
-(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.05467001
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.0525335
 # Advanced discrete-time model
 (thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3894059
 # Classical logit model

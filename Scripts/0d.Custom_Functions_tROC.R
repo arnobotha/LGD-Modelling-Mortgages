@@ -531,7 +531,7 @@ tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.0
     datGiven[, Marker := get(MarkerGiven)]  
   }
   
-  # - Dichotomise marker values given a specifc threshold
+  # - Dichotomise marker values given a specific threshold
   if (!is.na(threshold)){
     datGiven[, Marker:=ifelse(Marker>threshold,1,0)]
   }
