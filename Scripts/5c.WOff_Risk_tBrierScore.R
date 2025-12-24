@@ -105,28 +105,29 @@ datCredit[, DefSpell_Event_Classic_Youden:=ifelse(prob_classic>thresh_classic,1,
 (objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_Bas, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 8.420888%
+### RESULTS: Integrated Brier Score = 6.819606%
 
 
 # --- 2.2 Advanced discrete-time hazard model | A-series (non-dichotomised)
 (objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 1.770236%
+### RESULTS: Integrated Brier Score = 15.95218%
 
 
 # --- 2.3 Classical logistic regression model | A-series (non-dichotomised)
 (objCoxDisc_classic <- tBrierScore(datCredit, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                    fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                    fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 14.10252%
+### RESULTS: Integrated Brier Score = 10.7589%
 
 
 # --- 2.4 Basic discrete-time hazard model | B-series (dichotomised)
 (objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_Bas, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
-                               threshold=thresh_dth_bas, brierType="Survival"))
+                               threshold=thresh_dth_bas, brierType="EventRate"))
+### RESULTS: Integrated Brier Score = 3.198877%
 
 
 # --- 2.5 Advanced discrete-time hazard model | B-series (dichotomised)
@@ -134,6 +135,7 @@ datCredit[, DefSpell_Event_Classic_Youden:=ifelse(prob_classic>thresh_classic,1,
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                threshold=thresh_dth_adv, brierType="EventRate"))
+### RESULTS: Integrated Brier Score = 14.81613%
 
 
 # --- 2.6 Advanced discrete-time hazard model | B-series (dichotomised)
@@ -141,6 +143,7 @@ datCredit[, DefSpell_Event_Classic_Youden:=ifelse(prob_classic>thresh_classic,1,
                                    fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                    fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                    threshold=thresh_classic, brierType="EventRate"))
+### RESULTS: Integrated Brier Score = 11.07301%
 
 
 

@@ -110,8 +110,13 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
   
   # -- Compute squared error loss per row ---
   if (brierType=="EventRate"){
-    datGiven[, SquaredError := (y_t - EventRate)^2]
-    datGiven[, SquaredError_0 := (y_t - 0)^2]
+    if (is.na(threshold)){
+      datGiven[, SquaredError := (y_t - EventRate)^2]
+      datGiven[, SquaredError_0 := (y_t - 0)^2]
+    } else {
+      datGiven[, SquaredError := (y_t - Dichotomised_Ind)^2]
+      datGiven[, SquaredError_0 := (y_t - 0)^2]
+    }
   } else if (brierType=="Survival") {
     datGiven[, SquaredError := (y_t - Survival)^2]
     datGiven[, SquaredError_0 := (y_t - Survival_0)^2]
