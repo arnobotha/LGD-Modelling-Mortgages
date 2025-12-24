@@ -93,8 +93,8 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # - A-series (non-dichotomised)
 (objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_Bas, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
-                               fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 16.25578%
+                               fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="Survival"))
+### RESULTS: Integrated Brier Score = 8.420888%
 
 # - B-series (dichotomised)
 (objCoxDisc_bas_B <- tBrierScore(datCredit, modGiven=modLR_Bas, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
@@ -109,8 +109,8 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # - A-series (non-dichotomised)
 (objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
-                               fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 16.45126%
+                               fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="Survival"))
+### RESULTS: Integrated Brier Score = 1.770236%
 
 # - B-series (dichotomised)
 (objCoxDisc_adv_B <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
@@ -124,8 +124,8 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # - A-series (non-dichotomised)
 (objCoxDisc_classic <- tBrierScore(datCredit, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                    fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
-                                   fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 16.15758%
+                                   fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="Survival"))
+### RESULTS: Integrated Brier Score = 14.10252%
 
 # - B-series (dichotomised)
 (objCoxDisc_classic_B <- tBrierScore(datCredit, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 

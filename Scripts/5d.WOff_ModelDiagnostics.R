@@ -1,4 +1,4 @@
-# =================== DEFAULT RISK - MODEL DIAGNOSTICS =========================
+# ================== WRITE-OFF RISK - MODEL DIAGNOSTICS ========================
 # Conducting additional model diagnostics
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages

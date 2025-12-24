@@ -257,10 +257,10 @@ objROC6_CDH_CoxDisc_bas_B$AUC; objROC6_CDH_CoxDisc_bas_B$ROC_graph
 predictTime <- 12
 ptm <- proc.time() #IGNORE: for computation time calculation;
 objROC12_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
-                                       fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                       graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar_Dichotomised", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
-                                       caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
-                                       predType="response", MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
+                                         fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                                         graphName="WOffSurvModel-ROC_CoxDisc_Basic_TimeVar_Dichotomised", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
+                                         caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
+                                         predType="response", MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
 objROC12_CDH_CoxDisc_bas_B$AUC; objROC12_CDH_CoxDisc_bas_B$ROC_graph
 ### RESULTS: AUC up to t: 50%, achieved in  34 secs

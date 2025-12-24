@@ -1,3 +1,32 @@
+# ================= LGD DISTRIBUTION ANALYSIS - ONE-STAGE MODELS ===============
+# Comparing actual LGDs with expected LGDs from the fitted probability and 
+# severity models
+# ------------------------------------------------------------------------------
+# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
+# ------------------------------------------------------------------------------
+# -- Script dependencies:
+#   - 0.Setup.R
+#   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Data_Prepare_Credit_Advanced.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
+#   - 2f.Data_Fusion1.R
+#   - 2g.Data_Fusion2.R
+#   - 4a(i).InputSpace_SingleStage_Gaussian.R
+#   - 4a(ii).InputSpace_SingleStage_CPG.R
+#
+# -- Inputs:
+#   - datCredit_train_CDH | Prepared from script 2g
+#   - datCredit_valid_CDH | Prepared from script 2g
+#   - modGLM_OneStage_Gaus | Single stage GLM model with a Gaussian link function as fitted in script 4a(i)
+#   - modGLM_OneStage_CPG | Single stage GLM model with a Tweedie link function as fitted in script 4a(ii)
+# -- Outputs:
+#   - <Analytics> | Graphs
+# ==============================================================================
+
+
 # ------ 1. Model fitting
 
 # - Confirm prepared datasets are loaded into memory

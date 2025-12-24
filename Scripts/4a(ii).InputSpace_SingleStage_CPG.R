@@ -159,7 +159,7 @@ vars <- c("g0_Delinq_SD_6", "g0_Delinq_SD_5", "g0_Delinq_SD_4",
 
 # - Full model
 modGLM_full <- cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                    data=datCredit_train)
+                     data=datCredit_train)
 summary(modGLM_full)
 evalLS(modGLM_full, datCredit_train, targetFld="LossRate_Real", modGLM_base)
 ### RESULTS: AIC: 69893; R^2: 12.62%; RMSE:  19.47%; MAE:  11.35%
@@ -224,7 +224,7 @@ vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "Int
 
 # - Full model
 modGLM_full <-cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                    data=datCredit_train)
+                     data=datCredit_train)
 summary(modGLM_full)
 evalLS(modGLM_full,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ### RESULTS: AIC: 79 618; Pseudo R^2: 1.95%; RMSE: 20.62%; MAE: 11.97%
@@ -252,7 +252,7 @@ vars <- c("InterestRate_Margin_Aggr_Med", "AgeToTerm_Aggr_Mean", "NewLoans_Aggr_
 
 # - Fit model
 modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-              data=datCredit_train)
+               data=datCredit_train)
 
 # - Evaluate model
 summary(modGLM)
@@ -434,11 +434,11 @@ vars <- c("M_Repo_Rate_9", "M_Repo_Rate_12", "M_Repo_Rate_6",
           "M_RealIncome_Growth_12", "M_RealIncome_Growth_9", "M_RealIncome_Growth_6",
           "M_DTI_Growth_9", "M_DTI_Growth_6", "M_DTI_Growth_12",
           "M_Emp_Growth_6", "M_Emp_Growth_12", "M_Emp_Growth_9"
-          )
+)
 
 # - Full model | Stepwise forward selection procedure
 modGLM_full <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                data=datCredit_train)
+                      data=datCredit_train)
 summary(modGLM_full)
 evalLS(modGLM_full,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ### RESULTS: AIC: 79 626; R^2: 2.15%; RMSE: 20.60%; MAE: 11.96%
@@ -464,7 +464,7 @@ vars <- c("M_DTI_Growth_12", "M_DTI_Growth_9", "M_RealIncome_Growth_6",
 
 # - Fit model
 modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-              data=datCredit_train)
+               data=datCredit_train)
 
 # - Evaluate model
 summary(modGLM)
@@ -491,11 +491,11 @@ vars <- c("g0_Delinq_SD_12", "DefaultStatus1_Aggr_Prop_Lag_12",
           "M_DTI_Growth_12", "M_DTI_Growth_9", "M_RealIncome_Growth_6",
           "M_RealGDP_Growth_12", "M_RealIncome_Growth_9", "M_DTI_Growth_6",
           "M_Inflation_Growth_6", "M_Repo_Rate_9"
-          )
+)
 
 # - Full model 
 modGLM_full <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                     data=datCredit_train)
+                      data=datCredit_train)
 summary(modGLM_full)
 evalLS(modGLM_full,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ### RESULTS: AIC: 67 812; R^2: 11.57; RMSE: 19.59%; MAE: 9.96%
