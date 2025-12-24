@@ -1133,13 +1133,19 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
     results <- JDEoptim(lower=0, upper=1, fn=GYI_a)
     # optim(par=c(0,1), fn=GYI_a, lower=0, upper=1)
     
-  # - Run optimisation a [replicate] number of times in selecting the minimum threshold
-  ### NOPE: This is required in the instance of multiple global minima of the exact same magnitude
-  ###       In such instances, the JDEoptim-function will otherwise select a random global minima
+    # - Return results
+    return(list(cutoff=results$par, value=results$value, iterations=results$iter))
+    
   } else {
+    
+    # - Run optimisation a [replicate] number of times in selecting the minimum threshold
+    ### NOPE: This is required in the instance of multiple global minima of the exact same magnitude
+    ###       In such instances, the JDEoptim-function will otherwise select a random global minima
+    
     ptm <- proc.time() #IGNORE: for computation time calculation
     cl.port <- makeCluster(round(numThreads)); registerDoParallel(cl.port) # multi-threading setup
-    cat("New Job: Estimating optimal threshold for dichotomisation using a General Youden Index ..",
+    cat("New Job: Estimating optimal threshold for dichotomisation using a Generalised Youden Index with 
+        cost multiple a=", a, "..",
         file="assesslog_GeneralYoudenIndex.txt", append=F)
     
     results_rep <- foreach(j=1:replicate, .combine='rbind', .verbose=F, .inorder=T,
@@ -1148,9 +1154,9 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
       
       { # ----------------- Start of Loop -----------------
         # j <- 1 # testing condition
+        results <- JDEoptim(lower=0, upper=1, fn=GYI_a)
         cat(paste0("\n Replication: ", j, " done."),
             file="assesslog_GeneralYoudenIndex.txt", append=T)
-        results <- JDEoptim(lower=0, upper=1, fn=GYI_a)
         c(results$par,results$value)
       } # ----------------- End of Loop -----------------
     stopCluster(cl.port); proc.time() - ptm
@@ -1160,10 +1166,10 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
                    value=results_rep[1,which.min(results_rep[1,])],
                    iter=replicate)
      
+    # - Return results
+    return(list(cutoff=results$par, value=results$value, iterations=results$iter,
+                data=results_rep))
   }
-  
-  # - Return resutls
-  return(list(cutoff=results$par, value=results$value, iterations=results$iter))
   
 }
 

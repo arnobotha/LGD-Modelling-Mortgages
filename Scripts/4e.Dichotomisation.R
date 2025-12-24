@@ -1,6 +1,5 @@
 # ======================================= INPUT SPACE: LOSS SEVERITY-TWO STAGE============================
-# Divide data into thematic groups and perform data analysis on them to compile an input space for 
-# the loss severity component.
+# Dichotomise probabilistic models into 0/1-decisions
 # ------------------------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
 # SCRIPT AUTHOR(S): Marcel Muller (MM), Mohammed Gabru (MG)
@@ -20,7 +19,7 @@
 #   - datCredit_valid_CDH | Prepared from script 2g
 #
 # -- Outputs:
-#   - Input_Space
+#   - thres_lst | Probability thresholds
 # ------------------------------------------------------------------------------------------------------
 
 
