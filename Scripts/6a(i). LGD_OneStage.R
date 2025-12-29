@@ -1,7 +1,7 @@
 # ================= LGD DISTRIBUTION ANALYSIS - ONE-STAGE MODELS ===============
 # Comparing actual LGDs with expected LGDs from the fitted one-stage models
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:

@@ -3,7 +3,7 @@
 # compiling an input space for a single stage model with a
 # Gaussian link function.
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller
 # ------------------------------------------------------------------------------
 # -- Script dependencies:

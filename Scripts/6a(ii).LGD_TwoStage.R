@@ -2,7 +2,7 @@
 # Comparing actual LGDs with expected LGDs from the fitted probability and 
 # severity models
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -56,6 +56,16 @@ datCredit_valid <- subset(datCredit_valid, OOB_Ind==0)
 
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
+
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
+datAdd[, Start:=Start-1]
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Counter:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
 
 # - Subset for write-offs only to create inset plots
 datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")

@@ -3,7 +3,7 @@
 # graphing of residuals, as part of testing the goodness-of-fit of a given 
 # Cox regresion model
 # --------------------------------------------------------------------------------
-# PROJECT TITLE: Default Survival Modelling
+# PROJECT TITLE: Residential Mortgages
 # SCRIPT AUTHOR(S): Bernard Scheepers (BS), Dr Arno Botha (AB), Marcel Muller (MM)
 # VERSION: 2.0 (Apr-2025)
 # ================================================================================

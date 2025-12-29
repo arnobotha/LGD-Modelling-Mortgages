@@ -1,9 +1,9 @@
-# ======================================= INPUT SPACE: LOSS SEVERITY-TWO STAGE============================
+# ======================================= INPUT SPACE: LOSS SEVERITY-TWO STAGE==========================
 # Analyse cost multiple (a) in Generalised Youden Index by optimising it via
 # minimising the MAE between the empirical term-structure of write-off risk and the resulting expected
 # term-structure, given the 0/1-predictions from such a dichotomised model
 # ------------------------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha (AB), Marcel Muller (MM)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -144,6 +144,7 @@ datCredit <- subset(datCredit, Counter > 0)
 # --- 3.3 Filtering
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit[, OOB_Ind:=ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+
 # - Subset to include only relevant data and recreate default spell event indicator (write-off) for classical LR-model
 datCredit_train_classic <- subset(datCredit, !is.na(DefSpell_Key) & OOB_Ind==0 & Sample == "Train" & DefSpell_Counter ==1)
 datCredit_train_classic[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist!="WOFF",0,1)]

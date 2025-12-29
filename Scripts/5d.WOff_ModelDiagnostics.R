@@ -1,7 +1,7 @@
-# ================== WRITE-OFF RISK - MODEL DIAGNOSTICS ========================
+# ========================= WRITE-OFF RISK - MODEL DIAGNOSTICS =================
 # Conducting additional model diagnostics
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:

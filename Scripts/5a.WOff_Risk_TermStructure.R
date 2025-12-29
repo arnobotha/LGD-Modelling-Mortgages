@@ -1,7 +1,7 @@
 # ============================== CONSTRUCTING TERM-STUCTURES ===================
 # Construct and compare empirical and expected term-structures of default risk
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG), Marcel Muller (MM)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -43,6 +43,10 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
 # - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+
+# - Create start and stop columns
+datCredit_train[, Start:=TimeInDefSpell-1]
+datCredit_valid[, Start:=TimeInDefSpell-1]
 
 # - Weigh write-off cases
 datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]

@@ -2,7 +2,7 @@
 # Fitting and testing surival trees in predicting the occurence of write-off in defaulted
 # loans
 # ---------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Marcel Muller (MM)
 #
 # DESCRIPTION:

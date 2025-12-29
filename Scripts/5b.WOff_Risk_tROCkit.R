@@ -3,7 +3,7 @@
 # ROC-analyses on the same fitted Cox regression model, having used the 
 # prepared credit data
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Default Survival Modelling
+# PROJECT TITLE: Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -42,7 +42,7 @@ if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
-# Create start and stop columns
+# - Create start and stop columns
 datCredit_train[, Start:=TimeInDefSpell-1]
 datCredit_valid[, Start:=TimeInDefSpell-1]
 
@@ -56,6 +56,16 @@ datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=
 
 # - Combine training and validation dataset to enable more smooth graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
+
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
+datAdd[, Start:=Start-1]
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Counter:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
 
 
 # --- 1.2 Load models
@@ -93,9 +103,9 @@ datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
 datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
 # - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
-datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
-datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
-datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
+datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1)-Survival_adv, by=list(DefSpell_Key)]
+datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1)-Survival_bas, by=list(DefSpell_Key)]
+datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1)-Survival_classic, by=list(DefSpell_Key)]
 
 
 
