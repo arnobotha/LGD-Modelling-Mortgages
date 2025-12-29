@@ -104,7 +104,6 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 ### RESULTS: Integrated Brier Score = 16.53425%
 
 
-
 # --- 2.2 Advanced discrete-time hazard model
 # - A-series (non-dichotomised)
 (objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 

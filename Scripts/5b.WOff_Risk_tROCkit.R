@@ -19,7 +19,6 @@
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
 #   - 4e.Dichotomisation
-#
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
@@ -116,7 +115,6 @@ objROC6_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, mo
                                       predType="response")
 proc.time() - ptm
 objROC6_CDH_CoxDisc_bas$AUC; objROC6_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 50.26%, achieved in 109 secs
 
 
 # --- 2.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
@@ -129,7 +127,7 @@ objROC12_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, m
                                        predType="response")
 proc.time() - ptm
 objROC12_CDH_CoxDisc_bas$AUC; objROC12_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 55.10%, achieved in  171 secs
+### RESULTS: AUC up to t: 56.70%, achieved in 513 secs
 
 
 # --- 2.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
@@ -142,7 +140,7 @@ objROC24_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, m
                                        predType="response")
 proc.time() - ptm
 objROC24_CDH_CoxDisc_bas$AUC; objROC24_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 60.17%, achieved in 218 secs
+### RESULTS: AUC up to t: 60.99%, achieved in 753 secs
 
 
 # --- 2.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
@@ -155,7 +153,7 @@ objROC48_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, m
                                        predType="response")
 proc.time() - ptm
 objROC48_CDH_CoxDisc_bas$AUC; objROC48_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 62.56%, achieved in 360 secs
+### RESULTS: AUC up to t: 61.12%, achieved in 1251 secs
 
 
 # --- 2.5 Store experimental objects | Memory optimisation
@@ -183,7 +181,7 @@ objROC6_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, mo
                                       predType="response")
 proc.time() - ptm
 objROC6_CDH_CoxDisc_adv$AUC; objROC6_CDH_CoxDisc_adv$ROC_graph
-### RESULTS: AUC up to t: 94.56%, achieved in 895 secs
+### RESULTS: AUC up to t: 94.56%, achieved in 4373 secs
 
 
 # --- 3.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
@@ -196,7 +194,7 @@ objROC12_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, m
                                        predType="response")
 proc.time() - ptm
 objROC12_CDH_CoxDisc_adv$AUC; objROC12_CDH_CoxDisc_adv$ROC_graph
-### RESULTS: AUC up to t: 94.97%, achieved in 1256  secs
+### RESULTS: AUC up to t: 95.64%, achieved in 6026 secs
 
 
 # --- 3.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default

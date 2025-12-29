@@ -157,17 +157,17 @@ datCredit[,Youden_classic:=ifelse(EventRate_classic>thres_classic,1,0)]
 
 # --- 3.5 Aggregate event rates to period-level
 datSurv_exp <- datCredit[,.(# Basic model
-                            EventRate_bas = mean(EventRate_bas, na.rm=T),
-                            EventRate_bas_Youden = mean(Youden_bas, na.rm=T),
-                            # Advanced model
-                            EventRate_adv = mean(EventRate_adv, na.rm=T),
-                            EventRate_adv_Youden = mean(Youden_adv, na.rm=T),
-                            # Classical model
-                            EventRate_classic = mean(EventRate_classic, na.rm=T),
-                            EventRate_classic_Youden = mean(Youden_classic, na.rm=T),
-                            # Empirical estimates
-                            EventRate_Emp = sum(DefSpell_Event)/.N),
-                         by=list(TimeInDefSpell)]
+  EventRate_bas=mean(EventRate_bas, na.rm=T),
+  EventRate_bas_Youden=mean(Youden_bas, na.rm=T),
+  # Advanced model
+  EventRate_adv=mean(EventRate_adv, na.rm=T),
+  EventRate_adv_Youden=mean(Youden_adv, na.rm=T),
+  # Classical model
+  EventRate_classic=mean(EventRate_classic, na.rm=T),
+  EventRate_classic_Youden=mean(Youden_classic, na.rm=T),
+  # Empirical estimates
+  EventRate_Emp=sum(DefSpell_Event)/.N),
+  by=list(TimeInDefSpell)]
 
 
 # --- 3.6 [SANITY CHECK] Graphing survival quantities
