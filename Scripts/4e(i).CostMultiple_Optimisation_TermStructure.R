@@ -236,6 +236,8 @@ plot(x=datResults[Type=="DtH-Advanced",a], y=datResults[Type=="DtH-Advanced",MAE
      xlab="Cost multiple a", ylab="MAE",col="blue", type="b")
 plot(x=datResults[Type=="LR",a], y=datResults[Type=="LR",MAE],
      xlab="Cost multiple a", ylab="MAE",col="orange", type="b")
+plot(x=datResults[Type=="LR" & a < 21,a], y=datResults[Type=="LR" & a < 21,MAE],
+     xlab="Cost multiple a", ylab="MAE",col="orange", type="b")
 
 # Distributional analyses: event rates
 describe(datCredit$EventRate_bas); hist(datCredit$EventRate_bas, breaks="FD")
