@@ -3,7 +3,7 @@
 # ROC-analyses on the same fitted Cox regression model, having used the 
 # prepared credit data
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Default Survival Modelling
+# PROJECT TITLE: Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -19,7 +19,6 @@
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
 #   - 4e.Dichotomisation
-#
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
@@ -43,7 +42,7 @@ if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
-# Create start and stop columns
+# - Create start and stop columns
 datCredit_train[, Start:=TimeInDefSpell-1]
 datCredit_valid[, Start:=TimeInDefSpell-1]
 
@@ -57,6 +56,16 @@ datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=
 
 # - Combine training and validation dataset to enable more smooth graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
+
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
+datAdd[, Start:=Start-1]
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Counter:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
 
 
 # --- 1.2 Load models
@@ -94,9 +103,9 @@ datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
 datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
 # - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
-datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
-datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
-datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
+datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1)-Survival_adv, by=list(DefSpell_Key)]
+datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1)-Survival_bas, by=list(DefSpell_Key)]
+datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1)-Survival_classic, by=list(DefSpell_Key)]
 
 
 
@@ -116,7 +125,6 @@ objROC6_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, mo
                                       predType="response")
 proc.time() - ptm
 objROC6_CDH_CoxDisc_bas$AUC; objROC6_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 50.26%, achieved in 109 secs
 
 
 # --- 2.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
@@ -129,7 +137,7 @@ objROC12_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, m
                                        predType="response")
 proc.time() - ptm
 objROC12_CDH_CoxDisc_bas$AUC; objROC12_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 55.10%, achieved in  171 secs
+### RESULTS: AUC up to t: 56.70%, achieved in 513 secs
 
 
 # --- 2.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
@@ -142,7 +150,7 @@ objROC24_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, m
                                        predType="response")
 proc.time() - ptm
 objROC24_CDH_CoxDisc_bas$AUC; objROC24_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 60.17%, achieved in 218 secs
+### RESULTS: AUC up to t: 60.99%, achieved in 753 secs
 
 
 # --- 2.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
@@ -155,7 +163,7 @@ objROC48_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, m
                                        predType="response")
 proc.time() - ptm
 objROC48_CDH_CoxDisc_bas$AUC; objROC48_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 62.56%, achieved in 360 secs
+### RESULTS: AUC up to t: 61.12%, achieved in 1251 secs
 
 
 # --- 2.5 Store experimental objects | Memory optimisation
@@ -183,7 +191,7 @@ objROC6_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, mo
                                       predType="response")
 proc.time() - ptm
 objROC6_CDH_CoxDisc_adv$AUC; objROC6_CDH_CoxDisc_adv$ROC_graph
-### RESULTS: AUC up to t: 94.56%, achieved in 895 secs
+### RESULTS: AUC up to t: 94.56%, achieved in 4373 secs
 
 
 # --- 3.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
@@ -196,7 +204,7 @@ objROC12_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, m
                                        predType="response")
 proc.time() - ptm
 objROC12_CDH_CoxDisc_adv$AUC; objROC12_CDH_CoxDisc_adv$ROC_graph
-### RESULTS: AUC up to t: 94.97%, achieved in 1256  secs
+### RESULTS: AUC up to t: 95.64%, achieved in 6026 secs
 
 
 # --- 3.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default

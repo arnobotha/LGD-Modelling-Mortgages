@@ -1,7 +1,7 @@
 # ============================== CONSTRUCTING TERM-STUCTURES ===================
 # Construct and compare empirical and expected term-structures of default risk
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG), Marcel Muller (MM)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -43,6 +43,10 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
 # - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+
+# - Create start and stop columns
+datCredit_train[, Start:=TimeInDefSpell-1]
+datCredit_valid[, Start:=TimeInDefSpell-1]
 
 # - Weigh write-off cases
 datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
@@ -157,17 +161,17 @@ datCredit[,Youden_classic:=ifelse(EventRate_classic>thres_classic,1,0)]
 
 # --- 3.5 Aggregate event rates to period-level
 datSurv_exp <- datCredit[,.(# Basic model
-                            EventRate_bas = mean(EventRate_bas, na.rm=T),
-                            EventRate_bas_Youden = mean(Youden_bas, na.rm=T),
-                            # Advanced model
-                            EventRate_adv = mean(EventRate_adv, na.rm=T),
-                            EventRate_adv_Youden = mean(Youden_adv, na.rm=T),
-                            # Classical model
-                            EventRate_classic = mean(EventRate_classic, na.rm=T),
-                            EventRate_classic_Youden = mean(Youden_classic, na.rm=T),
-                            # Empirical estimates
-                            EventRate_Emp = sum(DefSpell_Event)/.N),
-                         by=list(TimeInDefSpell)]
+  EventRate_bas=mean(EventRate_bas, na.rm=T),
+  EventRate_bas_Youden=mean(Youden_bas, na.rm=T),
+  # Advanced model
+  EventRate_adv=mean(EventRate_adv, na.rm=T),
+  EventRate_adv_Youden=mean(Youden_adv, na.rm=T),
+  # Classical model
+  EventRate_classic=mean(EventRate_classic, na.rm=T),
+  EventRate_classic_Youden=mean(Youden_classic, na.rm=T),
+  # Empirical estimates
+  EventRate_Emp=sum(DefSpell_Event)/.N),
+  by=list(TimeInDefSpell)]
 
 
 # --- 3.6 [SANITY CHECK] Graphing survival quantities

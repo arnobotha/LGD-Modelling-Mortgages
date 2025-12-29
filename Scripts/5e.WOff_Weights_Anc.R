@@ -2,8 +2,8 @@
 # Determining optimal weights to assign to write-off cases to enhance model 
 # performance
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG), Marcel Muller (MM)
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R

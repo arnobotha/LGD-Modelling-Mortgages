@@ -1,7 +1,7 @@
 # ================= LGD DISTRIBUTION ANALYSIS - ONE-STAGE MODELS ===============
 # Comparing actual LGDs with expected LGDs from the fitted one-stage models
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -15,7 +15,6 @@
 #   - 2g.Data_Fusion2.R
 #   - 4a(i).InputSpace_SingleStage_Gaussian.R
 #   - 4a(ii).InputSpace_SingleStage_CPG.R
-#
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
@@ -38,8 +37,8 @@ datCredit_train <- datCredit_train_CDH[, .SD[which.max(DefSpell_Counter)], by=Lo
 datCredit_valid <- datCredit_valid_CDH[, .SD[which.max(DefSpell_Counter)], by=LoanID]
 
 # - Identify where the loss rate is out of bounds and not feasible
-datCredit_train <- datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1, 1,0)]
-datCredit_valid <- datCredit_valid[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1, 1,0)]
+datCredit_train <- datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
+datCredit_valid <- datCredit_valid[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
 
 # - Subset to include only relevant data
 datCredit_train <- subset(datCredit_train, OOB_Ind==0)
@@ -56,10 +55,10 @@ datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")
 
 
 # --- 1.2 Load models
-# - Basic discrete-time hazard model
+# - GLM with Gaussian link function
 modGLM_OneStage_Gaus <- readRDS(paste0(genObjPath,"OneStage_Gaus_Model.rds"))
 
-# - Advanced discrete-time hazard model
+# - GLM with Tweedie (Compound Poisson Gaussian) link function
 modGLM_OneStage_CPG <- readRDS(paste0(genObjPath,"OneStage_CPH_Model.rds"))
 
 
@@ -138,8 +137,8 @@ ggsave(plot.full, file=paste0(genFigPath,"/Actual_LGD.png"),width=1200/dpi, heig
 datCredit[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit,type="response")]
 
 # - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit[, LossRate_Gaussian:=ifelse(LossRate_Gaussian>1,1,LossRate_Gaussian)]
-datCredit[, LossRate_Gaussian:=ifelse(LossRate_Gaussian<0,0,LossRate_Gaussian)]
+datCredit_WOFFs[, LossRate_Gaussian:=ifelse(LossRate_Gaussian>1,1,LossRate_Gaussian)]
+datCredit_WOFFs[, LossRate_Gaussian:=ifelse(LossRate_Gaussian<0,0,LossRate_Gaussian)]
 
 # - Estimate mean expected loss rate
 meanLoss_TruEnd_gaussian <- mean(datCredit$LossRate_Gaussian, na.rm=T)
@@ -290,8 +289,8 @@ metrics <- evalModel_onestage(datCredit,"LossRate_Real","LossRate_Tweedie","twee
 
 # - Combine statistics
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
-                                    "KL: ", sprintf("%.4f", metrics$KL), "\n",
-                                    "JS: ", sprintf("%.4f", metrics$JS),
+                    "KL: ", sprintf("%.4f", metrics$KL), "\n",
+                    "JS: ", sprintf("%.4f", metrics$JS),
                     sep = "")
 
 # - Create plotting data
@@ -303,16 +302,16 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Overall LGD distribution
 (gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
-  theme_bw() + geom_histogram(
-    aes(y=after_stat(density), fill=Type, colour=Type),
-    alpha=0.35, bins=round(2 * datCredit[, .N]^(1/3)), position="identity") +
-  labs(x=bquote({Realised~loss~rate~italic(L)}), y="Histogram of loss rates" ) +
-  theme(text=element_text(family=chosenFont),legend.position="bottom",
-        strip.background=element_rect(fill="snow2", colour="snow2"),
-        strip.text=element_text(size = 8, colour = "gray50"),
-        strip.placement="outside",        
-        strip.text.y.right=element_text(angle = 90)) +
-  scale_x_continuous(breaks=pretty_breaks(), labels = scales::percent) +
+    theme_bw() + geom_histogram(
+      aes(y=after_stat(density), fill=Type, colour=Type),
+      alpha=0.35, bins=round(2 * datCredit[, .N]^(1/3)), position="identity") +
+    labs(x=bquote({Realised~loss~rate~italic(L)}), y="Histogram of loss rates" ) +
+    theme(text=element_text(family=chosenFont),legend.position="bottom",
+          strip.background=element_rect(fill="snow2", colour="snow2"),
+          strip.text=element_text(size = 8, colour = "gray50"),
+          strip.placement="outside",        
+          strip.text.y.right=element_text(angle = 90)) +
+    scale_x_continuous(breaks=pretty_breaks(), labels = scales::percent) +
   scale_colour_manual(values=c(vCol[1], vCol[2])) +
   scale_fill_manual(values=c(vCol[1], vCol[2])) +
   facet_grid(FacetLabel ~., scales="free")+

@@ -2,7 +2,7 @@
 # Defining bespoke time-dependent Brier score function, capable of working with
 # time-to-event left-truncated data in the counting process style
 # --------------------------------------------------------------------------------
-# PROJECT TITLE: Default Survival Modelling
+# PROJECT TITLE: Residential Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha
 # VERSION: 1.0 (Jul-2025)
 # ================================================================================

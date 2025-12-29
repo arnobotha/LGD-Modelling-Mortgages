@@ -1,7 +1,7 @@
 # =========================== TIME-DEPENDENT BRIER SCORES ======================
 # Calculate and compare the time-dependent Brier scores across write-off models
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Default survival modelling
+# PROJECT TITLE: Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Garbu (MG), Marcel Muller (MM) Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -41,7 +41,7 @@ if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
-# Create start and stop columns
+# - Create start and stop columns
 datCredit_train[, Start:=TimeInDefSpell-1]
 datCredit_valid[, Start:=TimeInDefSpell-1]
 
@@ -60,6 +60,16 @@ rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
+
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
+datAdd[, Start:=Start-1]
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Counter:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
 
 
 # --- 1.2 Load models
@@ -102,7 +112,6 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
                                  fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                  threshold=thresh_dth_bas, brierType="EventRate"))
 ### RESULTS: Integrated Brier Score = 16.53425%
-
 
 
 # --- 2.2 Advanced discrete-time hazard model
