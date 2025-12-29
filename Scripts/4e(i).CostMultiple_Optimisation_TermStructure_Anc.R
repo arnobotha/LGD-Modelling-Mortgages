@@ -313,13 +313,13 @@ plot(datSurv_exp[TimeInDefSpell<=120, EventRate_classic_Youden], type="b", col="
 lines(datSurv_act[Time<=120, EventRate], type="b")
 
 ### Conclucsion:
-# -- DtH-Basic: The procedure yielded the lowwest MAE across a \in [0,39]], though the resulting term-structure
+# -- DtH-Basic: The procedure yielded the lowest MAE across a \in [0,39]], though the resulting term-structure
 # is a flat zero-valued construct, which is less desirable from a risk prudence point of view. At greater a-values,
 # we took the a-value that produced the second lowest MAE, though which produced a much more credible term-structure
 # at a=40: Threshold =  0.01378371
 # -- DtH-Advanced: Procedured succeeded in identifying the optimal cost multiple that achieved the lowest MAE
 # at a=1: Threshold = 0.3894059
-# -- LR: The procedure's output (a=0.1) produced a flat zero-valued term-structure, which did achieve the low MAE,
+# -- LR: The procedure's output (a=0.1) produced a flat zero-valued term-structure, which did achieve the lowest MAE,
 # however is not desirable from a risk prduence point of view. At greater a-values, there was a local 
 # minimum observed, which prdouced a more credible term-structure, albeit at the cost of a slightly higher MAE,
 # at a=80: Threshold = 0.158223
