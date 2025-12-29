@@ -1053,7 +1053,8 @@ AUC_overTime <- function(DataSet, DateName, Target, Predictions){
 # -------- Cut-off Functions for logit models
 
 # -- Generalised Youden Index Function
-# - This function runs an optimisation procedure to find the Generalised Youden Index for a trained model.
+# - This function runs an optimisation procedure to find a threshold that optimises the 
+# Generalised Youden Index for a trained model.
 ### INPUT:
 # - optimise_type: how the optimisation should proceed, i.e., either:
 #                   1) Model: use the given modelling object to get forecasts determine a threshold
@@ -1063,12 +1064,15 @@ AUC_overTime <- function(DataSet, DateName, Target, Predictions){
 # - Target: Character string containing the name of the target variable (target variable should be numeric 0/1)
 # - prob_vals_given: a pre-determined probability field (used when optomise_type=Other)
 # - a: The cost multiple (or ratio) of a false negative relative to a false positive
+# - replicate: number of times the stochastic optimiser should be run
+# - numThreads: number of CPU cores to be assigned to the replication setup
+# - limits: search space limits towards finding a threshold that optimises the Generalised youden Index
 ### OUTPUT: 
 # - The output of the optimisation procedure; i.e., the optimal cut-off p_c and other information detailing whether the 
 #   algorithm converged.
 
 GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
-                         Target, prob_vals_given=NA, a, replicate=NA, numThreads=8){
+                         Target, prob_vals_given=NA, a, replicate=NA, numThreads=8, limits=c(0,1)){
   # optimise_type<-"Pre-determined"; Trained_Model<-modLR_bas; Train_DataSet<-datCredit_train
   # Target<-"DefSpell_Event"; prob_vals_given="EventRate_bas"; a<-1; replicate<-10; numThreads<-10
   
@@ -1129,8 +1133,8 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
   }
   
   # - Run Optimisation via a Differential Evolution algorithm
-  if (is.na(replicate)){
-    results <- JDEoptim(lower=0, upper=1, fn=GYI_a)
+  if (is.na(replicate) | replicate==1){
+    results <- JDEoptim(lower=limits[1], upper=limits[2], fn=GYI_a)
     # optim(par=c(0,1), fn=GYI_a, lower=0, upper=1)
     
     # - Return results
@@ -1143,7 +1147,8 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
     ###       In such instances, the JDEoptim-function will otherwise select a random global minima
     
     ptm <- proc.time() #IGNORE: for computation time calculation
-    cl.port <- makeCluster(round(numThreads)); registerDoParallel(cl.port) # multi-threading setup
+    cl.port <- makeCluster(round(numThreads), type = "PSOCK", setup_strategy = "sequential"); 
+    registerDoParallel(cl.port) # multi-threading setup
     cat("New Job: Estimating optimal threshold for dichotomisation using a Generalised Youden Index with 
         cost multiple a=", a, "..",
         file="assesslog_GeneralYoudenIndex.txt", append=F)
@@ -1154,7 +1159,7 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
       
       { # ----------------- Start of Loop -----------------
         # j <- 1 # testing condition
-        results <- JDEoptim(lower=0, upper=1, fn=GYI_a)
+        results <- JDEoptim(lower=limits[1], upper=limits[2], fn=GYI_a)
         cat(paste0("\n Replication: ", j, " done."),
             file="assesslog_GeneralYoudenIndex.txt", append=T)
         c(results$par,results$value)

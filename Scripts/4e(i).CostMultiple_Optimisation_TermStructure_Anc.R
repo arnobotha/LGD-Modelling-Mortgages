@@ -58,7 +58,9 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
 # --- 1.3 Other parameters
 # Cost multiple (a) vector
-vCostMultiples <- seq(from=1, to=10, by=1)
+vCostMultiples <- c(seq(from=0.1, to=1, by=0.1), 
+                    seq(from=2, to=10, by=0.5),
+                    seq(from=11,to=100, by=1))
 
 
 
@@ -152,11 +154,15 @@ datCredit_train_classic[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist!="WOFF"
 # ------ 4. Iteration over a-vector (cost multiples) for Generalised Youden Index
 # For a given cost multiple, we calculate the corresponding Generalised Youden Index towards
 # finding an appropriate probability/marker cut-off that penalises false negatives by (a) times more than
-# false positives.
-# Then, 
+# false positives. Then, impose this cut-off and aggregate the dichotomised event rates to the spell period level.
+# Calculate the MAE between the resulting expected term-structure and its empirical counterpart.
+# Repeat this process for each cost multiple and collate results.
+# The 'best' cost multiple is then the one that minimises the MAE between the empirical and expected term-structures
+### NOTE: Regarding replication within GenYoudenIndex, analysis has shown that the advanced DtH-model exhibits 
+# far less variability in its results, hence the lower replication value compared to that of the basic DtH-model.
 
 ptm <- proc.time() #IGNORE: for computation time calculation
-for (i in 1:length(vCostMultiples)) {
+for (i in 101:length(vCostMultiples)) {
   # - Testing conditions
   # a <- vCostMultiples[1]; i <- 1
   
@@ -164,21 +170,21 @@ for (i in 1:length(vCostMultiples)) {
   # - Basic DtH-model
   thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit[Sample=="Train",],
                                    Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
-                                   a=vCostMultiples[i], replicate=50)
+                                   a=vCostMultiples[i], replicate=150, numThreads=8)
   # - Advanced DtH-model
   thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit[Sample=="Train",], 
                                    Target="DefSpell_Event", prob_vals_given="EventRate_adv", 
-                                   a=vCostMultiples[i], replicate=5)
+                                   a=vCostMultiples[i], replicate=3, numThreads=3)
   # - Classical model
-  (thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train_classic,
+  thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train_classic,
                                        Target="DefSpell_Event", prob_vals_given="EventRate_classic",
-                                       a=vCostMultiples[i]))
+                                       a=vCostMultiples[i])
   
   
   # -- Dichotomise probabilistic models
-  datCredit[,Youden_bas:=ifelse(EventRate_bas>thresh_dth_bas$cutoff,1,0)]
-  datCredit[,Youden_adv:=ifelse(EventRate_adv>thresh_dth_adv$cutoff,1,0)]
-  datCredit[,Youden_classic:=ifelse(EventRate_classic>thresh_lr_classic$cutoff,1,0)]
+  datCredit[, Youden_bas := ifelse(EventRate_bas > thresh_dth_bas$cutoff,1,0)]
+  datCredit[, Youden_adv := ifelse(EventRate_adv > thresh_dth_adv$cutoff,1,0)]
+  datCredit[, Youden_classic := ifelse(EventRate_classic > thresh_lr_classic$cutoff,1,0)]
   
   # -- Aggregate event rates and calculate MAEs
   # - Aggregate event rates to period-level
@@ -190,8 +196,8 @@ for (i in 1:length(vCostMultiples)) {
   
   # - Plotting event rates for actuals and all expecteds
   #plot(datSurv_act[Time<=120, EventRate], type="b")
-  #lines(datSurv_exp[TimeInDefSpell<=120, EventRate_adv_Youden], type="b", col="blue")
-  #lines(datSurv_exp[TimeInDefSpell<=120, EventRate_bas_Youden], type="b", col="purple")
+  #lines(datSurv_exp[TimeInDefSpell<=120, EventRate_adv_Youden], type="b", col="red")
+  #lines(datSurv_exp[TimeInDefSpell<=120, EventRate_bas_Youden], type="b", col="blue")
   #lines(datSurv_exp[TimeInDefSpell<=120, EventRate_classic_Youden], type="b", col="orange")
   
   # - Calculate MAE between event rates
@@ -220,20 +226,23 @@ for (i in 1:length(vCostMultiples)) {
 }
 proc.time() - ptm
 
+# - Save optimisation results to disk
+pack.ffdf(paste0(genObjPath,"CostMultipleResults"), datResults)
 
-# - Obtain MAE-minima
-datResults <- datResults[order(Type),]
-datResults[which.min(datResults[Type=="DtH-Basic", MAE]),]
-datResults[which.min(datResults[Type=="DtH-Advanced", MAE]),]
-datResults[which.min(datResults[Type=="LR", MAE]),]
+
+
+
+# ------ 5. General analysis of results
 
 # quick plots: MAE over a
 plot(x=datResults[Type=="DtH-Basic",a], y=datResults[Type=="DtH-Basic",MAE],
-     xlab="Cost multiple a", ylab="MAE",col="red")
+     xlab="Cost multiple a", ylab="MAE",col="red", type="b")
 plot(x=datResults[Type=="DtH-Advanced",a], y=datResults[Type=="DtH-Advanced",MAE],
-     xlab="Cost multiple a", ylab="MAE",col="blue")
+     xlab="Cost multiple a", ylab="MAE",col="blue", type="b")
 plot(x=datResults[Type=="LR",a], y=datResults[Type=="LR",MAE],
-     xlab="Cost multiple a", ylab="MAE",col="black")
+     xlab="Cost multiple a", ylab="MAE",col="orange", type="b")
+plot(x=datResults[Type=="LR" & a < 21,a], y=datResults[Type=="LR" & a < 21,MAE],
+     xlab="Cost multiple a", ylab="MAE",col="orange", type="b")
 
 # Distributional analyses: event rates
 describe(datCredit$EventRate_bas); hist(datCredit$EventRate_bas, breaks="FD")
@@ -243,12 +252,104 @@ describe(datCredit$EventRate_adv); hist(datCredit$EventRate_adv, breaks="FD")
 describe(datCredit$EventRate_classic); hist(datCredit$EventRate_classic, breaks="FD")
 ### RESULTS: Right-skewed distribution with extreme outliers
 
-
 # quick plots: Threshold over a
 plot(x=datResults[Type=="DtH-Basic",a], y=datResults[Type=="DtH-Basic",Threshold],
-     xlab="Cost multiple a", ylab="Threshold c",col="red")
+     xlab="Cost multiple a", ylab="Threshold c",col="red", type="b")
 plot(x=datResults[Type=="DtH-Advanced",a], y=datResults[Type=="DtH-Advanced",Threshold],
-     xlab="Cost multiple a", ylab="Threshold c",col="blue")
+     xlab="Cost multiple a", ylab="Threshold c",col="blue", type="b")
 plot(x=datResults[Type=="LR",a], y=datResults[Type=="LR",Threshold],
-     xlab="Cost multiple a", ylab="Threshold c",col="black")
+     xlab="Cost multiple a", ylab="Threshold c",col="orange", type="b")
 
+# --- Investigate specific thresholds' impact on the expected term-structure
+# just for inspection purposes
+datTest <- datResults[Type=="DtH-Basic",list(Type, a, Threshold, MAE)]
+datTest <- datResults[Type=="DtH-Advanced",list(Type, a, Threshold, MAE)]
+datTest <- datResults[Type=="LR",list(Type, a, Threshold, MAE)]
+
+# -- Assign cut-offs based on optimisation results
+cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==40, Threshold]
+#cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==82, Threshold]
+cutoff_dtH_adv <- datResults[Type=="DtH-Advanced" & a==1, Threshold]
+cutoff_dtH_adv <- 0.3894059 # found previousliy at a=1 with many more replications
+cutoff_LR <- datResults[Type=="LR" & a==80, Threshold]
+
+# -- Dichotomise probabilistic models
+datCredit[, Youden_bas := ifelse(EventRate_bas > cutoff_dth_bas,1,0)]
+datCredit[, Youden_adv := ifelse(EventRate_adv > cutoff_dtH_adv,1,0)]
+datCredit[, Youden_classic := ifelse(EventRate_classic > cutoff_LR,1,0)]
+
+# -- Aggregate event rates and calculate MAEs
+# - Aggregate event rates to period-level
+datSurv_exp <- datCredit[,.(
+  EventRate_bas_Youden = mean(Youden_bas, na.rm=T),
+  EventRate_adv_Youden = mean(Youden_adv, na.rm=T),
+  EventRate_classic_Youden = mean(Youden_classic, na.rm=T)),
+  by=list(TimeInDefSpell)]
+
+# - Calculate MAE between event rates
+# Basic model
+(MAE_eventProb_bas_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
+                                        datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_bas_Youden]), na.rm=T))
+# Advanced model
+(MAE_eventProb_adv_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
+                                        datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_adv_Youden]), na.rm=T))
+# Classical model
+(MAE_eventProb_classic_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
+                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_classic_Youden]), na.rm=T))
+
+
+# - Plotting event rates for actuals and all expecteds
+plot(datSurv_act[Time<=120, EventRate], type="b")
+lines(datSurv_exp[TimeInDefSpell<=120, EventRate_bas_Youden], type="b", col="red")
+lines(datSurv_exp[TimeInDefSpell<=120, EventRate_adv_Youden], type="b", col="blue")
+lines(datSurv_exp[TimeInDefSpell<=120, EventRate_classic_Youden], type="b", col="orange")
+
+# Specific plot for DtH-basic model
+plot(datSurv_exp[TimeInDefSpell<=120, EventRate_bas_Youden], type="b", col="red")
+lines(datSurv_act[Time<=120, EventRate], type="b")
+
+# Specific plot for classic LR-model
+plot(datSurv_exp[TimeInDefSpell<=120, EventRate_classic_Youden], type="b", col="orange")
+lines(datSurv_act[Time<=120, EventRate], type="b")
+
+### Conclucsion:
+# -- DtH-Basic: The procedure yielded the lowwest MAE across a \in [0,39]], though the resulting term-structure
+# is a flat zero-valued construct, which is less desirable from a risk prudence point of view. At greater a-values,
+# we took the a-value that produced the second lowest MAE, though which produced a much more credible term-structure
+# at a=40: Threshold =  0.01378371
+# -- DtH-Advanced: Procedured succeeded in identifying the optimal cost multiple that achieved the lowest MAE
+# at a=1: Threshold = 0.3894059
+# -- LR: The procedure's output (a=0.1) produced a flat zero-valued term-structure, which did achieve the low MAE,
+# however is not desirable from a risk prduence point of view. At greater a-values, there was a local 
+# minimum observed, which prdouced a more credible term-structure, albeit at the cost of a slightly higher MAE,
+# at a=80: Threshold = 0.158223
+
+
+
+# ------ 6. Production-grade graph of results
+# TBD
+
+# ------ 7. Imposing limits on optimisation process's search space
+
+# -- Run subroutine for the Generalised Youden Index given a specific cost multiple (a)
+# - Basic DtH-model
+thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit[Sample=="Train",],
+                                 Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
+                                 a=1, replicate=150, numThreads=8, limits=c(0,0.02))
+
+# -- Dichotomise probabilistic models
+datCredit[, Youden_bas := ifelse(EventRate_bas > thresh_dth_bas$cutoff,1,0)]
+
+# -- Aggregate event rates and calculate MAEs
+# - Aggregate event rates to period-level
+datSurv_exp <- datCredit[,.(EventRate_bas_Youden = mean(Youden_bas, na.rm=T)),
+  by=list(TimeInDefSpell)]
+
+# - Calculate MAE between event rates
+# Basic model
+(MAE_eventProb_bas_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
+                                        datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_bas_Youden]), na.rm=T))
+
+# - Plotting event rates for actuals and all expecteds
+plot(datSurv_act[Time<=120, EventRate], type="b")
+lines(datSurv_exp[TimeInDefSpell<=120, EventRate_adv_Youden], type="b", col="red")
