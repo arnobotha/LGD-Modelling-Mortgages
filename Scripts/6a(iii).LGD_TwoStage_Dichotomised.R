@@ -40,27 +40,22 @@
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
-# - Filter to maximum spell counter
-datCredit_train <- datCredit_train_CDH[DefSpell_Counter==1]
-datCredit_valid <- datCredit_valid_CDH[DefSpell_Counter==1]
 
 # - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
 datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
 datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
 
-# - Identify where the loss rate is out of bounds and not feasible
-datCredit_train <- datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
-datCredit_valid <- datCredit_valid[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
-
-# - Subset to include only relevant data
-datCredit_train <- subset(datCredit_train, OOB_Ind==0)
-datCredit_valid <- subset(datCredit_valid, OOB_Ind==0)
-
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
-
-# - Subset for write-offs only to create inset plots
-datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
+datAdd[, Start:=Start-1]
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Counter:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
 
 # - Remove objects
 rm(datCredit_train_CDH, datCredit_valid_CDH, datCredit_train, datCredit_valid); gc()
@@ -80,7 +75,19 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 modGLM_Severity_CPG <- readRDS(paste0(genObjPath,"Severity_CPH_Model.rds"))
 
 
-# --- 1.3 Estimate event rates to facilitate the application of dichotomisation
+# --- 1.3 Additional parameters
+# - Youden Index cut-offs
+# Load thresholds
+thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
+# Basic discrete-time model
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.01390104
+# Advanced discrete-time model
+(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3975731
+# Classical logit model
+(thresh_classic <- thresh_lst[["Classical"]]) # 0.01959181
+
+
+# --- 1.4 Estimate event rates to facilitate the application of dichotomisation
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
@@ -96,10 +103,13 @@ datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Surviv
 datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
 datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
 
-# - Dichotomise event rates given thresholds
-datCredit[,Youden_bas:=ifelse(EventRate_bas>thresh_dth_bas,1,0)]
-datCredit[,Youden_adv:=ifelse(EventRate_adv>thresh_dth_adv,1,0)]
-datCredit[,Youden_classic:=ifelse(EventRate_classic>thres_classic,1,0)]
+# - Remove added rows
+datCredit <- subset(datCredit, Counter>0)
+
+# - Dichotomise predictions
+datCredit[, Youden_bas:=ifelse(EventRate_bas>thresh_dth_bas,1,0)]
+datCredit[, Youden_adv:=ifelse(EventRate_bas>thresh_dth_adv,1,0)]
+datCredit[, Youden_classic:=ifelse(EventRate_bas>thresh_classic,1,0)]
 
 
 # --- 1.4 Estimate severities and interact them with the probabilities
@@ -119,18 +129,31 @@ datCredit[, LossRate_est_classic:=LossSeverity*Youden_classic]
 datCredit_WOFFs[, LossRate_est_classic:=LossSeverity*Youden_classic]
 
 
+# --- 1.5 Subset data
+# - Filter to maximum spell counter
+datCredit <- subset(datCredit, DefSpell_Counter==1)
+
+# - Identify where the loss rate is out of bounds and not feasible
+datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
+
+# - Subset to include only relevant data
+datCredit <- subset(datCredit, OOB_Ind==0)
+
+# - Subset for write-offs only to create inset plots
+datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")
+
+
 
 
 # ------ 2. LGDs from dichotomised basic discrete time hazard model and the severity model
 
 # --- 2.1 Compare overall expected LGDs with actuals
-# - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit[, LossRate_est_bas:=ifelse(LossRate_est_bas>1,1,LossRate_est_bas)]
-datCredit[, LossRate_est_bas:=ifelse(LossRate_est_bas<0,0,LossRate_est_bas)]
+# - Filter for non-sensical loss rates
+datCredit_bas <- subset(datCredit, LossRate_est_bas<=1 & LossRate_est_bas>=0)
 
 # - Estimate statistics on distributional differences
-metrics<-evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_bas",
-                            writeoff_type="survival_adv",modLR_Adv,modGLM_Severity_CPG,NULL)
+metrics<-evalModel_twostage(datCredit_bas, "LossRate_Real", "LossRate_est_bas",
+                            writeoff_type="survival_adv", modLR_Adv,modGLM_Severity_CPG, NULL)
 
 # - Create plotting data
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -139,17 +162,18 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     sep = "")
 
 # - Create plotting dataset
-plotData <- melt(datCredit,measure.vars = c("LossRate_Real", "LossRate_est_bas"),variable.name = "Type",value.name = "LossRate")
-plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_bas"),
-                          labels = c("Empirical", "DtH-Basic B"))]
-plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
+plotData <- melt(datCredit_bas,measure.vars=c("LossRate_Real", "LossRate_est_bas"),
+                 variable.name="Type",value.name="LossRate")
+plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_bas"),
+                          labels=c("Empirical", "DtH-Basic B"))]
+plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Graphing parameters
 chosenFont <-"Cambria"
 vCol <- brewer.pal(10, "Paired")[c(8,6)]
 
 # - Plot
-gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
+(gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
   theme_bw() +
   geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type),
                  alpha=0.35,bins=round(2 * datCredit[, .N]^(1/3)), position="identity") +
@@ -163,25 +187,25 @@ gOverlay <- ggplot(plotData, aes(x=LossRate)) +
   scale_colour_manual(values=c(vCol[1], vCol[2])) +
   scale_fill_manual(values=c(vCol[1], vCol[2])) +
   facet_grid(FacetLabel ~., scales="free")+
-  guides(fill=guide_legend(title = NULL), colour=guide_legend(title = NULL))
+  guides(fill=guide_legend(title = NULL), colour=guide_legend(title = NULL)))
 
 
 # --- 2.2 Compare expected write-off LGDs with actuals
-# - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit[, LossRate_est_bas:=ifelse(LossRate_est_bas>1,1,LossRate_est_bas)]
-datCredit[, LossRate_est_bas:=ifelse(LossRate_est_bas<0,0,LossRate_est_bas)]
+# - Filter for non-sensical loss rates
+datCredit_bas_WOFFs <- subset(datCredit_WOFFs, LossRate_est_bas<=1 & LossRate_est_bas>=0)
 
 # - Create plotting data
-plotData <- melt(datCredit_hist,measure.vars = c("LossRate_Real", "LossRate_est_bas"),variable.name = "Type",value.name = "LossRate")
-plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_bas"),
-                          labels = c("Actual loss rate", "DtH-Basic B"))]
-plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
+plotData <- melt(datCredit_bas_WOFFs, measure.vars=c("LossRate_Real", "LossRate_est_bas"),
+                 variable.name="Type", value.name="LossRate")
+plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_bas"),
+                        labels=c("Actual loss rate", "DtH-Basic B"))]
+plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Plot
-(gOverlay_hist <- ggplot(plotData, aes(x=LossRate)) + 
+(gOverlay_WOFFs <- ggplot(plotData, aes(x=LossRate)) + 
     theme_bw() +
     geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type), alpha=0.35,
-                   bins=round(2*datCredit_hist[,.N]^(1/3)), position="identity") +
+                   bins=round(2*datCredit_bas_WOFFs[,.N]^(1/3)), position="identity") +
     theme(legend.position="none",text = element_text(size = 12, family = chosenFont),
           axis.text.y=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
           axis.text.x=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
@@ -196,9 +220,9 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"),
           strip.text.y.right=element_text(angle=90)) +
-    annotate("label", x = 0.7, y = 8 , label = stats_text,
-             hjust = 0, vjust = 1, family = chosenFont,
-             size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    annotate("label", x=0.7, y=40 , label=stats_text,
+             hjust=0, vjust=1, family=chosenFont,
+             size=4, fill="white", colour="black", label.size=0.5) +
     labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
@@ -209,7 +233,7 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
 # - Combine graphs
 ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
-(plot.full <- gOverlay + annotation_custom(grob = ggplotGrob(gOverlay_hist), xmin=0.2, xmax=1, ymin=ymin, ymax=ymax))
+(plot.full <- gOverlay + annotation_custom(grob = ggplotGrob(gOverlay_WOFFs), xmin=0.2, xmax=1, ymin=ymin, ymax=ymax))
 
 # - Save plot
 dpi <- 180
@@ -221,13 +245,12 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_DtH_Bas_B.png"),wid
 # ------ 3. LGDs from dichotomised advanced discrete time hazard model and the severity model
 
 # --- 3.1 Compare overall expected LGDs with actuals
-# - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit[, LossRate_est_bas:=ifelse(LossRate_est_adv>1,1,LossRate_est_adv)]
-datCredit[, LossRate_est_bas:=ifelse(LossRate_est_adv<0,0,LossRate_est_adv)]
+# - Filter for non-sensical loss rates
+datCredit_adv <- subset(datCredit, LossRate_est_adv<=1 & LossRate_est_adv>=0)
 
 # - Estimate statistics on distributional differences
-metrics<-evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_adv",
-                            writeoff_type="survival_adv",modLR_Adv,modGLM_Severity_CPG,NULL)
+metrics<-evalModel_twostage(datCredit, "LossRate_Real","LossRate_est_adv",
+                            writeoff_type="survival_adv", modLR_Adv,modGLM_Severity_CPG, NULL)
 
 # - Create plotting data
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -236,17 +259,18 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     sep = "")
 
 # - Create plotting dataset
-plotData <- melt(datCredit,measure.vars = c("LossRate_Real", "LossRate_est_adv"),variable.name = "Type",value.name = "LossRate")
-plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_adv"),
-                          labels = c("Empirical", "DtH-Advanced B"))]
-plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
+plotData <- melt(datCredit_adv, measure.vars=c("LossRate_Real", "LossRate_est_adv"),
+                 variable.name="Type", value.name="LossRate")
+plotData[, Type:=factor(Type, levels=c("LossRate_Real", "LossRate_est_adv"),
+                        labels=c("Empirical", "DtH-Advanced B"))]
+plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Graphing parameters
 chosenFont <-"Cambria"
 vCol <- brewer.pal(10, "Paired")[c(8,6)]
 
 # - Plot
-gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
+(gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
   theme_bw() +
   geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type),
                  alpha=0.35,bins=round(2 * datCredit[, .N]^(1/3)), position="identity") +
@@ -260,25 +284,25 @@ gOverlay <- ggplot(plotData, aes(x=LossRate)) +
   scale_colour_manual(values=c(vCol[1], vCol[2])) +
   scale_fill_manual(values=c(vCol[1], vCol[2])) +
   facet_grid(FacetLabel ~., scales="free")+
-  guides(fill=guide_legend(title = NULL), colour=guide_legend(title = NULL))
+  guides(fill=guide_legend(title = NULL), colour=guide_legend(title = NULL)))
 
 
 # --- 3.2 Compare expected write-off LGDs with actuals
-# - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit[, LossRate_est_adv:=ifelse(LossRate_est_adv>1,1,LossRate_est_adv)]
-datCredit[, LossRate_est_adv:=ifelse(LossRate_est_asv<0,0,LossRate_est_adv)]
+# - Filter for non-sensical loss rates
+datCredit_adv_WOFFs <- subset(datCredit_WOFFs, LossRate_est_adv<=1 & LossRate_est_adv>=0)
 
 # - Create plotting data
-plotData <- melt(datCredit_hist,measure.vars = c("LossRate_Real", "LossRate_est_adv"),variable.name = "Type",value.name = "LossRate")
-plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_adv"),
-                          labels = c("Actual loss rate", "DtH-Advanced B"))]
-plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
+plotData <- melt(datCredit_adv_WOFFs, measure.vars=c("LossRate_Real", "LossRate_est_adv"),
+                 variable.name="Type", value.name="LossRate")
+plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_adv"),
+                        labels=c("Actual loss rate", "DtH-Advanced B"))]
+plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Plot
 (gOverlay_hist <- ggplot(plotData, aes(x=LossRate)) + 
     theme_bw() +
     geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type), alpha=0.35,
-                   bins=round(2*datCredit_hist[,.N]^(1/3)), position="identity") +
+                   bins=round(2*datCredit_adv_WOFFs[,.N]^(1/3)), position="identity") +
     theme(legend.position="none",text = element_text(size = 12, family = chosenFont),
           axis.text.y=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
           axis.text.x=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
@@ -293,13 +317,13 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"),
           strip.text.y.right=element_text(angle=90)) +
-    annotate("label", x = 0.7, y = 8 , label = stats_text,
-             hjust = 0, vjust = 1, family = chosenFont,
-             size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    annotate("label", x=0.7, y=40, label = stats_text,
+             hjust=0, vjust=1, family = chosenFont,
+             size=4, fill="white", colour="black", label.size=0.5) +
     labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
-    scale_fill_manual(values   = c(vCol[1], vCol[2])))
+    scale_fill_manual(values=c(vCol[1], vCol[2])))
 
 
 # --- 3.3 Combine and save graphs
@@ -318,13 +342,12 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_DtH_Adv_B.png"),wid
 # ------ 4. LGDs from classical logistic regression model and the severity model
 
 # --- 4.1 Compare overall expected LGDs with actuals
-# - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit[, LossRate_est_classic:=ifelse(LossRate_est_classic>1,1,LossRate_est_classic)]
-datCredit[, LossRate_est_classic:=ifelse(LossRate_est_classic<0,0,LossRate_est_classic)]
+# - Filter for non-sensical loss rates
+datCredit_classic <- subset(datCredit, LossRate_est_classic<=1 & LossRate_est_classic>=0)
 
 # - Estimate statistics on distributional differences
-metrics<-evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_classic",
-                            writeoff_type="survival_classic",modLR_Adv,modGLM_Severity_CPG,NULL)
+metrics <- evalModel_twostage(datCredit_classic, "LossRate_Real", "LossRate_est_classic",
+                              writeoff_type="logistic", modLR_Classic, modGLM_Severity_CPG, NULL)
 
 # - Create plotting data
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -333,17 +356,18 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     sep = "")
 
 # - Create plotting dataset
-plotData <- melt(datCredit,measure.vars = c("LossRate_Real", "LossRate_est_classic"),variable.name = "Type",value.name = "LossRate")
-plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_classic"),
-                          labels = c("Empirical", "Logistic Regression B"))]
-plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
+plotData <- melt(datCredit_classic, measure.vars=c("LossRate_Real", "LossRate_est_classic"),
+                 variable.name="Type", value.name="LossRate")
+plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_classic"),
+                        labels=c("Empirical", "Logistic Regression B"))]
+plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Graphing parameters
 chosenFont <-"Cambria"
 vCol <- brewer.pal(10, "Paired")[c(8,6)]
 
 # - Plot
-gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
+(gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
   theme_bw() +
   geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type),
                  alpha=0.35,bins=round(2 * datCredit[, .N]^(1/3)), position="identity") +
@@ -357,25 +381,25 @@ gOverlay <- ggplot(plotData, aes(x=LossRate)) +
   scale_colour_manual(values=c(vCol[1], vCol[2])) +
   scale_fill_manual(values=c(vCol[1], vCol[2])) +
   facet_grid(FacetLabel ~., scales="free")+
-  guides(fill=guide_legend(title = NULL), colour=guide_legend(title = NULL))
+  guides(fill=guide_legend(title = NULL), colour=guide_legend(title = NULL)))
 
 
-# --- 3.2 Compare expected write-off LGDs with actuals
-# - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit[, LossRate_est_adv:=ifelse(LossRate_est_adv>1,1,LossRate_est_adv)]
-datCredit[, LossRate_est_adv:=ifelse(LossRate_est_asv<0,0,LossRate_est_adv)]
+# --- 4.2 Compare expected write-off LGDs with actuals
+# - Filter for non-sensical loss rates
+datCredit_classic_WOFFs <- subset(datCredit_WOFFs, LossRate_est_classic<=1 & LossRate_est_classic>=0)
 
 # - Create plotting data
-plotData <- melt(datCredit_hist,measure.vars = c("LossRate_Real", "LossRate_est_classic"),variable.name = "Type",value.name = "LossRate")
-plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_classic"),
-                          labels = c("Actual loss rate", "Logistic Regression B"))]
-plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
+plotData <- melt(datCredit_classic_WOFFs, measure.vars=c("LossRate_Real", "LossRate_est_classic"),
+                 variable.name="Type", value.name="LossRate")
+plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_classic"),
+                          labels=c("Actual loss rate", "Logistic Regression B"))]
+plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Plot
-(gOverlay_hist <- ggplot(plotData, aes(x=LossRate)) + 
+(gOverlay_WOFFs <- ggplot(plotData, aes(x=LossRate)) + 
     theme_bw() +
     geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type), alpha=0.35,
-                   bins=round(2*datCredit_hist[,.N]^(1/3)), position="identity") +
+                   bins=round(2*datCredit_classic_WOFFs[,.N]^(1/3)), position="identity") +
     theme(legend.position="none",text = element_text(size = 12, family = chosenFont),
           axis.text.y=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
           axis.text.x=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
@@ -390,16 +414,16 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"),
           strip.text.y.right=element_text(angle=90)) +
-    annotate("label", x = 0.7, y = 8 , label = stats_text,
-             hjust = 0, vjust = 1, family = chosenFont,
-             size = 4, fill = "white", colour = "black", label.size = 0.5) +
+    annotate("label", x=0.7, y=40, label=stats_text,
+             hjust=0, vjust=1, family=chosenFont,
+             size=4, fill = "white", colour="black", label.size=0.5) +
     labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
-    scale_fill_manual(values   = c(vCol[1], vCol[2])))
+    scale_fill_manual(values=c(vCol[1], vCol[2])))
 
 
-# --- 3.3 Combine and save graphs
+# --- 4.3 Combine and save graphs
 # - Combine graphs
 ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95

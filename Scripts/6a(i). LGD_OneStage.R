@@ -18,8 +18,10 @@
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
-#   - modGLM_OneStage_Gaus | Single stage GLM model with a Gaussian link function as fitted in script 4a(i)
-#   - modGLM_OneStage_CPG | Single stage GLM model with a Tweedie link function as fitted in script 4a(ii)
+#   - modGLM_OneStage_Gaus | Single stage GLM model with a Gaussian link function
+#                            as fitted in script 4a(i)
+#   - modGLM_OneStage_CPG | Single stage GLM model with a Tweedie link function
+#                           as fitted in script 4a(ii)
 # -- Outputs:
 #   - <Analytics> | Graphs
 # ==============================================================================
@@ -37,8 +39,8 @@ datCredit_train <- datCredit_train_CDH[DefSpell_Counter==1]
 datCredit_valid <- datCredit_valid_CDH[DefSpell_Counter==1]
 
 # - Identify where the loss rate is out of bounds and not feasible
-datCredit_train <- datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
-datCredit_valid <- datCredit_valid[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
+datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
+datCredit_valid[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
 
 # - Subset to include only relevant data
 datCredit_train <- subset(datCredit_train, OOB_Ind==0)
@@ -142,8 +144,8 @@ datCredit_WOFFs[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCr
 datCredit_Gaus <- subset(datCredit, LossRate_Gaussian<=1 & LossRate_Gaussian>=0)
 
 # - Estimate mean expected loss rate
-meanLoss_TruEnd_gaussian <- mean(datCredit_Gaus$LossRate_Gaussian, na.rm=T)
-### RESULTS: Mean = 
+(meanLoss_TruEnd_gaussian <- mean(datCredit_Gaus$LossRate_Gaussian, na.rm=T))
+### RESULTS: Mean = 0.08693827
 
 # - Estimate statistics on distributional diffirences
 metrics <- evalModel_onestage(datCredit_Gaus,"LossRate_Real", "LossRate_Gaussian", "gaussian", modGLM_OneStage_Gaus)
@@ -283,7 +285,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 datCredit_WOFFs[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit_WOFFs,type="response")]
 
 # - Filter for non-sensical loss rates
-datCredit_WOFFs_Tweedie <- subset(datCredit_WOFFs_Tweedie, LossRate_Tweedie<=1 & LossRate_Tweedie>=0)
+datCredit_WOFFs_Tweedie <- subset(datCredit_WOFFs, LossRate_Tweedie<=1 & LossRate_Tweedie>=0)
 
 # - Create plotting data
 plotData <- melt(datCredit_WOFFs_Tweedie, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),

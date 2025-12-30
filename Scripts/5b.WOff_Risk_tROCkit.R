@@ -220,7 +220,7 @@ objROC24_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, m
                                        predType="response")
 proc.time() - ptm
 objROC24_CDH_CoxDisc_adv$AUC; objROC24_CDH_CoxDisc_adv$ROC_grap
-### RESULTS: AUC up to t: 96.57%, achieved in 2053 secs
+### RESULTS: AUC up to t: 96.74%, achieved in 9720.44 secs
 
 
 # --- 3.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
