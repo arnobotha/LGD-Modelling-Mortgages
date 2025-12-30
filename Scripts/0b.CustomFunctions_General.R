@@ -1071,10 +1071,11 @@ AUC_overTime <- function(DataSet, DateName, Target, Predictions){
 # - The output of the optimisation procedure; i.e., the optimal cut-off p_c and other information detailing whether the 
 #   algorithm converged.
 
-GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
-                         Target, prob_vals_given=NA, a, replicate=NA, numThreads=8, limits=c(0,1)){
-  # optimise_type<-"Pre-determined"; Trained_Model<-modLR_bas; Train_DataSet<-datCredit_train
+GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,Target, prob_vals_given=NA, 
+                         a, replicate=NA, numThreads=8, limits=c(0,1),replicateName=NA){
+  # optimise_type<-"Pre-determined"; Trained_Model<-modLR_Bas; Train_DataSet<-datCredit[Sample=="Train",]
   # Target<-"DefSpell_Event"; prob_vals_given="EventRate_bas"; a<-1; replicate<-10; numThreads<-10
+  # limits <- c(0,0.025); replicateName<-"DtH-Basic"
   
   require(data.table, DEoptimR)
   
@@ -1143,14 +1144,12 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
   } else {
     
     # - Run optimisation a [replicate] number of times in selecting the minimum threshold
-    ### NOPE: This is required in the instance of multiple global minima of the exact same magnitude
+    ### NOTE: This is required in the instance of multiple global minima of the exact same magnitude
     ###       In such instances, the JDEoptim-function will otherwise select a random global minima
-    
-    ptm <- proc.time() #IGNORE: for computation time calculation
     cl.port <- makeCluster(round(numThreads), type = "PSOCK", setup_strategy = "sequential"); 
     registerDoParallel(cl.port) # multi-threading setup
     cat("New Job: Estimating optimal threshold for dichotomisation using a Generalised Youden Index with 
-        cost multiple a=", a, "..",
+        cost multiple a=", a, " for replication series '", replicateName, "'..",
         file="assesslog_GeneralYoudenIndex.txt", append=F)
     
     results_rep <- foreach(j=1:replicate, .combine='rbind', .verbose=F, .inorder=T,
@@ -1162,20 +1161,19 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
         results <- JDEoptim(lower=limits[1], upper=limits[2], fn=GYI_a)
         cat(paste0("\n Replication: ", j, " done."),
             file="assesslog_GeneralYoudenIndex.txt", append=T)
-        c(results$par,results$value)
+        c(results$par, results$value)
       } # ----------------- End of Loop -----------------
-    stopCluster(cl.port); proc.time() - ptm
+    stopCluster(cl.port)
     
-    # Store results for export
-    results <- list(par=results_rep[which.min(results_rep[,1]),1],
-                   value=results_rep[1,which.min(results_rep[1,])],
-                   iter=replicate)
-     
+    # Aggregate results into point-estimates
+    meanPar <- mean(results_rep[,1], na.rm=T)
+    meanValue <- mean(results_rep[,2], na.rm=T)
+    sdPar <- sd(results_rep[,1], na.rm=T)
+    
     # - Return results
-    return(list(cutoff=results$par, value=results$value, iterations=results$iter,
+    return(list(cutoff=meanPar, value=meanValue, iterations=replicate, cutoff_sd=sdPar,
                 data=results_rep))
   }
-  
 }
 
 
