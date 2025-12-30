@@ -112,32 +112,50 @@ datCredit_train_classic[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1, 1, 
 datCredit_train <- subset(datCredit_train, OOB_Ind==0)
 datCredit_train_classic <- subset(datCredit_train_classic, OOB_Ind==0)
 
+# - Create stripped-down version of required dataset or optimisation to minimise input/output run-time
+datGiven <- copy(datCredit_train[,list(DefSpell_Event, EventRate_bas, EventRate_adv)])
+datGiven_classic <- copy(datCredit_train_classic[,list(DefSpell_Event, EventRate_classic)])
 
 
 
 # ------ 3. Determining the thresholds for dichotomisation
 # --- 3.1 Determine thresholds | Discrete time models
+# - Calculate the cost multiple
+(q1 <- mean(datCredit_train$DefSpell_Event,na.rm=TRUE))
+### RESULTS: Prevalence = 0.01111503
+(a <- (1-q1)/q1)
+### RESULTS: Cost-multiple = 88.96827
+
 # - Basic model
-(thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train, 
-                                  Target="DefSpell_Event", prob_vals_given="EventRate_bas", 
-                                  a=40, replicate=150, numThreads=8))
-### RESULTS: Threshold at a=40: 0.01390104 (as determined in script 4e(i))
+(thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven,
+                                  Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
+                                  a=1, replicate=48, numThreads=8, limits=c(0,0.025),
+                                  replicateName="DtH-Basic"))
+### RESULTS: Threshold at a=1: 0.02498668
 ### RESULTS: Threshold at a=(1-q1)/q1: 0.2642033
 
 # - Advanced model
-(thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train, 
+(thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven, 
                                   Target="DefSpell_Event", prob_vals_given="EventRate_adv", 
-                                  a=1, replicate=3, numThreads=3))
-### RESULTS: Threshold at a=1: 0.3975731
+                                  a=1, replicate=4, numThreads=4, limits=c(0,0.3),
+                                  replicateName="DtH-Advanced"))
+### RESULTS: Threshold at a=1: 0.2995543
 ### RESULTS: Threshold at a=(1-q1)/q1: 0.4333787
 
 
 # --- 3.2 Determine thresholds | Classical models
+# - Calculate the cost multiple
+(q1 <- mean(datCredit_train_classic$DefSpell_Event,na.rm=TRUE))
+### RESULTS: Prevalence = 0.2243023
+(a <- (1-q1)/q1)
+### RESULTS: Cost-multiple = 3.458269
+
 # - Classical model
-(thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train_classic,
+(thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven_classic,
                                      Target="DefSpell_Event", prob_vals_given="EventRate_classic",
-                                     a=80, replicate=10, numThreads=2))
-### RESULTS: Threshold at a=80: 0.01959181
+                                     a=1, replicate=8, numThreads=8, limits=c(0,0.4),
+                                     replicateName="LR"))
+### RESULTS: Threshold at a=1: 0.3997155
 ### RESULTS: Threshold at a=(1-q1)/q1: 0.2358849
 
 
