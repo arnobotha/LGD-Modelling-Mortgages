@@ -33,8 +33,8 @@ if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
 # - Filter to maximum spell counter
-datCredit_train <- datCredit_train_CDH[, .SD[which.max(DefSpell_Counter)], by=LoanID]
-datCredit_valid <- datCredit_valid_CDH[, .SD[which.max(DefSpell_Counter)], by=LoanID]
+datCredit_train <- datCredit_train_CDH[DefSpell_Counter==1]
+datCredit_valid <- datCredit_valid_CDH[DefSpell_Counter==1]
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit_train <- datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
@@ -60,6 +60,7 @@ modGLM_OneStage_Gaus <- readRDS(paste0(genObjPath,"OneStage_Gaus_Model.rds"))
 
 # - GLM with Tweedie (Compound Poisson Gaussian) link function
 modGLM_OneStage_CPG <- readRDS(paste0(genObjPath,"OneStage_CPH_Model.rds"))
+
 
 
 
@@ -132,40 +133,20 @@ ggsave(plot.full, file=paste0(genFigPath,"/Actual_LGD.png"),width=1200/dpi, heig
 
 # ------ 3. LGDs from Gaussian model
 
-# --- 3.1 Gaussian LGDs only
+# --- 3.1 Compare overall expected LGDs with actuals
 # - Render predictions with model
 datCredit[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit,type="response")]
+datCredit_WOFFs[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit_WOFFs,type="response")]
 
-# - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit_WOFFs[, LossRate_Gaussian:=ifelse(LossRate_Gaussian>1,1,LossRate_Gaussian)]
-datCredit_WOFFs[, LossRate_Gaussian:=ifelse(LossRate_Gaussian<0,0,LossRate_Gaussian)]
+# - Filter for non-sensical loss rates
+datCredit_Gaus <- subset(datCredit, LossRate_Gaussian<=1 & LossRate_Gaussian>=0)
 
 # - Estimate mean expected loss rate
-meanLoss_TruEnd_gaussian <- mean(datCredit$LossRate_Gaussian, na.rm=T)
+meanLoss_TruEnd_gaussian <- mean(datCredit_Gaus$LossRate_Gaussian, na.rm=T)
 ### RESULTS: Mean = 
 
-# - Plot
-(g1b <- ggplot(datCredit, aes(x=LossRate_Gaussian)) + theme_bw() +
-    geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=round(2*datCredit[,.N]^(1/3)),
-                   position="identity", fill=vCol[1], colour=vCol[1]) + 
-    geom_density(linewidth=1, colour=vCol[1], linetype="dotted") + 
-    geom_vline(xintercept=meanLoss_TruEnd_gaussian, linewidth=0.6, colour=vCol[1], linetype="dashed") + 
-    annotate(geom="text", x=meanLoss_TruEnd_gaussian*0.8, y=5, family=chosenFont,
-             label = paste0("Mean Loss: ", sprintf("%.1f", meanLoss_TruEnd_gaussian*100), "%"), size=3, colour=vCol[1], angle=90) +     
-    # facets & scale options
-    labs(x=bquote({Realised~loss~rate~italic(L)}), 
-         y="Histogram and density of resolved defaults [cures/write-offs]") + 
-    theme(text=element_text(family=chosenFont),legend.position="bottom",
-          strip.background=element_rect(fill="snow2", colour="snow2"),
-          strip.text = element_text(size=8, colour="gray50"), 
-          strip.text.y.right = element_text(angle=90)) + 
-    scale_x_continuous(breaks=pretty_breaks(), label=percent)
-)
-
-
-# --- 3.2 Compare overall expected LGDs with actuals
 # - Estimate statistics on distributional diffirences
-metrics <- evalModel_onestage(datCredit,"LossRate_Real", "LossRate_Gaussian", "gaussian", modGLM_OneStage_Gaus)
+metrics <- evalModel_onestage(datCredit_Gaus,"LossRate_Real", "LossRate_Gaussian", "gaussian", modGLM_OneStage_Gaus)
 
 # - Combine statistics
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -174,7 +155,7 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     sep="")
 
 # - Create plotting data
-plotData <- melt(datCredit, measure.vars=c("LossRate_Real", "LossRate_Gaussian"),
+plotData <- melt(datCredit_Gaus, measure.vars=c("LossRate_Real", "LossRate_Gaussian"),
                  variable.name="Type",value.name="LossRate")
 plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Gaussian"),
                         labels=c("Empirical", "Gaussian GLM"))]
@@ -199,16 +180,15 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
            colour=guide_legend(title=NULL)))
 
 
-# --- 3.3 Compare expected write-off LGDs with actuals
+# --- 3.2 Compare expected write-off LGDs with actuals
 # - Render predictions with model
 datCredit_WOFFs[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit_WOFFs,type="response")]
 
-# - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit_WOFFs[, LossRate_Gaussian:=ifelse(LossRate_Gaussian>1,1,LossRate_Gaussian)]
-datCredit_WOFFs[, LossRate_Gaussian:=ifelse(LossRate_Gaussian<0,0,LossRate_Gaussian)]
+# - Filter for non-sensical loss rates
+datCredit_Gaus_WOFFs <- subset(datCredit_WOFFs, LossRate_Gaussian<=1 & LossRate_Gaussian>=0)
 
 # - Create plotting data
-plotData <- melt(datCredit_WOFFs, measure.vars=c("LossRate_Real", "LossRate_Gaussian"),
+plotData <- melt(datCredit_Gaus_WOFFs, measure.vars=c("LossRate_Real", "LossRate_Gaussian"),
                  variable.name="Type", value.name="LossRate")
 plotData[, Type:=factor(Type, levels=c("LossRate_Real", "LossRate_Gaussian"),
                         labels=c("Actual loss rate", "Gaussian GLM"))]
@@ -237,7 +217,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
     scale_fill_manual(values=c(vCol[1], vCol[2]))))
 
 
-# --- 3.4 Combine and save graphs
+# --- 3.3 Combine and save graphs
 # - Combine graphs
 ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
@@ -252,40 +232,19 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_gaussian.png"),widt
 
 # ------ 4. LGDs from Tweedie model
 
-# --- 4.1 Tweedie LGDs only
+# --- 4.1 Compare overall expected LGDs with actuals
 # - Render predictions with model
 datCredit[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit,type="response")]
 
-# - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit[, LossRate_Tweedie:=ifelse(LossRate_Tweedie>1,1,LossRate_Tweedie)]
-datCredit[, LossRate_Tweedie:=ifelse(LossRate_Tweedie<0,0,LossRate_Tweedie)]
+# - Filter for non-sensical loss rates
+datCredit_Tweedie <- subset(datCredit, LossRate_Tweedie<=1 & LossRate_Tweedie>=0)
 
 # - Estimate mean expected loss rate
-(meanLoss_TruEnd_tweedie <- mean(datCredit$LossRate_Tweedie, na.rm=T))
+(meanLoss_TruEnd_tweedie <- mean(datCredit_Tweedie$LossRate_Tweedie, na.rm=T))
 ### RESULTS: Mean=0.08285599
 
-# - Plot
-(g1a <- ggplot(datCredit, aes(x=LossRate_Tweedie)) + theme_bw() +
-    geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=round(2*datCredit[,.N]^(1/3)),
-                   position="identity", fill=vCol[1], colour=vCol[1]) + 
-    geom_density(linewidth=1, colour=vCol[1], linetype="dotted") + 
-    geom_vline(xintercept=meanLoss_TruEnd_tweedie, linewidth=0.6, colour=vCol[1], linetype="dashed") + 
-    annotate(geom="text", x=meanLoss_TruEnd_tweedie*0.8, y=20, family=chosenFont,
-             label = paste0("Mean Loss: ", sprintf("%.1f", meanLoss_TruEnd_tweedie*100), "%"), size=3, colour=vCol[1], angle=90) +     
-    # facets & scale options
-    labs(x=bquote({Realised~loss~rate~italic(L)}), 
-         y="Histogram and density of resolved defaults [cures/write-offs]") + 
-    theme(text=element_text(family=chosenFont),legend.position="bottom",
-          strip.background=element_rect(fill="snow2", colour="snow2"),
-          strip.text = element_text(size=8, colour="gray50"), 
-          strip.text.y.right = element_text(angle=90)) + 
-    scale_x_continuous(breaks=pretty_breaks(), label=percent)
-)
-
-
-# --- 4.2 Compare overall expected LGDs with actuals
 # - Estimate statistics on distributional differences
-metrics <- evalModel_onestage(datCredit,"LossRate_Real","LossRate_Tweedie","tweedie",modGLM_OneStage_CPG)
+metrics <- evalModel_onestage(datCredit_Tweedie,"LossRate_Real","LossRate_Tweedie","tweedie",modGLM_OneStage_CPG)
 
 # - Combine statistics
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -294,7 +253,7 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     sep = "")
 
 # - Create plotting data
-plotData <- melt(datCredit, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
+plotData <- melt(datCredit_Tweedie, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
                  variable.name="Type",value.name="LossRate")
 plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Tweedie"),
                         labels=c("Empirical", "Compound Poisson GLM"))]
@@ -319,16 +278,15 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
          colour=guide_legend(title = NULL)))
 
 
-# --- 4.3 Compare expected write-off LGDs with actuals
+# --- 4.2 Compare expected write-off LGDs with actuals
 # - Render predictions with model
 datCredit_WOFFs[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit_WOFFs,type="response")]
 
-# - Impose a logical floor and ceiling of 0 and 1 to the predicted loss rates
-datCredit_WOFFs[, LossRate_Tweedie:=ifelse(LossRate_Tweedie>1,1,LossRate_Tweedie)]
-datCredit_WOFFs[, LossRate_Tweedie:=ifelse(LossRate_Tweedie<0,0,LossRate_Tweedie)]
+# - Filter for non-sensical loss rates
+datCredit_WOFFs_Tweedie <- subset(datCredit_WOFFs_Tweedie, LossRate_Tweedie<=1 & LossRate_Tweedie>=0)
 
 # - Create plotting data
-plotData <- melt(datCredit_WOFFs,measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
+plotData <- melt(datCredit_WOFFs_Tweedie, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
                  variable.name="Type", value.name="LossRate")
 plotData[, Type:=factor(Type, levels=c("LossRate_Real", "LossRate_Tweedie"),
                         labels=c("Actual loss rate", "Compound Poisson GLM"))]
@@ -359,7 +317,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
     scale_fill_manual(values=c(vCol[1], vCol[2])))
     
 
-# --- 4.4 Combine and save graphs
+# --- 4.3 Combine and save graphs
 # - Combine graphs
 ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95

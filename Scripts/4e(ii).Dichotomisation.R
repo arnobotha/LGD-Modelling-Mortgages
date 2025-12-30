@@ -38,14 +38,27 @@ rm(datCredit_train_CDH); gc()
 # - Weigh write-off cases as one, determined interactively based on calibration success (script 6e)
 datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 
+# - Create start and stop columns
+datCredit_train[, Start:=TimeInDefSpell-1]
+
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# - Create an additional record for each default spell
+datAdd <- subset(datCredit_train, Counter == 1 & TimeInDefSpell > 1)
+datAdd[, Start:=Start-1]
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Counter:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit_train, datAdd); setorder(datCredit_train, DefSpell_Key, TimeInDefSpell)
+
 # - Subset data for training of the one-stage model
 datCredit_train_classic <- datCredit_train[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
 
-# - Re-create 
+# - Re-create event indicator
 datCredit_train_classic[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist!="WOFF",0,1)]
 
 
-# --- 1.3 Load models
+# --- 1.2 Load models
 # - Basic discrete-time hazard model
 modLR_bas <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
 
@@ -85,11 +98,15 @@ datCredit_train[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) * 
 # Classical model
 datCredit_train_classic[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1)*Hazard_classic, by=list(DefSpell_Key)]
 
+# - Remove added rows
+datCredit_train <- subset(datCredit_train, Counter > 0)
+datCredit_train_classic <- subset(datCredit_train_classic, Counter > 0)
+
 
 # --- 2.2 Filtering
 # - Identify where the loss rate is out of bounds and not feasible
-datCredit_train[, OOB_Ind:=ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
-datCredit_train_classic[, OOB_Ind:=ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1, 1, 0)]
+datCredit_train_classic[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1, 1, 0)]
 
 # - Subset to include only relevant data
 datCredit_train <- subset(datCredit_train, OOB_Ind==0)
@@ -100,45 +117,28 @@ datCredit_train_classic <- subset(datCredit_train_classic, OOB_Ind==0)
 
 # ------ 3. Determining the thresholds for dichotomisation
 # --- 3.1 Determine thresholds | Discrete time models
-# - Calculate prevalence of write-offs
-(q1 <- mean(datCredit_train$DefSpell_Event,na.rm=TRUE))
-### RESULTS: Prevalence = 0.01111503
-
-# - Calculate the cost multiple
-(a <- (1-q1)/q1)
-### RESULTS: Cost-multiple = 88.96827
-
 # - Basic model
-(thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Trained_Model=modLR_bas,
-                                  Train_DataSet=datCredit_train, Target="DefSpell_Event",
-                                  prob_vals_given="EventRate_bas", a=1, replicate=100))
-### NOTE: The runtime is 3-4 hours
-### RESULTS: Threshold at a = 1 = 0.0525335
-### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.2642033
+(thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train, 
+                                  Target="DefSpell_Event", prob_vals_given="EventRate_bas", 
+                                  a=40, replicate=150, numThreads=8))
+### RESULTS: Threshold at a=40: 0.01390104 (as determined in script 4e(i))
+### RESULTS: Threshold at a=(1-q1)/q1: 0.2642033
 
 # - Advanced model
-(thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Trained_Model=modLR_adv,
-                                  Train_DataSet=datCredit_train, Target="DefSpell_Event",
-                                  prob_vals_given="EventRate_adv", a=1, replicate=100))
-### NOTE: The runtime is 12+ hours
-### RESULTS: Threshold at a = 1 = 0.3894059
-### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.4333787
+(thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train, 
+                                  Target="DefSpell_Event", prob_vals_given="EventRate_adv", 
+                                  a=1, replicate=3, numThreads=3))
+### RESULTS: Threshold at a=1: 0.3975731
+### RESULTS: Threshold at a=(1-q1)/q1: 0.4333787
 
 
 # --- 3.2 Determine thresholds | Classical models
-# - Calculate prevalence of write-offs
-(q1 <- mean(datCredit_train_classic$DefSpell_Event,na.rm=TRUE))
-### RESULTS: Prevalence = 0.1824916
-
-(a <- (1-q1)/q1)
-### RESULTS: Cost-multiple = 4.479705
-
 # - Classical model
-(thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Trained_Model=modLR_classic,
-                                     Train_DataSet=datCredit_train_classic, Target="DefSpell_Event",
-                                     prob_vals_given="EventRate_classic", a=1))
- ### RESULTS: Threshold at a = 1 = 0.564484
-### RESULTS: Threshold at (a <- (1-q1)/q1  = 0.2358849
+(thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train_classic,
+                                     Target="DefSpell_Event", prob_vals_given="EventRate_classic",
+                                     a=80))
+### RESULTS: Threshold at a=80: 0.01959181
+### RESULTS: Threshold at a=(1-q1)/q1: 0.2358849
 
 
 

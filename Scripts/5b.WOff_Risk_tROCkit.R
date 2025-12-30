@@ -3,7 +3,7 @@
 # ROC-analyses on the same fitted Cox regression model, having used the 
 # prepared credit data
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Residential Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -18,7 +18,7 @@
 #   - 4b(i).InputSpace_DiscreteCox.R
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
-#   - 4e.Dichotomisation
+#   - 4e(ii).Dichotomisation
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
@@ -60,7 +60,7 @@ datCredit <- rbind(datCredit_train, datCredit_valid)
 # - Handle left-truncated spells by adding a starting record 
 ### NOTE:  This is necessary for calculating certain survival quantities later
 # Create an additional record for each default spell
-datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
+datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
 datAdd[, Start:=Start-1]
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
 datAdd[, Counter:=0]
@@ -84,11 +84,11 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 # Load thresholds
 thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # Basic discrete-time model
-(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.0525335
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.01390104
 # Advanced discrete-time model
-(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3894059
+(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3975731
 # Classical logit model
-(thresh_classic <- thresh_lst[["Classical"]]) # 0.5652506
+(thresh_classic <- thresh_lst[["Classical"]]) # 0.01959181
 
 
 # --- 1.4 Estimate event rates to facilitate the application of dichotomisation
@@ -106,6 +106,9 @@ datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1)-Survival_adv, by=list(DefSpell_Key)]
 datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1)-Survival_bas, by=list(DefSpell_Key)]
 datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1)-Survival_classic, by=list(DefSpell_Key)]
+
+# - Remove added rows
+datCredit <- subset(datCredit, Counter>0)
 
 
 
@@ -125,7 +128,7 @@ objROC6_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, mo
                                       predType="response")
 proc.time() - ptm
 objROC6_CDH_CoxDisc_bas$AUC; objROC6_CDH_CoxDisc_bas$ROC_graph
-
+### RESULTS: AUC up to t: 50%, achieved in 384 secs
 
 # --- 2.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
 predictTime <- 12
@@ -137,7 +140,7 @@ objROC12_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, m
                                        predType="response")
 proc.time() - ptm
 objROC12_CDH_CoxDisc_bas$AUC; objROC12_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 56.70%, achieved in 513 secs
+### RESULTS: AUC up to t: 57.04%, achieved in 513 secs
 
 
 # --- 2.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
@@ -150,7 +153,7 @@ objROC24_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, m
                                        predType="response")
 proc.time() - ptm
 objROC24_CDH_CoxDisc_bas$AUC; objROC24_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 60.99%, achieved in 753 secs
+### RESULTS: AUC up to t: 61.34%, achieved in 753 secs
 
 
 # --- 2.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
@@ -191,7 +194,7 @@ objROC6_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, mo
                                       predType="response")
 proc.time() - ptm
 objROC6_CDH_CoxDisc_adv$AUC; objROC6_CDH_CoxDisc_adv$ROC_graph
-### RESULTS: AUC up to t: 94.56%, achieved in 4373 secs
+### RESULTS: AUC up to t: 94.42%, achieved in 4163 secs
 
 
 # --- 3.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
@@ -204,7 +207,7 @@ objROC12_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, m
                                        predType="response")
 proc.time() - ptm
 objROC12_CDH_CoxDisc_adv$AUC; objROC12_CDH_CoxDisc_adv$ROC_graph
-### RESULTS: AUC up to t: 95.64%, achieved in 6026 secs
+### RESULTS: AUC up to t: 95.60%, achieved in 6131 secs
 
 
 # --- 3.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
@@ -258,7 +261,7 @@ objROC6_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, 
                                         predType="response", MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
 objROC6_CDH_CoxDisc_bas_B$AUC; objROC6_CDH_CoxDisc_bas_B$ROC_graph
-### RESULTS: AUC up to t: 50%, achieved in 36 secs
+### RESULTS: AUC up to t: 47.43%, achieved in 36 secs
 
 
 # --- 4.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
@@ -271,7 +274,7 @@ objROC12_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas,
                                          predType="response", MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
 objROC12_CDH_CoxDisc_bas_B$AUC; objROC12_CDH_CoxDisc_bas_B$ROC_graph
-### RESULTS: AUC up to t: 50%, achieved in  34 secs
+### RESULTS: AUC up to t: 48.61%, achieved in  34 secs
 
 
 # --- 4.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
@@ -284,7 +287,7 @@ objROC24_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas,
                                          predType="response", MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
 objROC24_CDH_CoxDisc_bas_B$AUC; objROC24_CDH_CoxDisc_bas_B$ROC_graph
-### RESULTS: AUC up to t: 50%, achieved in 35 secs
+### RESULTS: AUC up to t: 52.81%, achieved in 35 secs
 
 
 # --- 4.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
@@ -297,7 +300,7 @@ objROC48_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas,
                                          predType="response",MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
 objROC48_CDH_CoxDisc_bas_B$AUC; objROC48_CDH_CoxDisc_bas_B$ROC_graph
-### RESULTS: AUC up to t: 50%, achieved in 35 secs
+### RESULTS: AUC up to t: 50.51%, achieved in 35 secs
 
 
 # --- 4.5 Store experimental objects | Memory optimisation

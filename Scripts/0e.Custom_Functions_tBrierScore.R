@@ -2,7 +2,7 @@
 # Defining bespoke time-dependent Brier score function, capable of working with
 # time-to-event left-truncated data in the counting process style
 # --------------------------------------------------------------------------------
-# PROJECT TITLE: Residential Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha
 # VERSION: 1.0 (Jul-2025)
 # ================================================================================
@@ -22,7 +22,7 @@
 #                         2) "EventRate": The event rate
 # Output:   Vector of tBS-values; Integrated Brier Score (IBS)
 tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=300,
-                        fldKey="DefSpell_Key", fldStart = "Start", fldStop="TimeInDefSpell",
+                        fldKey="DefSpell_Key", fldStart = "Start", fldStop="TimeInDefSpell", fldCounter="Counter",
                         fldEvent="DefSpell_Event", fldCensored="DefSpell_Censored", fldSpellAge="DefSpell_Age",
                         fldSpellOutcome="DefSpellResol_Type_Hist", threshold=NA, brierType="Survival") {
   # Testing conditions
@@ -61,13 +61,15 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
   
   
   # --- Calculate survival quantities of interest
-  # Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-  datGiven[, Hazard := predict(modGiven, newdata=datGiven, type = predType)]
+  # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
+  datGiven[, Hazard := predict(modGiven, newdata=c, type=predType)]
+  
   if (predType=="response") {
-    # Derive survival probability S(t) = \prod ( 1- hazard), based on output of predict()
-    datGiven[, Survival := cumprod(1-Hazard), by=list(get(fldKey))] 
+    # - Derive survival probability S(t) = \prod ( 1- hazard), based on output of predict()
+    datGiven[, Survival := cumprod(1-Hazard), by=list(get(fldKey))]
+    
   } else if (predType=="exp") {
-    # Calculate survival probability S(t,x)=exp(-H(t,x)), based on output of predict()
+    # - Calculate survival probability S(t,x)=exp(-H(t,x)), based on output of predict()
     # NOTE: Hazard is actually the cumulative hazard in this context
     datGiven[, Survival := exp(-Hazard), by=list(get(fldKey))] 
   }
@@ -75,6 +77,9 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
   # - Estimate the event rate if specified
   if (brierType=="EventRate"){
     datGiven[, EventRate:=shift(Survival,fill=1,n=1,type="lag")-Survival, by=list(get(fldKey))]
+    
+    # Remove additional observations created for left-truncated spells
+    datGiven <- subset(datGiven, get(fldCounter)>0)
   }
   
   # - Dichotomise the event rate if specified
@@ -85,6 +90,7 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
   # - Merge censoring survival probability unto main set
   datGiven <- merge(datGiven, datG, by=fldStop, all.x=T)
   datGiven[is.na(G_t), G_t := 1] # Fill any missing G_t with 1 (no censoring information)
+  
   # - Merge event survival probability unto main set
   datGiven <- merge(datGiven, datT, by=fldStop, all.x=T)
   datGiven[is.na(Survival_0), Survival_0 := 1] # Fill any missing G_t with 1 (no censoring information)

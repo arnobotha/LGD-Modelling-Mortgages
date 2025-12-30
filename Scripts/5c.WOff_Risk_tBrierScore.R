@@ -1,7 +1,7 @@
 # =========================== TIME-DEPENDENT BRIER SCORES ======================
 # Calculate and compare the time-dependent Brier scores across write-off models
 # ------------------------------------------------------------------------------
-# PROJECT TITLE: Residential Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Garbu (MG), Marcel Muller (MM) Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
@@ -16,7 +16,7 @@
 #   - 4b(i).InputSpace_DiscreteCox.R
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
-#   - 4e.Dichotomisation 
+#   - 4e(ii).Dichotomisation 
 
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
@@ -64,7 +64,7 @@ datCredit <- rbind(datCredit_train, datCredit_valid)
 # - Handle left-truncated spells by adding a starting record 
 ### NOTE:  This is necessary for calculating certain survival quantities later
 # Create an additional record for each default spell
-datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
+datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
 datAdd[, Start:=Start-1]
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
 datAdd[, Counter:=0]
@@ -88,11 +88,11 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 # Load thresholds
 thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # Basic discrete-time model
-(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.0525335
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.01390104
 # Advanced discrete-time model
-(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3894059
+(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3975731
 # Classical logit model
-(thresh_classic <- thresh_lst[["Classical"]]) # 0.5652506
+(thresh_classic <- thresh_lst[["Classical"]]) # 0.01959181
 
 
 
@@ -348,17 +348,17 @@ vLabel <- list(
 
 # - Plot
 (gPlot <- ggplot(datPlot, aes(x = Statistic, y = Value, group = Model)) + 
-  theme_minimal() +
-  theme(legend.position = "bottom",
-    text = element_text(family = chosenFont),
-    axis.title.x = element_text(margin = margin(t = 5))) +
-  labs(y=bquote("Time-dependent Brier Score "*italic(B)[s](italic(t))), x="") +
-  geom_col(aes(colour = Model, fill = Model), position = position_dodge(width = 0.9)) +
-  geom_label(aes(label = Label),
-    fill = vCol2,
-    colour = vCol3,
-    position = position_dodge(width = 0.9),
-    size = 3,
+    theme_minimal() +
+    theme(legend.position = "bottom",
+          text = element_text(family = chosenFont),
+          axis.title.x = element_text(margin = margin(t = 5))) +
+    labs(y=bquote("Time-dependent Brier Score "*italic(B)[s](italic(t))), x="") +
+    geom_col(aes(colour = Model, fill = Model), position = position_dodge(width = 0.9)) +
+    geom_label(aes(label = Label),
+               fill = vCol2,
+               colour = vCol3,
+               position = position_dodge(width = 0.9),
+               size = 3,
     label.padding = unit(0.15, "lines")) +
   scale_colour_manual(name = "Model:", values = vCol1, labels = vLabel) +
   scale_fill_manual(name = "Model:", values = vCol1, labels = vLabel) +

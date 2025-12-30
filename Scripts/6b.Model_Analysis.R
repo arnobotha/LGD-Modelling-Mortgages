@@ -146,7 +146,7 @@ vars <- c("PrevDefaults","g0_Delinq_Any_Aggr_Prop_Lag_3","DefaultStatus1_Aggr_Pr
 
 # - Full model | Stepwise forward selection procedure
 modLR_tweedie_two_stage <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                        data=datCredit_train)
+                                  data=datCredit_train)
 
 
 
@@ -222,7 +222,7 @@ make_panel <- function(var, title, lower_better = TRUE, digits = 4) {
   
   ggplot(df, aes(x = Model, y = .data[[var]])) +
     geom_col(aes(fill = .data[[var]] == best), width = 0.82) +
- 
+    
     geom_text(aes(label = round(.data[[var]], digits)),
               hjust = -0.15, colour = "black", size = 5.2, fontface = "bold") +
     coord_flip() +
@@ -323,7 +323,7 @@ series_labels <- c("A[t]", "B[t]", "C[t]", "D[t]", "E[t]", "F[t]", "G[t]", "H[t]
 vLabel <- sapply(seq_along(series_labels), function(i) {
   paste0("'TTC-mean over '*italic(t)*' for '*italic(", series_labels[i], ")*' : ",
     sprintf("%.2f", vEventRates_Mean[i] * 100),
-    "% ± ",
+    "% ? ",
     sprintf("%1.3f", vEventRates_stErr[i] * 100),
     "%'")
 })
@@ -398,7 +398,7 @@ series_labels <- c("A[t]", "B[t]", "C[t]")
 vLabel <- sapply(seq_along(series_labels), function(i) {
   paste0("'TTC-mean over '*italic(t)*' for '*italic(", series_labels[i], ")*' : ",
          sprintf("%.2f", vEventRates_Mean[i] * 100),
-         "% ± ",
+         "% ? ",
          sprintf("%1.3f", vEventRates_stErr[i] * 100),
          "%'")
 })
@@ -499,7 +499,7 @@ series_labels <- c("A[t]", "D[t]", "F[t]", "H[t]")
 vLabel <- sapply(seq_along(series_labels), function(i) {
   paste0("'TTC-mean over '*italic(t)*' for '*italic(", series_labels[i], ")*' : ",
          sprintf("%.2f", vEventRates_Mean[i] * 100),
-         "% ± ",
+         "% ? ",
          sprintf("%1.3f", vEventRates_stErr[i] * 100),
          "%'")
 })
@@ -606,7 +606,7 @@ series_labels <- c("A[t]", "E[t]", "G[t]", "I[t]")
 vLabel <- sapply(seq_along(series_labels), function(i) {
   paste0("'TTC-mean over '*italic(t)*' for '*italic(", series_labels[i], ")*' : ",
          sprintf("%.2f", vEventRates_Mean[i] * 100),
-         "% ± ",
+         "% ? ",
          sprintf("%1.3f", vEventRates_stErr[i] * 100),
          "%'")
 })

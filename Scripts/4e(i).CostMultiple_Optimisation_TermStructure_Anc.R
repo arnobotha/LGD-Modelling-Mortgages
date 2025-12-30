@@ -40,6 +40,10 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 # - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
+# - Create start and stop columns
+datCredit_train[, Start:=TimeInDefSpell-1]
+datCredit_valid[, Start:=TimeInDefSpell-1]
+
 # - Weigh write-off cases
 datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 datCredit_valid[, Weight:=ifelse(DefSpell_Event==1,1,1)]
@@ -143,10 +147,10 @@ datCredit <- subset(datCredit, Counter > 0)
 
 # --- 3.3 Filtering
 # - Identify where the loss rate is out of bounds and not feasible
-datCredit[, OOB_Ind:=ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
 
 # - Subset to include only relevant data and recreate default spell event indicator (write-off) for classical LR-model
-datCredit_train_classic <- subset(datCredit, !is.na(DefSpell_Key) & OOB_Ind==0 & Sample == "Train" & DefSpell_Counter ==1)
+datCredit_train_classic <- subset(datCredit, !is.na(DefSpell_Key) & OOB_Ind==0 & Sample=="Train" & DefSpell_Counter==1)
 datCredit_train_classic[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist!="WOFF",0,1)]
 
 
@@ -178,8 +182,8 @@ for (i in 101:length(vCostMultiples)) {
                                    a=vCostMultiples[i], replicate=3, numThreads=3)
   # - Classical model
   thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train_classic,
-                                       Target="DefSpell_Event", prob_vals_given="EventRate_classic",
-                                       a=vCostMultiples[i])
+                                      Target="DefSpell_Event", prob_vals_given="EventRate_classic",
+                                      a=vCostMultiples[i])
   
   
   # -- Dichotomise probabilistic models
@@ -204,13 +208,13 @@ for (i in 101:length(vCostMultiples)) {
   # - Calculate MAE between event rates
   # Basic model
   (MAE_eventProb_bas_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_bas_Youden]), na.rm=T))
+                                          datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_bas_Youden]), na.rm=T))
   # Advanced model
   (MAE_eventProb_adv_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_adv_Youden]), na.rm=T))
+                                          datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_adv_Youden]), na.rm=T))
   # Classical model
   (MAE_eventProb_classic_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_classic_Youden]), na.rm=T))
+                                              datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_classic_Youden]), na.rm=T))
   
   
   # - Compile results
@@ -271,7 +275,7 @@ datTest <- datResults[Type=="LR",list(Type, a, Threshold, MAE)]
 cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==40, Threshold]
 #cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==82, Threshold]
 cutoff_dtH_adv <- datResults[Type=="DtH-Advanced" & a==1, Threshold]
-cutoff_dtH_adv <- 0.3894059 # found previousliy at a=1 with many more replications
+cutoff_dtH_adv <- 0.3894059 # found previously at a=1 with many more replications
 cutoff_LR <- datResults[Type=="LR" & a==80, Threshold]
 
 # -- Dichotomise probabilistic models
@@ -314,16 +318,16 @@ plot(datSurv_exp[TimeInDefSpell<=120, EventRate_classic_Youden], type="b", col="
 lines(datSurv_act[Time<=120, EventRate], type="b")
 
 ### Conclucsion:
-# -- DtH-Basic: The procedure yielded the lowwest MAE across a \in [0,39]], though the resulting term-structure
-# is a flat zero-valued construct, which is less desirable from a risk prudence point of view. At greater a-values,
-# we took the a-value that produced the second lowest MAE, though which produced a much more credible term-structure
-# at a=40: Threshold =  0.01378371
-# -- DtH-Advanced: Procedured succeeded in identifying the optimal cost multiple that achieved the lowest MAE
-# at a=1: Threshold = 0.3894059
-# -- LR: The procedure's output (a=0.1) produced a flat zero-valued term-structure, which did achieve the low MAE,
-# however is not desirable from a risk prduence point of view. At greater a-values, there was a local 
-# minimum observed, which prdouced a more credible term-structure, albeit at the cost of a slightly higher MAE,
-# at a=80: Threshold = 0.158223
+### -- DtH-Basic: The procedure yielded the lowest MAE across a \in [0,39]], though the resulting term-structure
+### is a flat zero-valued construct, which is less desirable from a risk prudence point of view. At greater a-values,
+### we took the a-value that produced the second lowest MAE, though which produced a much more credible term-structure
+### at a=40: Threshold=0.01378371
+### -- DtH-Advanced: Procedure succeeded in identifying the optimal cost multiple that achieved the lowest MAE
+### at a=1: Threshold=0.3894059
+### -- LR: The procedure's output (a=0.1) produced a flat zero-valued term-structure, which did achieve the low MAE,
+### however is not desirable from a risk prudence point of view. At greater a-values, there was a local 
+### minimum observed, which produced a more credible term-structure, albeit at the cost of a slightly higher MAE,
+### at a=80: Threshold=0.158223
 
 
 
@@ -344,7 +348,7 @@ datCredit[, Youden_bas := ifelse(EventRate_bas > thresh_dth_bas$cutoff,1,0)]
 # -- Aggregate event rates and calculate MAEs
 # - Aggregate event rates to period-level
 datSurv_exp <- datCredit[,.(EventRate_bas_Youden = mean(Youden_bas, na.rm=T)),
-  by=list(TimeInDefSpell)]
+                         by=list(TimeInDefSpell)]
 
 # - Calculate MAE between event rates
 # Basic model

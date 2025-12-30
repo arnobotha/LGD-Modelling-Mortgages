@@ -69,11 +69,11 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 # Load thresholds
 thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # Basic discrete-time model
-(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.05467001
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.01390104
 # Advanced discrete-time model
-(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3894059
+(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3975731
 # Classical logit model
-(thres_classic <- thresh_lst[["Classical"]]) # 0.5652506
+(thres_classic <- thresh_lst[["Classical"]]) # 0.01959181
 
 
 
@@ -408,9 +408,9 @@ mainEventName <- "Write-off"
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
     # Annotations
-    annotate("text", y=0.12,x=100, label=paste0("MAE (LR B): ", percent(MAE_eventProb_classic_Youden, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.6,x=100, label=paste0("MAE (LR B): ", percent(MAE_eventProb_classic_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3) + 
-    annotate("text", y=0.1075,x=100, label=paste0("MAE (DtH-Basic B): ", percent(MAE_eventProb_bas_Youden, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.545,x=100, label=paste0("MAE (DtH-Basic B): ", percent(MAE_eventProb_bas_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3) +
     # Scales and options
     facet_grid(FacetLabel ~ .) + 
@@ -430,10 +430,10 @@ ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_
 
 
 # --- 6.3 Cleanup
-rm(gsurv_ft, km_Censoring, km_Default, datSurv_censoring, datSurv_exp, datSurv_act,
+suppressWarnings(rm(gsurv_ft, km_Censoring, km_Default, datSurv_censoring, datSurv_exp, datSurv_act,
    datGraph, datMAE, smthEventRate_Act, smthEventRate_Exp_bas, smthEventRate_Exp_adv,
    vPredSmth_Act, vPredSmth_Exp_bas, vPredSmth_Exp_adv,
-   modLR_Classic, modLR_Bas, modLR_Adv, datAdd)
+   modLR_Classic, modLR_Bas, modLR_Adv, datAdd))
 gc()
 
 

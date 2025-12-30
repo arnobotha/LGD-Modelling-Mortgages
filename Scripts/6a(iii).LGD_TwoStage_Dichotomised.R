@@ -18,7 +18,7 @@
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
 #   - 4d.InputSpace_TwoStage_LossSeverity.R
-#   - 4e.Dichotomisation
+#   - 4e(ii).Dichotomisation
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
@@ -41,8 +41,8 @@ if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
 # - Filter to maximum spell counter
-datCredit_train <- datCredit_train_CDH[, .SD[which.max(DefSpell_Counter)], by=LoanID]
-datCredit_valid <- datCredit_valid_CDH[, .SD[which.max(DefSpell_Counter)], by=LoanID]
+datCredit_train <- datCredit_train_CDH[DefSpell_Counter==1]
+datCredit_valid <- datCredit_valid_CDH[DefSpell_Counter==1]
 
 # - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
 datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
@@ -58,16 +58,6 @@ datCredit_valid <- subset(datCredit_valid, OOB_Ind==0)
 
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
-
-# - Handle left-truncated spells by adding a starting record 
-### NOTE:  This is necessary for calculating certain survival quantities later
-# Create an additional record for each default spell
-datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
-datAdd[, Start:=Start-1]
-datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
-datAdd[, Counter:=0]
-# Add record to main dataset
-datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
 
 # - Subset for write-offs only to create inset plots
 datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")

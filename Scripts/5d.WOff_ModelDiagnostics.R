@@ -15,7 +15,7 @@
 #   - 2g.Data_Fusion2.R
 #   - 4a(i).InputSpace_DiscreteCox.R
 #   - 4a(ii).InputSpace_DiscreteCox_Basic.R
-#   - 4e.Dichotomisation
+#   - 4e(ii).Dichotomisation
 #
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
@@ -40,7 +40,7 @@ if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
-# Create start and stop columns
+# - Create start and stop columns
 datCredit_train[, Start:=TimeInDefSpell-1]
 datCredit_valid[, Start:=TimeInDefSpell-1]
 
@@ -82,24 +82,30 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 (thresh_classic <- thresh_lst[["Classical"]]) # 0.5652506
 
 
-# --- 1.4 Probability scoring
-datCredit[, prob_basic:=predict(modLR_Bas, newdata = datCredit, type="response")]
-datCredit[, prob_adv:=predict(modLR_Adv, newdata = datCredit, type="response")]
-datCredit[, prob_LR:=predict(modLR_Classic, newdata = datCredit, type="response")]
+# --- 1.4 Estimate event rates to facilitate the application of dichotomisation
+# - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
+datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
+datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
+datCredit[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
-# [SANITY CHECKS] Check for no missingness in probability scores in validation set
-cat((anyNA(c(datCredit[,prob_basic]))) %?% "WARNING: Missingness detected in predicted probabilities of the Validation Set.\n" %:%
-      "SAFE: No missingness in predicted probabilities from the basic discrete-time hazard model.\n")
-cat((anyNA(c(datCredit[,prob_adv]))) %?% "WARNING: Missingness detected in predicted probabilities of the Validation Set.\n" %:%
-      "SAFE: No missingness in predicted probabilities from the advanced discrete-time hazard model.\n")
-cat((anyNA(c(datCredit[,prob_LR]))) %?% "WARNING: Missingness detected in predicted probabilities of the Validation Set.\n" %:%
-      "SAFE: No missingness in predicted probabilities from the classical logistic regression model.\n")
+# - Derive survival probability S(t) = prod(1 - hazard)
+datCredit[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
+datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
+datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
+
+# - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
+datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1)-Survival_adv, by=list(DefSpell_Key)]
+datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1)-Survival_bas, by=list(DefSpell_Key)]
+datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1)-Survival_classic, by=list(DefSpell_Key)]
+
+# - Remove added rows
+datCredit <- subset(datCredit, Counter>0)
 
 
 # --- 1.5 Dichotomisation
-datCredit[, DefSpell_Event_Bas_Youden:=ifelse(prob_basic>thresh_dth_bas,1,0)]
-datCredit[, DefSpell_Event_Adv_Youden:=ifelse(prob_adv>thresh_dth_adv,1,0)]
-datCredit[, DefSpell_Event_Classic_Youden:=ifelse(prob_LR>thresh_classic,1,0)]
+datCredit[, DefSpell_Event_Adv_Youden:=ifelse(EventRate_adv>thresh_dth_adv,1,0)]
+datCredit[, DefSpell_Event_Bas_Youden:=ifelse(EventRate_bas>thresh_dth_bas,1,0)]
+datCredit[, DefSpell_Event_Classic_Youden:=ifelse(EventRate_classic>thresh_classic,1,0)]
 
 
 
@@ -180,9 +186,9 @@ LRAUC[,AUC_Val:=AUC_Val/100]; LRAUC[,AUC_LowerCI:=AUC_LowerCI/100]; LRAUC[,AUC_U
 LRAUC_B[,AUC_Val:=AUC_Val/100]; LRAUC_B[,AUC_LowerCI:=AUC_LowerCI/100]; LRAUC_B[,AUC_UpperCI:=AUC_UpperCI/100]
 
 # - Differentiation for plotting
-BasAUC[,Dataset := "A"]; BasAUC_B[,Dataset := "A"]
-LRAUC[,Dataset := "C"]; LRAUC_B[,Dataset := "B"]
-AdvAUC[,Dataset := "B"]; AdvAUC_B[,Dataset := "C"]
+BasAUC[,Dataset:="A"]; BasAUC_B[,Dataset:="A"]
+LRAUC[,Dataset:="C"]; LRAUC_B[,Dataset:="B"]
+AdvAUC[,Dataset:="B"]; AdvAUC_B[,Dataset:="C"]
 
 
 # --- 3.3 Create AUC over-time graph | A-series (non-dichotomised)
@@ -249,7 +255,7 @@ ggsave(g3, file=paste0(genFigPath, "AUC-time.png"), width=1200/dpi, height=1000/
 suppressWarnings(rm(datAnnotate, g3, datPlot, BasAUC, LRAUC, AdvAUC)); gc()
 
 
-# --- 3.4 Create AUC over-time graph | A-series (non-dichotomised)
+# --- 3.4 Create AUC over-time graph | B-series (dichotomised)
 # - Create final dataset for ggplot
 datPlot <- rbind(BasAUC_B, LRAUC_B, AdvAUC_B)
 
