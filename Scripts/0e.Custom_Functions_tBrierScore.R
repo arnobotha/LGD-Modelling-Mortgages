@@ -62,7 +62,7 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
   
   # --- Calculate survival quantities of interest
   # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-  datGiven[, Hazard := predict(modGiven, newdata=c, type=predType)]
+  datGiven[, Hazard := predict(modGiven, newdata=datGiven, type=predType)]
   
   if (predType=="response") {
     # - Derive survival probability S(t) = \prod ( 1- hazard), based on output of predict()
@@ -77,10 +77,10 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
   # - Estimate the event rate if specified
   if (brierType=="EventRate"){
     datGiven[, EventRate:=shift(Survival,fill=1,n=1,type="lag")-Survival, by=list(get(fldKey))]
-    
-    # Remove additional observations created for left-truncated spells
-    datGiven <- subset(datGiven, get(fldCounter)>0)
   }
+  
+  # - Remove additional observations created for left-truncated spells
+  datGiven <- subset(datGiven, get(fldCounter)>0)
   
   # - Dichotomise the event rate if specified
   if (!is.na(threshold)){

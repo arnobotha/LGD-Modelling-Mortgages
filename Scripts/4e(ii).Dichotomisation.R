@@ -136,7 +136,7 @@ datCredit_train_classic <- subset(datCredit_train_classic, OOB_Ind==0)
 # - Classical model
 (thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train_classic,
                                      Target="DefSpell_Event", prob_vals_given="EventRate_classic",
-                                     a=80))
+                                     a=80, replicate=10, numThreads=2))
 ### RESULTS: Threshold at a=80: 0.01959181
 ### RESULTS: Threshold at a=(1-q1)/q1: 0.2358849
 

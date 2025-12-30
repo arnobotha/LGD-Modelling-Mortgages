@@ -104,14 +104,14 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 (objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_Bas, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="Survival"))
-### RESULTS: Integrated Brier Score = 8.420888%
+### RESULTS: Integrated Brier Score = 8.320114%
 
 # - B-series (dichotomised)
 (objCoxDisc_bas_B <- tBrierScore(datCredit, modGiven=modLR_Bas, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                  fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                  fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                  threshold=thresh_dth_bas, brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 16.53425%
+### RESULTS: Integrated Brier Score = 13.40665%
 
 
 # --- 2.2 Advanced discrete-time hazard model
@@ -119,14 +119,14 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 (objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="Survival"))
-### RESULTS: Integrated Brier Score = 1.770236%
+### RESULTS: Integrated Brier Score = 1.750661%
 
 # - B-series (dichotomised)
 (objCoxDisc_adv_B <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                  fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                  fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                  threshold=thresh_dth_adv, brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 16.56513%
+### RESULTS: Integrated Brier Score = 16.37196%
 
 
 # --- 2.3 Classical logistic regression model
@@ -134,14 +134,14 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 (objCoxDisc_classic <- tBrierScore(datCredit, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                    fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                    fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="Survival"))
-### RESULTS: Integrated Brier Score = 14.10252%
+### RESULTS: Integrated Brier Score = 14.05533%
 
 # - B-series (dichotomised)
 (objCoxDisc_classic_B <- tBrierScore(datCredit, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                      fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                      fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                      threshold=thresh_classic, brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 16.52217%
+### RESULTS: Integrated Brier Score = 14.48311%
 
 
 
@@ -231,8 +231,8 @@ datGraph[, FacetLabel:="Discrete-time hazard models"]
 specified_SpellAge <- 48
 
 # - Recalculate Integrated tBS over zoomed spell age
-(ibs_bas <- mean(objCoxDisc_bas$tBS[TimeInDefSpell <= specified_SpellAge, Brier]))
-(ibs_adv <- mean(objCoxDisc_adv$tBS[TimeInDefSpell <= specified_SpellAge, Brier]))
+(ibs_bas <- mean(objCoxDisc_bas_B$tBS[TimeInDefSpell <= specified_SpellAge, Brier]))
+(ibs_adv <- mean(objCoxDisc_adv_B$tBS[TimeInDefSpell <= specified_SpellAge, Brier]))
 
 # - Graphing Parameters
 chosenFont <- "Cambria"
