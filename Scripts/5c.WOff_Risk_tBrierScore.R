@@ -175,9 +175,9 @@ vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5) + 
     # Annotations
-    annotate(geom="text", x=26, y=8, label=paste0("IBS (Basic A): ", round(objCoxDisc_bas$IBS,3)), 
+    annotate(geom="text", x=26, y=14, label=paste0("IBS (Basic A): ", round(objCoxDisc_bas$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=22, y=6, label=paste0("IBS (Advanced A): ", round(objCoxDisc_adv$IBS,3)), 
+    annotate(geom="text", x=22, y=10, label=paste0("IBS (Advanced A): ", round(objCoxDisc_adv$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +     
     # Facets & scales
     facet_grid(FacetLabel ~ .) +  
@@ -198,23 +198,23 @@ vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
           panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
           panel.background = element_rect(color="black", fill="white"),
           plot.background = element_rect(color="white"), plot.margin = unit(c(0,0,0,0),"mm"),
-          plot.title = element_text(hjust=0.55,vjust=-10,margin=margin(t=-12))) + 
+          plot.title = element_text(hjust=0.55, vjust=-10, margin=margin(t=-12))) + 
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5, show.legend = F) + 
     # Annotations
-    annotate(geom="text", x=20, y=1.5, label=paste0("IBS (Basic A): ", round(ibs_bas,3)), 
+    annotate(geom="text", x=20, y=7.5, label=paste0("IBS (Basic A): ", round(ibs_bas,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=17, y=1, label=paste0("IBS (Advanced A): ", round(ibs_adv,3)), 
+    annotate(geom="text", x=17, y=6, label=paste0("IBS (Advanced A): ", round(ibs_adv,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +   
     # Facets & scales
     scale_colour_manual(name="", values=vCol, labels=vLabel) + 
     scale_linetype_discrete(name="", labels=vLabel) +
-    scale_y_continuous(breaks=breaks_pretty(), label=comma) + 
+    scale_y_continuous(breaks=breaks_pretty(), label=comma, limits=c(0,8)) + 
     scale_x_continuous(breaks=breaks_pretty(), label=comma)
 )
 
 # - Combining the two above plots onto a single graph
-(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=5, xmax=78, ymin=10, ymax=30))
+(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=5, xmax=78, ymin=25, ymax=50))
 
 # - Save plot
 dpi <- 280

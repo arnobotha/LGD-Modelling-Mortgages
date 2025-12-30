@@ -129,7 +129,7 @@ datGiven_classic <- copy(datCredit_train_classic[,list(DefSpell_Event, EventRate
 # - Basic model
 (thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven,
                                   Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
-                                  a=a, replicate=48, numThreads=8, limits=c(0,0.025),
+                                  a=1, replicate=48, numThreads=8, limits=c(0,0.025),
                                   replicateName="DtH-Basic"))
 ### RESULTS: Threshold at a=1: 0.02498668
 ### RESULTS: Threshold at a=(1-q1)/q1: 0.009839146

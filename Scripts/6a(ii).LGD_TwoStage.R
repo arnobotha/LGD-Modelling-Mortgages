@@ -38,6 +38,10 @@
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
+# - Filter for default spells
+datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key))
+datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key))
+
 # - Create start and stop columns
 datCredit_train[, Start:=TimeInDefSpell-1]
 datCredit_valid[, Start:=TimeInDefSpell-1]
@@ -118,7 +122,7 @@ datCredit <- subset(datCredit, DefSpell_Counter==1)
 datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
 
 # - Subset to include only relevant data
-datCredit <- subset(datCredit_train, OOB_Ind==0)
+datCredit <- subset(datCredit, OOB_Ind==0)
 
 # - Subset for write-offs only to create inset plots
 datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")
@@ -134,7 +138,7 @@ datCredit_bas <- subset(datCredit, LossRate_est_bas<=1 & LossRate_est_bas>=0)
 
 # - Estimate statistics on distributional differences
 metrics<-evalModel_twostage(datCredit_bas,"LossRate_Real","LossRate_est_bas",
-                            writeoff_type="survival_adv",modLR_Adv,modGLM_Severity_CPG,NULL)
+                            writeoff_type="survival_bas", modLR_Bas, modGLM_Severity_CPG, NULL)
 
 # - Create plotting data
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -231,7 +235,7 @@ datCredit_adv <- subset(datCredit, LossRate_est_adv<=1 & LossRate_est_adv>=0)
 
 # - Estimate statistics on distributional differences
 metrics<-evalModel_twostage(datCredit_adv, "LossRate_Real", "LossRate_est_adv",
-                            writeoff_type="survival_adv", modLR_Adv,modGLM_Severity_CPG, NULL)
+                            writeoff_type="survival_adv", modLR_Adv, modGLM_Severity_CPG, NULL)
 
 # - Create plotting data
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",

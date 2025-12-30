@@ -157,15 +157,15 @@ suppressWarnings(rm(coefDeter_LR, coefDeter_Adv, coefDeter_LR, PseudoR2_Table));
 datCredit[,DefSpell_Max_Date:=max(Date),by=list(DefSpell_Key)]
 
 # - Basic model
-BasAUC <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","prob_basic")
+BasAUC <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","EventRate_bas")
 BasAUC_B <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","DefSpell_Event_Bas_Youden")
 
 # - Advanced model
-AdvAUC <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","prob_adv")
+AdvAUC <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","EventRate_adv")
 AdvAUC_B <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","DefSpell_Event_Adv_Youden")
 
 # - Classical model
-LRAUC <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","prob_LR")
+LRAUC <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","EventRate_classic")
 LRAUC_B <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","DefSpell_Event_Classic_Youden")
 
 
