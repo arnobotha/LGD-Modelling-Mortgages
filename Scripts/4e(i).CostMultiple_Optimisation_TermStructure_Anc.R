@@ -170,6 +170,10 @@ describe(datCredit$EventRate_classic); hist(datCredit$EventRate_classic, breaks=
 ### NOTE: Regarding replication within GenYoudenIndex, analysis has shown that the advanced DtH-model exhibits 
 # far less variability in its results, hence the lower replication value compared to that of the basic DtH-model.
 
+# - Create stripped-down version of required dataset or optimisation to minimise input/output run-time
+datGiven <- datCredit[Sample=="Train",list(DefSpell_Event, EventRate_bas, EventRate_adv)]
+datGiven_classic <- datCredit_train_classic[,list(DefSpell_Event, EventRate_classic)]
+
 ptm <- proc.time() #IGNORE: for computation time calculation
 for (i in 1:length(vCostMultiples)) {
   # - Testing conditions
@@ -178,17 +182,21 @@ for (i in 1:length(vCostMultiples)) {
   # -- Run subroutine for the Generalised Youden Index given a specific cost multiple (a)
   # - Basic DtH-model
   # Upper constraint chosen based on distributional analysis of event rates
-  thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit[Sample=="Train",],
+  thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven,
                                    Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
-                                   a=vCostMultiples[i], replicate=150, numThreads=8, limits=c(0,0.025))
+                                   a=vCostMultiples[i], replicate=48, numThreads=8, limits=c(0,0.025),
+                                   replicateName="DtH-Basic")
   # - Advanced DtH-model
-  thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit[Sample=="Train",], 
+  thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven, 
                                    Target="DefSpell_Event", prob_vals_given="EventRate_adv", 
-                                   a=vCostMultiples[i], replicate=3, numThreads=3)
+                                   a=vCostMultiples[i], replicate=4, numThreads=4, limits=c(0,0.3),
+                                   replicateName="DtH-Advanced")
   # - Classical model
-  thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train_classic,
-                                       Target="DefSpell_Event", prob_vals_given="EventRate_classic",
-                                       a=vCostMultiples[i])
+  # Upper constraint chosen based on distributional analysis of event rates
+  thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven_classic,
+                                      Target="DefSpell_Event", prob_vals_given="EventRate_classic",
+                                      a=vCostMultiples[i], replicate=8, numThreads=8, limits=c(0,0.4),
+                                      replicateName="LR")
   
   
   # -- Dichotomise probabilistic models
@@ -262,9 +270,8 @@ datTest <- datResults[Type=="LR",list(Type, a, Threshold, MAE)]
 
 # -- Assign cut-offs based on optimisation results
 cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==40, Threshold]
-#cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==82, Threshold]
 cutoff_dtH_adv <- datResults[Type=="DtH-Advanced" & a==1, Threshold]
-cutoff_dtH_adv <- 0.3894059 # found previousliy at a=1 with many more replications
+cutoff_dtH_adv <- 0.3894059 # found previously at a=1 with many more replications
 cutoff_LR <- datResults[Type=="LR" & a==80, Threshold]
 
 # -- Dichotomise probabilistic models
@@ -373,74 +380,3 @@ ggsave(plot=g.full, filename=paste0(genFigPath, "CostMultiple_Optimisation_MAE.p
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
-
-
-
-
-
-# ------ 7. Imposing limits on optimisation process's search space
-
-# -- Run subroutine for the Generalised Youden Index given a specific cost multiple (a)
-# - Basic DtH-model
-# Upper constraint chosen based on distributional analysis of event rates
-thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit[Sample=="Train",],
-                                 Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
-                                 a=1, replicate=150, numThreads=8, limits=c(0,0.02))
-thresh_dth_bas$cutoff # 0.015727 for limits of c(0,0.02)
-
-# -- Dichotomise probabilistic models
-datCredit[, Youden_bas := ifelse(EventRate_bas > thresh_dth_bas$cutoff,1,0)]
-
-# -- Aggregate event rates and calculate MAEs
-# - Aggregate event rates to period-level
-datSurv_exp <- datCredit[,.(EventRate_bas_Youden = mean(Youden_bas, na.rm=T)),
-  by=list(TimeInDefSpell)]
-
-# - Calculate MAE between event rates
-# Basic model
-(MAE_eventProb_bas_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                        datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_bas_Youden]), na.rm=T))
-
-# - Plotting event rates for actuals and all expecteds
-plot(datSurv_act[Time<=120, EventRate], type="b")
-lines(datSurv_exp[TimeInDefSpell<=120, EventRate_adv_Youden], type="b", col="red")
-
-
-############ SCRATCH: Temporary code for populating the optimisation results only for the DtH-basic model
-# The results will be manually interwoven into the main results sets as a once-off.
-ptm <- proc.time() #IGNORE: for computation time calculation
-for (i in 1:length(vCostMultiples)) {
-  # - Testing conditions
-  # a <- vCostMultiples[1]; i <- 1
-  
-  # -- Run subroutine for the Generalised Youden Index given a specific cost multiple (a)
-  # - Basic DtH-model
-  # Upper constraint chosen based on distributional analysis of event rates
-  thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit[Sample=="Train",],
-                                   Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
-                                   a=vCostMultiples[i], replicate=150, numThreads=8, limits=c(0,0.025))
-  
-  # -- Dichotomise probabilistic models
-  datCredit[, Youden_bas := ifelse(EventRate_bas > thresh_dth_bas$cutoff,1,0)]
-  
-  # -- Aggregate event rates and calculate MAEs
-  # - Aggregate event rates to period-level
-  datSurv_exp <- datCredit[,.(EventRate_bas_Youden = mean(Youden_bas, na.rm=T)), by=list(TimeInDefSpell)]
-  
-  # - Calculate MAE between event rates
-  # Basic model
-  (MAE_eventProb_bas_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                          datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_bas_Youden]), na.rm=T))
-  
-  # - Compile results
-  datResults_prep <- data.table(a=vCostMultiples[i], Type="DtH-Basic", Threshold=thresh_dth_bas$cutoff, 
-                                MAE=MAE_eventProb_bas_Youden)
-  
-  # - Save/append results
-  if (i==1) datResults_bas <- datResults_prep else datResults_bas <- rbind(datResults_bas, datResults_prep)
-  cat(paste0("Iteration ", i, " of ",length(vCostMultiples), " done.\n"))
-}
-proc.time() - ptm
-
-# - Save optimisation results to disk
-pack.ffdf(paste0(genObjPath,"CostMultipleResults_basic"), datResults_bas)
