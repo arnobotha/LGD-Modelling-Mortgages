@@ -121,18 +121,18 @@ datGiven_classic <- copy(datCredit_train_classic[,list(DefSpell_Event, EventRate
 # ------ 3. Determining the thresholds for dichotomisation
 # --- 3.1 Determine thresholds | Discrete time models
 # - Calculate the cost multiple
-(q1 <- mean(datCredit_train$DefSpell_Event,na.rm=TRUE))
+# (q1 <- mean(datCredit_train$DefSpell_Event,na.rm=TRUE))
 ### RESULTS: Prevalence = 0.01111503
-(a <- (1-q1)/q1)
+# (a <- (1-q1)/q1)
 ### RESULTS: Cost-multiple = 88.96827
 
 # - Basic model
 (thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven,
                                   Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
-                                  a=1, replicate=48, numThreads=8, limits=c(0,0.025),
+                                  a=a, replicate=48, numThreads=8, limits=c(0,0.025),
                                   replicateName="DtH-Basic"))
 ### RESULTS: Threshold at a=1: 0.02498668
-### RESULTS: Threshold at a=(1-q1)/q1: 0.2642033
+### RESULTS: Threshold at a=(1-q1)/q1: 0.009839146
 
 # - Advanced model
 (thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven, 
@@ -140,15 +140,15 @@ datGiven_classic <- copy(datCredit_train_classic[,list(DefSpell_Event, EventRate
                                   a=1, replicate=4, numThreads=4, limits=c(0,0.3),
                                   replicateName="DtH-Advanced"))
 ### RESULTS: Threshold at a=1: 0.2995543
-### RESULTS: Threshold at a=(1-q1)/q1: 0.4333787
+### RESULTS: Threshold at a=(1-q1)/q1: 0.005047943
 
 
 # --- 3.2 Determine thresholds | Classical models
 # - Calculate the cost multiple
-(q1 <- mean(datCredit_train_classic$DefSpell_Event,na.rm=TRUE))
-### RESULTS: Prevalence = 0.2243023
-(a <- (1-q1)/q1)
-### RESULTS: Cost-multiple = 3.458269
+# (q1 <- mean(datCredit_train_classic$DefSpell_Event,na.rm=TRUE))
+### RESULTS: Prevalence = 0.1824916
+# (a <- (1-q1)/q1)
+### RESULTS: Cost-multiple = 4.479705
 
 # - Classical model
 (thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven_classic,
@@ -156,7 +156,7 @@ datGiven_classic <- copy(datCredit_train_classic[,list(DefSpell_Event, EventRate
                                      a=1, replicate=8, numThreads=8, limits=c(0,0.4),
                                      replicateName="LR"))
 ### RESULTS: Threshold at a=1: 0.3997155
-### RESULTS: Threshold at a=(1-q1)/q1: 0.2358849
+### RESULTS: Threshold at a=(1-q1)/q1: 0.2930735
 
 
 
