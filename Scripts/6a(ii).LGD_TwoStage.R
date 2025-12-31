@@ -235,7 +235,7 @@ datCredit_adv <- subset(datCredit, LossRate_est_adv<=1 & LossRate_est_adv>=0)
 
 # - Estimate statistics on distributional differences
 metrics<-evalModel_twostage(datCredit_adv, "LossRate_Real", "LossRate_est_adv",
-                            writeoff_type="survival_adv", modLR_Adv, modGLM_Severity_CPG, NULL)
+                            writeoff_type="logistic", modLR_Classic, modGLM_Severity_CPG, NULL)
 
 # - Create plotting data
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",

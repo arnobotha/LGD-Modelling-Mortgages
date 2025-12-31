@@ -375,7 +375,7 @@ ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_
 # - Create graphing data object for the two that are out of range
 datGraph_OOB <- datGraph %>% subset(Type %in% c("a_Actual", "b_Actual_spline",
                                                 "e_Expected_bas_Youden", "f_Expected_spline_bas_Youden",
-                                                "m_Expected_classic_Youden", "n_Expected_spline_classic_Youden"))
+                                                "m_Expected_classic_Youden"))
 
 # - Facet label
 datGraph_OOB[, FacetLabel:="Term-structure of write-off risk"]
