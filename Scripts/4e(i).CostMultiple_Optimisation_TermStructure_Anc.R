@@ -110,7 +110,6 @@ datSurv_act[,AtRisk_perc:=AtRisk_n/max(AtRisk_n, na.rm=T)]
 
 # - Create an additional record for each default spell
 datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
-datAdd[, Start:=Start-1]
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
 datAdd[, Counter:=0]
 
@@ -247,7 +246,7 @@ pack.ffdf(paste0(genObjPath,"CostMultipleResults"), datResults)
 # ------ 5. General analysis of results
 
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datResults')) unpack.ffdf(paste0(genPath,"CostMultipleResults"), tempPath);gc()
+if (!exists('datResults')) unpack.ffdf(paste0(genObjPath,"CostMultipleResults"), tempPath);gc()
 
 # quick plots: MAE over a
 plot(x=datResults[Type=="DtH-Basic",a], y=datResults[Type=="DtH-Basic",MAE],
