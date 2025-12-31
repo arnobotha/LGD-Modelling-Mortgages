@@ -246,12 +246,21 @@ pack.ffdf(paste0(genObjPath,"CostMultipleResults"), datResults)
 
 # ------ 5. General analysis of results
 
+# - Confirm prepared datasets are loaded into memory
+if (!exists('datResults')) unpack.ffdf(paste0(genPath,"CostMultipleResults"), tempPath);gc()
+
 # quick plots: MAE over a
 plot(x=datResults[Type=="DtH-Basic",a], y=datResults[Type=="DtH-Basic",MAE],
      xlab="Cost multiple a", ylab="MAE",col="red", type="b")
+plot(x=datResults[Type=="DtH-Basic" & a<=40,a], y=datResults[Type=="DtH-Basic" & a<=40,MAE],
+     xlab="Cost multiple a", ylab="MAE",col="red", type="b")
 plot(x=datResults[Type=="DtH-Advanced",a], y=datResults[Type=="DtH-Advanced",MAE],
      xlab="Cost multiple a", ylab="MAE",col="blue", type="b")
+plot(x=datResults[Type=="DtH-Advanced" & a<=5,a], y=datResults[Type=="DtH-Advanced" & a<=5,MAE],
+     xlab="Cost multiple a", ylab="MAE",col="blue", type="b")
 plot(x=datResults[Type=="LR",a], y=datResults[Type=="LR",MAE],
+     xlab="Cost multiple a", ylab="MAE",col="orange", type="b")
+plot(x=datResults[Type=="LR" & a<=20,a], y=datResults[Type=="LR" & a<=20,MAE],
      xlab="Cost multiple a", ylab="MAE",col="orange", type="b")
 
 # quick plots: Threshold over a
@@ -269,10 +278,10 @@ datTest <- datResults[Type=="DtH-Advanced",list(Type, a, Threshold, MAE)]
 datTest <- datResults[Type=="LR",list(Type, a, Threshold, MAE)]
 
 # -- Assign cut-offs based on optimisation results
-cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==40, Threshold]
-cutoff_dtH_adv <- datResults[Type=="DtH-Advanced" & a==1, Threshold]
-cutoff_dtH_adv <- 0.3894059 # found previously at a=1 with many more replications
-cutoff_LR <- datResults[Type=="LR" & a==80, Threshold]
+cost_DtH_bas <- 38; cost_DtH_adv <- 1; cost_LR <- 12
+cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==cost_DtH_bas, Threshold]
+cutoff_dtH_adv <- datResults[Type=="DtH-Advanced" & a==cost_DtH_adv, Threshold]
+cutoff_LR <- datResults[Type=="LR" & a==cost_LR, Threshold]
 
 # -- Dichotomise probabilistic models
 datCredit[, Youden_bas := ifelse(EventRate_bas > cutoff_dth_bas,1,0)]
@@ -335,7 +344,6 @@ datGraph <- rbind(data.table(datResults[Type == "DtH-Basic",], Type2="a_DtH-Basi
                   data.table(datResults[Type == "LR",], Type2="c_LR"))
 
 # annotation table
-cost_DtH_bas <- 40; cost_DtH_adv <- 1; cost_LR <- 80
 plot.data.min <- rbind(data.table(Type2="a_DtH-Basic", a=cost_DtH_bas, MAE=datResults[Type=="DtH-Basic" & a==cost_DtH_bas, MAE]),
                        data.table(Type2="b_DtH-Advanced", a=cost_DtH_adv, MAE=datResults[Type=="DtH-Advanced" & a==cost_DtH_adv, MAE]),
                        data.table(Type2="c_LR", a=cost_LR, MAE=datResults[Type=="LR" & a==cost_LR, MAE]))
@@ -346,7 +354,7 @@ vCol <- brewer.pal(12, "Paired")[c(6,2,10)]
 vLabel <- c("a_DtH-Basic"="DtH-Basic", "b_DtH-Advanced"="DtH-Advanced", "c_LR"="LR")
 
 # Main graphing logic
-(g1 <- ggplot(datGraph) + theme_minimal() +
+(g1 <- ggplot(datGraph[a<=80,]) + theme_minimal() +
   theme(legend.position = "bottom", text = element_text(family=chosenFont)) + 
   labs(x=bquote("Cost multiple "*italic(a)), y="MAE between empirical and expected term-structures") + 
   #geom_point(aes(x=a,y=MAE, colour=Type2, shape=Type2)) + 
@@ -371,8 +379,8 @@ xlim <- c(0,5); ylim <- c(0,0.05)
         panel.background = element_rect(color='black', fill="white"),
         plot.margin = unit(c(0,0,0,0),"mm")))
 
-(g.full <- g1 + annotation_custom(grob = ggplotGrob(plot.zoom), xmin = 0.5, xmax=60,
-                            ymin = 0.4, ymax = 1))
+(g.full <- g1 + annotation_custom(grob = ggplotGrob(plot.zoom), xmin = 0.5, xmax=50,
+                            ymin = 0.15, ymax =0.35))
 
 # Save graph object
 dpi <- 220
@@ -380,3 +388,7 @@ ggsave(plot=g.full, filename=paste0(genFigPath, "CostMultiple_Optimisation_MAE.p
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
+# - Cleanup
+rm(datGiven, datGiven_classic, datCredit, datCredit_train, datCredit_train_classic, datCredit_valid,
+   datGraph, datSurv_act, datSurv_exp, datResults, datResults_prep, datTest, 
+   modLR_Adv, modLR_Bas, modLR_Classic, km_Default, g.full, g1, plot.zoom, plot.data.min)
