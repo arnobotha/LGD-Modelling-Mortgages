@@ -423,13 +423,13 @@ chosenFont <- "Cambria"
     theme(text = element_text(family=chosenFont), legend.position="inside", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
-          legend.position.inside = c(0.65,0.25),
-          legend.background = element_rect(fill="snow2", color="black",
-                                           linetype="solid", linewidth=0.1)) +
-    labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
-           bquote("True Positive Rate "*italic(T^"+"))) + 
+          legend.position.inside=c(0.75,0.25),
+          legend.background=element_rect(fill="snow2", color="black",
+                                         linetype="solid", linewidth=0.1)) +
+    labs(x=bquote("False Positive Rate "*italic(F^"+")),
+         y=bquote("True Positive Rate "*italic(T^"+"))) + 
     # Add 45-degree line
-    geom_segment(x = 0, y = 0, xend = 1, yend = 1, color = "grey", linewidth=0.2) +
+    geom_segment(x=0, y=0, xend=1, yend=1, color="grey", linewidth=0.2) +
     # Main line graph
     geom_step(aes(x=x, y=y, linetype=PredictTime, colour=PredictTime), linewidth=0.5) + 
     #geom_point(aes(x=x, y=y, shape=PredictTime, colour=PredictTime), size=0.25) +
@@ -443,7 +443,7 @@ chosenFont <- "Cambria"
 # - Save graph
 dpi <- 400
 ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel-CoxDisc-CDH-CombinedROC_Depedendence_bas.png")), 
-       width=1800/dpi, height=1500/dpi, dpi=dpi, bg="white")
+       width=3600/dpi, height=1500/dpi, dpi=dpi, bg="white")
 
 
 # --- 6.2 Advanced discrete-time hazard model | A series (non-dichotomised)
@@ -562,7 +562,7 @@ chosenFont <- "Cambria"
     theme(text = element_text(family=chosenFont), legend.position="inside", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
-          legend.position.inside = c(0.75,0.25),
+          legend.position.inside = c(0.5,0.5),
           legend.background = element_rect(fill="snow2", color="black",
                                            linetype="solid", linewidth=0.1)) +
     labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
@@ -587,10 +587,10 @@ ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel-CoxDi
 
 # --- 6.4 Advanced discrete-time hazard model | B series (dichotomised)
 # - Ensure required objects exist in memory
-if (!exists('objROC6_CDH_CoxDisc_adv_B')) objROC6_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_06_adv.rds")); gc()
-if (!exists('objROC12_CDH_CoxDisc_adv_B')) objROC12_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_12_adv.rds")); gc()
-if (!exists('objROC24_CDH_CoxDisc_adv_B')) objROC24_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_24_adv.rds")); gc()
-if (!exists('objROC48_CDH_CoxDisc_adv_B')) objROC48_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_48_adv.rds")); gc()
+if (!exists('objROC6_CDH_CoxDisc_adv_B')) objROC6_CDH_CoxDisc_adv_B <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_06_adv.rds")); gc()
+if (!exists('objROC12_CDH_CoxDisc_adv_B')) objROC12_CDH_CoxDisc_adv_B <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_12_adv.rds")); gc()
+if (!exists('objROC24_CDH_CoxDisc_adv_B')) objROC24_CDH_CoxDisc_adv_B <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_24_adv.rds")); gc()
+if (!exists('objROC48_CDH_CoxDisc_adv_B')) objROC48_CDH_CoxDisc_adv_B <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_48_adv.rds")); gc()
 
 # - Set ROC-parameters and initialize data structures
 vecPercTimepoint <- c(6,12,24,48)
@@ -627,7 +627,7 @@ chosenFont <- "Cambria"
     theme(text = element_text(family=chosenFont), legend.position="inside", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
-          legend.position.inside = c(0.55,0.45),
+          legend.position.inside = c(0.5,0.5),
           legend.background = element_rect(fill="snow2", color="black",
                                            linetype="solid", linewidth=0.1)) +
     labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
@@ -649,7 +649,7 @@ dpi <- 300
 ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel-CoxDisc-CDH-Dichotomised-CombinedROC_Depedendence_adv.png")), 
        width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
-# - cleanup
+# - Cleanup
 suppressWarnings(rm(gg, vLabels, vLabels_F, vecTROC, datGraph, dat, 
                     objROC1_CDH_bas, objROC2_CDH_bas, objROC3_CDH_bas, objROC4_CDH_bas,
                     objROC1_CDH_adv, objROC2_CDH_adv, objROC3_CDH_adv, objROC4_CDH_adv,

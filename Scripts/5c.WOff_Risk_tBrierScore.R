@@ -111,7 +111,7 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
                                  fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                  fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                  threshold=thresh_dth_bas, brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 13.42212%
+### RESULTS: Integrated Brier Score = 13.53912%
 
 
 # --- 2.2 Advanced discrete-time hazard model
@@ -126,7 +126,7 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
                                  fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                  fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                  threshold=thresh_dth_adv, brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 16.38549%
+### RESULTS: Integrated Brier Score = 16.3858%
 
 
 # --- 2.3 Classical logistic regression model
@@ -141,7 +141,7 @@ thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
                                      fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                      fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                      threshold=thresh_classic, brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 16.00881%
+### RESULTS: Integrated Brier Score = 15.91328%
 
 
 
@@ -214,7 +214,7 @@ vLabel <- c("a_Basic"="DtH-Basic A", "b_Advanced"="DtH-Advanced A")
 )
 
 # - Combining the two above plots onto a single graph
-(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=5, xmax=78, ymin=17.5, ymax=30))
+(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=2, xmax=85, ymin=15, ymax=30))
 
 # - Save plot
 dpi <- 280
@@ -248,9 +248,9 @@ vLabel <- c("a_Basic"="DtH-Basic B", "b_Advanced"="DtH-Advanced B")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5) + 
     # Annotations
-    annotate(geom="text", x=26, y=18, label=paste0("IBS (Basic A): ", round(objCoxDisc_bas$IBS,3)), 
+    annotate(geom="text", x=32, y=18, label=paste0("IBS (Basic B): ", round(objCoxDisc_bas_B$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=22, y=14, label=paste0("IBS (Advanced A): ", round(objCoxDisc_adv$IBS,3)), 
+    annotate(geom="text", x=30, y=14, label=paste0("IBS (Advanced B): ", round(objCoxDisc_adv_B$IBS,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +     
     # Facets & scales
     facet_grid(FacetLabel ~ .) +  
@@ -275,9 +275,9 @@ vLabel <- c("a_Basic"="DtH-Basic B", "b_Advanced"="DtH-Advanced B")
     # Main graph
     geom_line(aes(colour=Type, linetype=Type), linewidth=0.5, show.legend = F) + 
     # Annotations
-    annotate(geom="text", x=18.5, y=6.5, label=paste0("IBS (Basic A): ", round(ibs_bas,3)), 
+    annotate(geom="text", x=18.5, y=6.5, label=paste0("IBS (Basic B): ", round(ibs_bas,3)), 
              family=chosenFont, size=3.5, colour=vCol[1]) + 
-    annotate(geom="text", x=17, y=5.5, label=paste0("IBS (Advanced A): ", round(ibs_adv,3)), 
+    annotate(geom="text", x=17, y=5.5, label=paste0("IBS (Advanced B): ", round(ibs_adv,3)), 
              family=chosenFont, size=3.5, colour=vCol[2]) +   
     # Facets & scales
     scale_colour_manual(name="", values=vCol, labels=vLabel) + 
@@ -287,7 +287,7 @@ vLabel <- c("a_Basic"="DtH-Basic B", "b_Advanced"="DtH-Advanced B")
 )
 
 # - Combining the two above plots onto a single graph
-(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=5, xmax=78, ymin=25, ymax=55))
+(plot.full <- gOuter + annotation_custom(grob = ggplotGrob(gInner), xmin=2, xmax=85, ymin=25, ymax=60))
 
 # - Save plot
 dpi <- 280

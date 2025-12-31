@@ -408,9 +408,9 @@ mainEventName <- "Write-off"
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
     # Annotations
-    annotate("text", y=0.6,x=100, label=paste0("MAE (LR B): ", percent(MAE_eventProb_classic_Youden, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.5,x=90, label=paste0("MAE (LR B): ", percent(MAE_eventProb_classic_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3) + 
-    annotate("text", y=0.545,x=100, label=paste0("MAE (DtH-Basic B): ", percent(MAE_eventProb_bas_Youden, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.46,x=90, label=paste0("MAE (DtH-Basic B): ", percent(MAE_eventProb_bas_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3) +
     # Scales and options
     facet_grid(FacetLabel ~ .) + 
@@ -423,9 +423,41 @@ mainEventName <- "Write-off"
     guides(color=guide_legend(nrow=2))
 )
 
+# - Create zoomed-in inset graph
+(gsurv_ft2 <- ggplot(datGraph_OOB[Time <= sMaxSpellAge_graph & Type %in% c("a_Actual","b_Actual_spline",
+                                                                           "m_Expected_classic_Youden"),],
+                     aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
+    theme_bw() +
+    theme(legend.position="none", text=element_text(size=12, family="Cambria"),
+          #specific for plot-in-plot
+          axis.text.y=element_text(margin=unit(c(0,0,0,0), "mm"), size=9),
+          axis.text.x=element_text(margin=unit(c(0,0,0,0), "mm"), size=9),
+          axis.ticks=element_blank(), axis.title.x=element_blank(), #axis.title.y=element_blank(),
+          panel.grid.major=element_blank(), panel.grid.minor = element_blank(),
+          panel.background=element_rect(color="black", fill="white"),
+          plot.background=element_rect(color="white"), plot.margin = unit(c(0,0,0,0),"mm"),
+          plot.title=element_text(hjust=0.55,vjust=-10,margin=margin(t=-12))) +
+    labs(x=NULL, y=NULL) +
+    # Main graph
+    geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
+    geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
+    # Scales and options
+    scale_colour_manual(name="", values=vCol[c(1,2,5)], labels=vLabel2) + 
+    scale_linewidth_manual(name="", values=vSize[c(1,2,5)], labels=vLabel2) + 
+    scale_linetype_manual(name="", values=vLineType[c(1,2,5)], labels=vLabel2) + 
+    scale_shape_manual(name="", values=vShapeType[c(1,2,5)], labels=vLabel2) + 
+    scale_y_continuous(breaks=breaks_pretty(), label=percent)+ 
+    scale_x_continuous(breaks=breaks_pretty(n=8), label=comma) + 
+    guides(color=guide_legend(nrow=2)) +
+    coord_cartesian(xlim=c(0,80), ylim=c(0,0.018))
+)
+
+# - Combine graphs
+(plot.full <- gsurv_ft + annotation_custom(grob = ggplotGrob(gsurv_ft2), xmin=10, xmax=90, ymin=0.125, ymax=0.44))
+
 # - Save plot
 dpi <- 335 # reset
-ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_CoxDisc_OOB.png"),
+ggsave(plot.full, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_CoxDisc_OOB.png"),
        width=2400/dpi, height=1800/dpi,dpi=dpi, bg="white")
 
 

@@ -116,12 +116,6 @@ evalModel_onestage <- function(data_train, actField, estField,model_type = c("tw
 }
 
 
-
-
-
-
-
-
 evalModel_twostage <- function(data_train, actField, estField, writeoff_type = c("logistic", "survival_adv","survival_bas"),modWoff,modLS){
   y  <- data_train[[actField]]
   est <- data_train[[estField]]
@@ -148,50 +142,13 @@ evalModel_twostage <- function(data_train, actField, estField, writeoff_type = c
 }
 
 
-
-
-
-
-KL_two_stage <- function(df, 
-                                model_writeoff, 
-                                model_severity,
-                                writeoff_type = c("logistic", "survival_adv", "survival_bas"),
-                                youden_cutoff = NULL,
-                                n_bins = 200) {
+KL_two_stage <- function(y, y_pred, n_bins=200) {
   
-  writeoff_type <- match.arg(writeoff_type)
+  # - Unit test | Internal
+  # y<-y; y_pred<-est; n_bins<-200
+  
+  # - Set error tolerance
   eps <- 1e-12
-  
-  # -------------------------------
-  # Actual loss rate
-  # -------------------------------
-  y <- df$LossRate_Real
-  
-  # -------------------------------
-  # Stage 1: Write-off probability
-  # -------------------------------
-  if (writeoff_type == "logistic") {
-    p_loss_raw <- df$EventRate_PD
-  } else if (writeoff_type == "survival_adv") {
-    p_loss_raw <- df$EventRate_adv
-  } else if (writeoff_type == "survival_bas") {
-    p_loss_raw <- df$EventRate_bas
-  }
-  
-  # Apply Youden cutoff -> hard default indicator
-  if (!is.null(youden_cutoff)) {
-    p_loss <- ifelse(p_loss_raw > youden_cutoff, 1, 0)
-  } else {
-    p_loss <- p_loss_raw   # soft PD
-  }
-  
-  # -------------------------------
-  # Stage 2: Predicted severity
-  # -------------------------------
-  mu_pred <- predict(model_severity, newdata = df, type = "response")
-  
-  # Predicted expected loss
-  y_pred <- p_loss * mu_pred
   
   # -------------------------------
   # Convert actual & predicted values into probability distributions
@@ -214,37 +171,40 @@ KL_two_stage <- function(df,
   JS <- 0.5 * sum(p_emp * log(p_emp / M)) +
     0.5 * sum(q_emp * log(q_emp / M))
   
-  model_name <- ifelse(is.null(youden_cutoff),
-                       paste(writeoff_type, "+ severity", "2-stage"),
-                       paste(writeoff_type, "+ Youden", youden_cutoff, "+ severity"))
-  
-  data.frame(Model = model_name, KL = KL, JS = JS)
+  # - Return results
+  data.frame(KL = KL, JS = JS)
 }
 
 
-evalModel_twostage <- function(data_train, actField, estField, writeoff_type = c("logistic", "survival_adv","survival_bas"),modWoff,modLS, thresh){
+evalModel_twostage <- function(data_train, actField, estField){
+  
+  # - Unit test | Internal
+  # data_train<-datCredit_bas; actField<-"LossRate_Real";
+  # estField<-"LossRate_est_bas"; modWoff<-modLR_Bas; modLS<-modGLM_Severity_CPG;
+  # thresh<-NULL
+  
+  # - Get actual and expected fields
   y  <- data_train[[actField]]
   est <- data_train[[estField]]
   
+  # - Estimate error metrics
   rmse <- sqrt(mean((est- y)^2))
   mae  <- mean(abs(est - y))
-  ks <- ks.test(y,est)$statistic
-  kendalls <-cor.fk(y,est)
-  spearman <-cor(y,est,method = "spearman",use    = "complete.obs")
-  if (writeoff_type == "logistic") {
-    kl <- KL_two_stage(data_train,modWoff, modLS,"logistic",thresh)$KL
-    js <- KL_two_stage(data_train,modWoff, modLS,"logistic",thresh)$JS
-  } 
-  else if (writeoff_type == "survival_adv") {
-    kl <- KL_two_stage(data_train,modWoff, modLS,"survival_adv",thresh)$KL
-    js <- KL_two_stage(data_train,modWoff, modLS,"survival_adv",thresh)$JS
-  }
-  else if (writeoff_type == "survival_bas") {
-    kl <- KL_two_stage(data_train,modWoff, modLS,"survival_bas",thresh)$KL
-    js <- KL_two_stage(data_train,modWoff, modLS,"survival_bas",thresh)$JS
-  }
   
-  data.table(RMSE = rmse, MAE=mae , KS = ks, KL =kl,JS=js,Kendalls_Tau=kendalls, Spearmans_rho=spearman)
+  # - Estimate KS statistic
+  ks <- ks.test(y,est)$statistic
+  kendalls <- cor.fk(y,est)
+  spearman <- cor(y, est, method = "spearman", use="complete.obs")
+  
+  # - Estimate KL and JS statistics
+  kl_js <- KL_two_stage(y=y, y_pred=est)
+  kl <- kl_js$KL
+  js <- kl_js$JS
+
+  # - Return results
+  data.table(RMSE=rmse, MAE=mae , KS=ks, KL=kl, JS=js,
+             Kendalls_Tau=kendalls, Spearmans_rho=spearman)
+  
 }
 
 

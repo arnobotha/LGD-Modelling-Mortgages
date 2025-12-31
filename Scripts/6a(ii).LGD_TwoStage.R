@@ -123,6 +123,7 @@ datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
 
 # - Subset to include only relevant data
 datCredit <- subset(datCredit, OOB_Ind==0)
+# datCredit_a <- datCredit[,.SD(max(DefSpell_Counter)), by=list(DefSpell_Counter)]
 
 # - Subset for write-offs only to create inset plots
 datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")
@@ -137,8 +138,7 @@ datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")
 datCredit_bas <- subset(datCredit, LossRate_est_bas<=1 & LossRate_est_bas>=0)
 
 # - Estimate statistics on distributional differences
-metrics<-evalModel_twostage(datCredit_bas,"LossRate_Real","LossRate_est_bas",
-                            writeoff_type="survival_bas", modLR_Bas, modGLM_Severity_CPG, NULL)
+metrics<-evalModel_twostage(data_train=datCredit_bas, actField="LossRate_Real", estField="LossRate_est_bas")
 
 # - Create plotting data
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -205,7 +205,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"),
           strip.text.y.right=element_text(angle=90)) +
-    annotate("label", x=0.7, y=40 , label = stats_text,
+    annotate("label", x=0.6, y=50 , label = stats_text,
              hjust=0, vjust =1, family = chosenFont,
              size=4, fill="white", colour="black", label.size=0.5) +
     labs(x="", y="", title=paste0("Write-offs only")) +
@@ -234,8 +234,7 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_DtH_Bas_A.png"),wid
 datCredit_adv <- subset(datCredit, LossRate_est_adv<=1 & LossRate_est_adv>=0)
 
 # - Estimate statistics on distributional differences
-metrics<-evalModel_twostage(datCredit_adv, "LossRate_Real", "LossRate_est_adv",
-                            writeoff_type="logistic", modLR_Classic, modGLM_Severity_CPG, NULL)
+metrics<-evalModel_twostage(data_train=datCredit_bas, actField="LossRate_Real", estField="LossRate_est_adv")
 
 # - Create plotting data
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -302,7 +301,7 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"),
           strip.text.y.right=element_text(angle=90)) +
-    annotate("label", x=0.7, y=40 , label=stats_text,
+    annotate("label", x=0.6, y=50, label=stats_text,
              hjust=0, vjust=1, family=chosenFont,
              size=4, fill="white", colour="black", label.size=0.5) +
     labs(x="", y="", title=paste0("Write-offs only")) +
@@ -331,8 +330,7 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_DtH_Adv_A.png"),wid
 datCredit_classic <- subset(datCredit, LossRate_est_classic<=1 & LossRate_est_classic>=0)
 
 # - Estimate statistics on distributional differences
-metrics<-evalModel_twostage(datCredit_classic, "LossRate_Real", "LossRate_est_classic",
-                            writeoff_type="survival_classic", modLR_Adv, modGLM_Severity_CPG,NULL)
+metrics<-evalModel_twostage(data_train=datCredit_bas, actField="LossRate_Real", estField="LossRate_est_classic")
 
 # - Create plotting data
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -398,7 +396,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"),
           strip.text.y.right=element_text(angle=90)) +
-    annotate("label", x=0.7, y=8 , label=stats_text,
+    annotate("label", x=0.5, y=8 , label=stats_text,
              hjust=0, vjust=1, family=chosenFont,
              size=4, fill="white", colour="black", label.size=0.5) +
     labs(x="", y="", title=paste0("Write-offs only")) +
