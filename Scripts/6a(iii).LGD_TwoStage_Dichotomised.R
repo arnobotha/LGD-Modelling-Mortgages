@@ -136,7 +136,7 @@ datCredit[, LossRate_est_classic:=LossSeverity*DefSpell_Event_Classic_Youden]
 # --- 1.5 Subset data
 # - Filter to maximum spell counter
 # datCredit <- subset(datCredit, DefSpell_Counter==1)
-datCredit <- datCredit[, .SD[which.max(DefSpell_Counter)], by=DefSpell_Key]
+# datCredit <- datCredit[, .SD[which.max(DefSpell_Counter)], by=DefSpell_Key]
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
@@ -321,7 +321,7 @@ plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"),
           strip.text.y.right=element_text(angle=90)) +
-    annotate("label", x=0.6, y=50, label=stats_text,
+    annotate("label", x=0.6, y=100, label=stats_text,
              hjust=0, vjust=1, family=chosenFont,
              size=4, fill="white", colour="black", label.size=0.5) +
     labs(x="", y="", title=paste0("Write-offs only")) +
@@ -416,7 +416,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"),
           strip.text.y.right=element_text(angle=90)) +
-    annotate("label", x=0.5, y=8 , label=stats_text,
+    annotate("label", x=0.5, y=100 , label=stats_text,
              hjust=0, vjust=1, family=chosenFont,
              size=4, fill="white", colour="black", label.size=0.5) +
     labs(x="", y="", title=paste0("Write-offs only")) +
