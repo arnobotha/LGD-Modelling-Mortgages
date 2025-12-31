@@ -246,6 +246,9 @@ pack.ffdf(paste0(genObjPath,"CostMultipleResults"), datResults)
 
 # ------ 5. General analysis of results
 
+# - Confirm prepared datasets are loaded into memory
+if (!exists('datResults')) unpack.ffdf(paste0(genPath,"CostMultipleResults"), tempPath);gc()
+
 # quick plots: MAE over a
 plot(x=datResults[Type=="DtH-Basic",a], y=datResults[Type=="DtH-Basic",MAE],
      xlab="Cost multiple a", ylab="MAE",col="red", type="b")
@@ -385,3 +388,7 @@ ggsave(plot=g.full, filename=paste0(genFigPath, "CostMultiple_Optimisation_MAE.p
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
+# - Cleanup
+rm(datGiven, datGiven_classic, datCredit, datCredit_train, datCredit_train_classic, datCredit_valid,
+   datGraph, datSurv_act, datSurv_exp, datResults, datResults_prep, datTest, 
+   modLR_Adv, modLR_Bas, modLR_Classic, km_Default, g.full, g1, plot.zoom, plot.data.min)
