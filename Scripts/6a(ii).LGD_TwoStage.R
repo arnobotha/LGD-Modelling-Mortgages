@@ -116,7 +116,8 @@ datCredit[, LossRate_est_classic:=LossSeverity*EventRate_classic]
 
 # --- 1.5 Subset data
 # - Filter to maximum spell counter
-datCredit <- subset(datCredit, DefSpell_Counter==1)
+# datCredit <- subset(datCredit, DefSpell_Counter==1)
+datCredit <- datCredit[, .SD[which.max(DefSpell_Counter)], by=DefSpell_Key]
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
