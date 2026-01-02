@@ -1,7 +1,7 @@
 # ======================================= INPUT SPACE: LOSS SEVERITY-TWO STAGE============================
 # Dichotomise probabilistic models into 0/1-decisions
 # ------------------------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Marcel Muller (MM), Mohammed Gabru (MG)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:

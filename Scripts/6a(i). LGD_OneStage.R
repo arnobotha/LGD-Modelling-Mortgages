@@ -143,10 +143,6 @@ datCredit_WOFFs[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCr
 # - Filter for non-sensical loss rates
 datCredit_Gaus <- subset(datCredit, LossRate_Gaussian<=1 & LossRate_Gaussian>=0)
 
-# - Estimate mean expected loss rate
-(meanLoss_TruEnd_gaussian <- mean(datCredit_Gaus$LossRate_Gaussian, na.rm=T))
-### RESULTS: Mean = 0.08693827
-
 # - Estimate statistics on distributional diffirences
 metrics <- evalModel_onestage(datCredit_Gaus,"LossRate_Real", "LossRate_Gaussian", "gaussian", modGLM_OneStage_Gaus)
 
@@ -155,6 +151,9 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     "KL: ", sprintf("%.4f", metrics$KL), "\n",
                     "JS: ", sprintf("%.4f", metrics$JS), 
                     sep="")
+
+# Mean expected loss
+(MeanLoss_exp <- mean(datCredit_Gaus$LossRate_Gaussian, na.rm=T))
 
 # - Create plotting data
 plotData <- melt(datCredit_Gaus, measure.vars=c("LossRate_Real", "LossRate_Gaussian"),
@@ -174,6 +173,9 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
           strip.text=element_text(size=8, colour="gray50"),
           strip.placement="outside",        
           strip.text.y.right=element_text(angle=90)) +
+    geom_vline(xintercept=MeanLoss_exp, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
+    annotate(geom="text", x=MeanLoss_exp*0.75,  y=20, family=chosenFont,
+             label = paste0(sprintf("%.1f", MeanLoss_exp*100), "%"), size=3, colour=vCol[2], angle=90) +     
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
     scale_fill_manual(values=c(vCol[1], vCol[2])) +
@@ -188,6 +190,9 @@ datCredit_WOFFs[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCr
 
 # - Filter for non-sensical loss rates
 datCredit_Gaus_WOFFs <- subset(datCredit_WOFFs, LossRate_Gaussian<=1 & LossRate_Gaussian>=0)
+
+# Mean expected loss
+(MeanLoss_exp_W <- mean(datCredit_Gaus_WOFFs$LossRate_Gaussian, na.rm=T))
 
 # - Create plotting data
 plotData <- melt(datCredit_Gaus_WOFFs, measure.vars=c("LossRate_Real", "LossRate_Gaussian"),
@@ -210,9 +215,12 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
           plot.background=element_rect(color="white"), plot.margin=unit(c(0,0,0,0),"mm"),
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text = element_text(size=8, colour="gray50"), strip.text.y.right = element_text(angle=90)) +
-    annotate("label", x=0.7, y=30 , label=stats_text,
+    annotate("label", x=0.7, y=10 , label=stats_text,
              hjust=0, vjust=1, family=chosenFont,
              size=4, fill="white", colour="black", label.size = 0.5) +
+    geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
+    annotate(geom="text", x=MeanLoss_exp_W*0.7,  y=5, family=chosenFont,
+            label = paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +         
     labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
@@ -226,7 +234,7 @@ ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
 (plot.full <- gOverlay + annotation_custom(grob = ggplotGrob(gOverlay_WOFF), xmin=0.2, xmax=1, ymin=ymin, ymax=ymax))
 
 # - Save plot
-dpi <- 180
+dpi <- 240
 ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_gaussian.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
@@ -241,10 +249,6 @@ datCredit[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit,typ
 # - Filter for non-sensical loss rates
 datCredit_Tweedie <- subset(datCredit, LossRate_Tweedie<=1 & LossRate_Tweedie>=0)
 
-# - Estimate mean expected loss rate
-(meanLoss_TruEnd_tweedie <- mean(datCredit_Tweedie$LossRate_Tweedie, na.rm=T))
-### RESULTS: Mean=0.08285599
-
 # - Estimate statistics on distributional differences
 metrics <- evalModel_onestage(datCredit_Tweedie,"LossRate_Real","LossRate_Tweedie","tweedie",modGLM_OneStage_CPG)
 
@@ -253,6 +257,9 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     "KL: ", sprintf("%.4f", metrics$KL), "\n",
                     "JS: ", sprintf("%.4f", metrics$JS),
                     sep = "")
+
+# Mean expected loss
+(MeanLoss_exp <- mean(datCredit_Tweedie$LossRate_Tweedie, na.rm=T))
 
 # - Create plotting data
 plotData <- melt(datCredit_Tweedie, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
@@ -272,11 +279,14 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
           strip.text=element_text(size = 8, colour = "gray50"),
           strip.placement="outside",        
           strip.text.y.right=element_text(angle = 90)) +
+    geom_vline(xintercept=MeanLoss_exp, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
+    annotate(geom="text", x=MeanLoss_exp*0.75,  y=20, family=chosenFont,
+             label = paste0(sprintf("%.1f", MeanLoss_exp*100), "%"), size=3, colour=vCol[2], angle=90) + 
     scale_x_continuous(breaks=pretty_breaks(), labels = scales::percent) +
-  scale_colour_manual(values=c(vCol[1], vCol[2])) +
-  scale_fill_manual(values=c(vCol[1], vCol[2])) +
-  facet_grid(FacetLabel ~., scales="free")+
-  guides(fill=guide_legend(title = NULL),
+    scale_colour_manual(values=c(vCol[1], vCol[2])) +
+    scale_fill_manual(values=c(vCol[1], vCol[2])) +
+    facet_grid(FacetLabel ~., scales="free")+
+    guides(fill=guide_legend(title = NULL),
          colour=guide_legend(title = NULL)))
 
 
@@ -286,6 +296,9 @@ datCredit_WOFFs[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCred
 
 # - Filter for non-sensical loss rates
 datCredit_WOFFs_Tweedie <- subset(datCredit_WOFFs, LossRate_Tweedie<=1 & LossRate_Tweedie>=0)
+
+# Mean expected loss
+(MeanLoss_exp_W <- mean(datCredit_WOFFs_Tweedie$LossRate_Tweedie, na.rm=T))
 
 # - Create plotting data
 plotData <- melt(datCredit_WOFFs_Tweedie, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
@@ -310,9 +323,12 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
       strip.background=element_rect(fill="snow2", colour="snow2"),
       strip.text=element_text(size=8, colour="gray50"),
       strip.text.y.right=element_text(angle=90)) +
-    annotate("label", x=0.7, y=7, label=stats_text,
+    annotate("label", x=0.6, y=4, label=stats_text,
       hjust=0, vjust=1, family=chosenFont,
       size=4, fill="white", colour="black", label.size=0.5) +
+    geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
+    annotate(geom="text", x=MeanLoss_exp_W*0.7,  y=4.5, family=chosenFont,
+             label = paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +   
     labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
@@ -326,8 +342,12 @@ ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
 (plot.full <- gOverlay + annotation_custom(grob = ggplotGrob(gOverlay_WOFF), xmin=0.2, xmax=1, ymin=ymin, ymax=ymax))
 
 # - Save plot
-dpi <- 180
+dpi <- 240
 ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_tweedie.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
 
+# --- Cleanup
+rm(datCredit, datCredit_WOFFs, datCredit_Gaus, datCredit_Gaus_WOFFs, datCredit_train, datCredit_valid,
+   datCredit_Tweedie, datCredit_WOFFs_Tweedie, modGLM_OneStage_CPG, modGLM_OneStage_Gaus, plotData,
+   g1, g2, gOverlay, gOverlay_WOFF, plot.full)
