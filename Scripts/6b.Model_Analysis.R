@@ -251,6 +251,7 @@ dpi <- 300
 ggsave(LGD_metric, file=paste0(genFigPath,"/LGD_metrics.png"),width=30, height=18,dpi=dpi, bg="white")
 
 # --------------------------------------------------------------
+### AB: I've deleted this youden_threshold() function since we no longer use it. Kindly refactor code accordingly
 thresh_glm <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_PD,
                                model_name = "Logistic regression")
 

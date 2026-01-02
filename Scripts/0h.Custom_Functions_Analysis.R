@@ -2,48 +2,12 @@
 # Defining custom functions used across various projects
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha, Marcel Muller
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller, Dr Arno Botha
 
 # DESCRIPTION:
 # This script defines various functions that are used elsewhere in this project
 # or, indeed, used across other projects. Functions are grouped thematically.
 # ==============================================================================
-
-
-
-
-# --------------------------------------------------------------
-# YOUDEN FUNCTION 
-# --------------------------------------------------------------
-youden_threshold <- function(y_true, y_prob, model_name = "") {
-  thresholds <- sort(unique(c(0, y_prob, 1)))
-  
-  metrics <- map_dfr(thresholds, ~{
-    pred <- ifelse(y_prob >= .x, 1, 0)
-    tp <- sum(pred == 1 & y_true == 1)
-    fp <- sum(pred == 1 & y_true == 0)
-    tn <- sum(pred == 0 & y_true == 0)
-    fn <- sum(pred == 0 & y_true == 1)
-    
-    sens <- ifelse(tp + fn == 0, 0, tp / (tp + fn))
-    spec <- ifelse(tn + fp == 0, 0, tn / (tn + fp))
-    J    <- sens + spec - 1                   
-    
-    tibble(threshold = .x, J = J, sens = sens, spec = spec,
-           tp = tp, fp = fp, tn = tn, fn = fn)
-  })
-  
-  best <- metrics %>% arrange(desc(J)) %>% slice(1)
-  
-  cat("====", model_name, "====\n")
-  cat("Optimal threshold :", round(best$threshold, 4), "\n")
-  cat("Youden J          :", round(best$J, 4), "\n")
-  cat("Sensitivity       :", round(best$sens*100, 1), "%\n")
-  cat("Specificity       :", round(best$spec*100, 1), "%\n")
-  cat("TP =", best$tp, " FP =", best$fp, " FN =", best$fn, " TN =", best$tn, "\n\n")
-  
-  return(best$threshold)
-}
 
 
 
@@ -98,49 +62,21 @@ KL_one_stage <- function(model, df, n_bins = 200) {
 }
 
 
-evalModel_onestage <- function(data_train, actField, estField,model_type = c("tweedie", "gaussian") ,model){
+evalModel_onestage <- function(data_train, actField, estField, model){
   y  <- data_train[[actField]]
   est <- data_train[[estField]]
+  df <- data.table(y,est) %>% drop_na()
   
-  rmse <- sqrt(mean((est- y)^2))
-  mae <- mean(abs(est - y))
-  ks <- ks.test(y,est)$statistic
-  kendalls <-cor.fk(y,est)
-  spearman <-cor(y,est,method = "spearman",use    = "complete.obs")
+  rmse <- sqrt(mean((df$est- df$y)^2))
+  mae <- mean(abs(df$est - df$y))
+  ks <- ks.test(df$y,df$est)$statistic
+  kendalls <-cor.fk(df$y,df$est)
+  spearman <-cor(df$y,df$est,method = "spearman",use    = "complete.obs")
   kl <- KL_one_stage(model, data_train)$KL
   js <- KL_one_stage(model, data_train)$JS
- 
-
   
-  data.table(RMSE = rmse, MAE=mae , KS = ks, KL =kl,JS=js,Kendalls_Tau=kendalls, Spearmans_rho=spearman)
+  data.table(RMSE=rmse, MAE=mae , KS=ks, KL=kl, JS=js, Kendalls_Tau=kendalls, Spearmans_rho=spearman)
 }
-
-
-evalModel_twostage <- function(data_train, actField, estField, writeoff_type = c("logistic", "survival_adv","survival_bas"),modWoff,modLS){
-  y  <- data_train[[actField]]
-  est <- data_train[[estField]]
-  
-  rmse <- sqrt(mean((est- y)^2))
-  mae  <- mean(abs(est - y))
-  ks <- ks.test(y,est)$statistic
-  kendalls <-cor.fk(y,est)
-  spearman <-cor(y,est,method = "spearman",use    = "complete.obs")
-  if (writeoff_type == "logistic") {
-    kl <- KL_two_stage(data_train,modWoff,modLS,"logistic","tweedie")$KL
-    js <- KL_two_stage(data_train,modWoff,modLS,"logistic","tweedie")$JS
-  } 
-  else if (writeoff_type == "survival_adv") {
-    kl <- KL_two_stage(data_train,modWoff,modLS,"survival_adv","tweedie")$KL
-    js <- KL_two_stage(data_train,modWoff,modLS,"survival_adv","tweedie")$JS
-  }
-  else if (writeoff_type == "survival_bas") {
-    kl <- KL_two_stage(data_train,modWoff,modLS,"survival_bas","tweedie")$KL
-    js <- KL_two_stage(data_train,modWoff,modLS,"survival_adv","tweedie")$JS
-  }
-  
-  data.table(RMSE = rmse, MAE=mae , KS = ks, KL =kl,JS=js,Kendalls_Tau=kendalls, Spearmans_rho=spearman)
-}
-
 
 KL_two_stage <- function(y, y_pred, n_bins=200) {
   
@@ -186,25 +122,25 @@ evalModel_twostage <- function(data_train, actField, estField){
   # - Get actual and expected fields
   y  <- data_train[[actField]]
   est <- data_train[[estField]]
+  df <- data.table(y,est) %>% drop_na()
   
   # - Estimate error metrics
-  rmse <- sqrt(mean((est- y)^2))
-  mae  <- mean(abs(est - y))
+  rmse <- sqrt(mean((df$est- df$y)^2))
+  mae  <- mean(abs(df$est - df$y))
   
   # - Estimate KS statistic
-  ks <- ks.test(y,est)$statistic
-  kendalls <- cor.fk(y,est)
-  spearman <- cor(y, est, method = "spearman", use="complete.obs")
+  ks <- ks.test(df$y,df$est)$statistic
+  kendalls <- cor.fk(df$y,df$est)
+  spearman <- cor(df$y, df$est, method = "spearman", use="complete.obs")
   
   # - Estimate KL and JS statistics
-  kl_js <- KL_two_stage(y=y, y_pred=est)
+  kl_js <- KL_two_stage(y=df$y, y_pred=df$est)
   kl <- kl_js$KL
   js <- kl_js$JS
 
   # - Return results
   data.table(RMSE=rmse, MAE=mae , KS=ks, KL=kl, JS=js,
              Kendalls_Tau=kendalls, Spearmans_rho=spearman)
-  
 }
 
 

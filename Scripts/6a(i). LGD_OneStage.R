@@ -35,8 +35,8 @@ if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
 # - Filter to maximum spell counter
-datCredit_train <- datCredit_train_CDH[DefSpell_Counter==1]
-datCredit_valid <- datCredit_valid_CDH[DefSpell_Counter==1]
+datCredit_train <- datCredit_train_CDH#[DefSpell_Counter==1]
+datCredit_valid <- datCredit_valid_CDH#[DefSpell_Counter==1]
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
@@ -80,7 +80,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 
 # - Overall LGD distribution
 (g1 <- ggplot(datCredit, aes(x=LossRate_Real)) + theme_bw() +
-    geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=round(2*datCredit[,.N]^(1/3)),
+    geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=50,
                    position="identity", fill=vCol[1], colour=vCol[1]) + 
     geom_density(linewidth=1, colour=vCol[1], linetype="dotted") + 
     geom_vline(xintercept=meanLoss_TruEnd, linewidth=0.6, colour=vCol[1], linetype="dashed") + 
@@ -98,7 +98,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 
 # - Inset graph for write-offs only
 (g2 <- ggplot(datCredit_WOFFs, aes(x=LossRate_Real)) + theme_bw() +
-    geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=round(2*datCredit_WOFFs[,.N]^(1/3)), 
+    geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=50, 
                    position="identity", fill=vCol[2], colour=vCol[2]) + 
     geom_density(linewidth=1, colour=vCol[2], linetype="dotted") + 
     geom_vline(xintercept=MeanLoss_TruEnd_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
@@ -124,10 +124,10 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 # - Combine graphs
 ymin <- diff(ggplot_build(g1)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(g1)$layout$panel_params[[1]]$y.range) * 0.95
-(plot.full <- g1 + annotation_custom(grob = ggplotGrob(g2), xmin=0.1, xmax=0.9, ymin=ymin, ymax=ymax))
+(plot.full <- g1 + annotation_custom(grob = ggplotGrob(g2), xmin=0.2, xmax=1, ymin=ymin, ymax=ymax))
 
 # - Save plot
-dpi <- 180
+dpi <- 220
 ggsave(plot.full, file=paste0(genFigPath,"/Actual_LGD.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
@@ -141,10 +141,11 @@ datCredit[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit,t
 datCredit_WOFFs[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit_WOFFs,type="response")]
 
 # - Filter for non-sensical loss rates
-datCredit_Gaus <- subset(datCredit, LossRate_Gaussian<=1 & LossRate_Gaussian>=0)
+datCredit[, LossRate_Gaussian := ifelse(LossRate_Gaussian<=1 & LossRate_Gaussian>=0, LossRate_Gaussian, NA)]
+#datCredit <- subset(datCredit, LossRate_Gaussian<=1 & LossRate_Gaussian>=0)
 
 # - Estimate statistics on distributional diffirences
-metrics <- evalModel_onestage(datCredit_Gaus,"LossRate_Real", "LossRate_Gaussian", "gaussian", modGLM_OneStage_Gaus)
+metrics <- evalModel_onestage(datCredit,"LossRate_Real", "LossRate_Gaussian", modGLM_OneStage_Gaus)
 
 # - Combine statistics
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -153,10 +154,10 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     sep="")
 
 # Mean expected loss
-(MeanLoss_exp <- mean(datCredit_Gaus$LossRate_Gaussian, na.rm=T))
+(MeanLoss_exp <- mean(datCredit$LossRate_Gaussian, na.rm=T))
 
 # - Create plotting data
-plotData <- melt(datCredit_Gaus, measure.vars=c("LossRate_Real", "LossRate_Gaussian"),
+plotData <- melt(datCredit, measure.vars=c("LossRate_Real", "LossRate_Gaussian"),
                  variable.name="Type",value.name="LossRate")
 plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Gaussian"),
                         labels=c("Empirical", "Gaussian GLM"))]
@@ -164,9 +165,8 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Plot
 (gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
-    theme_bw() + geom_histogram(
-      aes(y=after_stat(density), fill=Type, colour=Type),
-      alpha=0.35, bins=round(2*datCredit[, .N]^(1/3)), position="identity") +
+    theme_bw() + geom_histogram( aes(y=after_stat(density), fill=Type, colour=Type),
+      alpha=0.35, bins=50, position="identity") +
     labs(x=bquote({Realised~loss~rate~italic(L)}), y="Histogram of loss rates" ) +
     theme(text=element_text(family=chosenFont),legend.position="bottom",
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -189,13 +189,13 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 datCredit_WOFFs[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit_WOFFs,type="response")]
 
 # - Filter for non-sensical loss rates
-datCredit_Gaus_WOFFs <- subset(datCredit_WOFFs, LossRate_Gaussian<=1 & LossRate_Gaussian>=0)
+datCredit_WOFFs[, LossRate_Gaussian := ifelse(LossRate_Gaussian<=1 & LossRate_Gaussian>=0, LossRate_Gaussian, NA)]
 
 # Mean expected loss
-(MeanLoss_exp_W <- mean(datCredit_Gaus_WOFFs$LossRate_Gaussian, na.rm=T))
+(MeanLoss_exp_W <- mean(datCredit_WOFFs$LossRate_Gaussian, na.rm=T))
 
 # - Create plotting data
-plotData <- melt(datCredit_Gaus_WOFFs, measure.vars=c("LossRate_Real", "LossRate_Gaussian"),
+plotData <- melt(datCredit_WOFFs, measure.vars=c("LossRate_Real", "LossRate_Gaussian"),
                  variable.name="Type", value.name="LossRate")
 plotData[, Type:=factor(Type, levels=c("LossRate_Real", "LossRate_Gaussian"),
                         labels=c("Actual loss rate", "Gaussian GLM"))]
@@ -205,7 +205,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 ((gOverlay_WOFF <- ggplot(plotData, aes(x=LossRate)) + 
     theme_bw() +
     geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type),alpha = 0.35,
-                   bins=round(2*datCredit_WOFFs[,.N]^(1/3)), position="identity") +
+                   bins=50, position="identity") +
     theme(legend.position="none",text = element_text(size = 12, family = chosenFont),
           axis.text.y=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
           axis.text.x=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
@@ -215,11 +215,11 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
           plot.background=element_rect(color="white"), plot.margin=unit(c(0,0,0,0),"mm"),
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text = element_text(size=8, colour="gray50"), strip.text.y.right = element_text(angle=90)) +
-    annotate("label", x=0.7, y=10 , label=stats_text,
+    annotate("label", x=0.6, y=7, label=stats_text,
              hjust=0, vjust=1, family=chosenFont,
              size=4, fill="white", colour="black", label.size = 0.5) +
     geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp_W*0.7,  y=5, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_exp_W*0.55,  y=6.5, family=chosenFont,
             label = paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +         
     labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
@@ -247,10 +247,10 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_gaussian.png"),widt
 datCredit[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit,type="response")]
 
 # - Filter for non-sensical loss rates
-datCredit_Tweedie <- subset(datCredit, LossRate_Tweedie<=1 & LossRate_Tweedie>=0)
+datCredit[, LossRate_Tweedie := ifelse(LossRate_Tweedie<=1 & LossRate_Tweedie>=0, LossRate_Tweedie, NA)]
 
 # - Estimate statistics on distributional differences
-metrics <- evalModel_onestage(datCredit_Tweedie,"LossRate_Real","LossRate_Tweedie","tweedie",modGLM_OneStage_CPG)
+metrics <- evalModel_onestage(datCredit,"LossRate_Real","LossRate_Tweedie", modGLM_OneStage_CPG)
 
 # - Combine statistics
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -259,10 +259,10 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     sep = "")
 
 # Mean expected loss
-(MeanLoss_exp <- mean(datCredit_Tweedie$LossRate_Tweedie, na.rm=T))
+(MeanLoss_exp <- mean(datCredit$LossRate_Tweedie, na.rm=T))
 
 # - Create plotting data
-plotData <- melt(datCredit_Tweedie, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
+plotData <- melt(datCredit, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
                  variable.name="Type",value.name="LossRate")
 plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Tweedie"),
                         labels=c("Empirical", "Compound Poisson GLM"))]
@@ -272,7 +272,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 (gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
     theme_bw() + geom_histogram(
       aes(y=after_stat(density), fill=Type, colour=Type),
-      alpha=0.35, bins=round(2 * datCredit[, .N]^(1/3)), position="identity") +
+      alpha=0.35, bins=50, position="identity") +
     labs(x=bquote({Realised~loss~rate~italic(L)}), y="Histogram of loss rates" ) +
     theme(text=element_text(family=chosenFont),legend.position="bottom",
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -295,13 +295,13 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 datCredit_WOFFs[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit_WOFFs,type="response")]
 
 # - Filter for non-sensical loss rates
-datCredit_WOFFs_Tweedie <- subset(datCredit_WOFFs, LossRate_Tweedie<=1 & LossRate_Tweedie>=0)
+datCredit_WOFFs[, LossRate_Tweedie := ifelse(LossRate_Tweedie<=1 & LossRate_Tweedie>=0, LossRate_Tweedie, NA)]
 
 # Mean expected loss
-(MeanLoss_exp_W <- mean(datCredit_WOFFs_Tweedie$LossRate_Tweedie, na.rm=T))
+(MeanLoss_exp_W <- mean(datCredit_WOFFs$LossRate_Tweedie, na.rm=T))
 
 # - Create plotting data
-plotData <- melt(datCredit_WOFFs_Tweedie, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
+plotData <- melt(datCredit_WOFFs, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
                  variable.name="Type", value.name="LossRate")
 plotData[, Type:=factor(Type, levels=c("LossRate_Real", "LossRate_Tweedie"),
                         labels=c("Actual loss rate", "Compound Poisson GLM"))]
@@ -312,7 +312,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
     theme_bw() +
     geom_histogram(
       aes(y=after_stat(density), fill=Type, colour=Type), alpha=0.35,
-      bins=round(2 * datCredit_WOFFs[,.N]^(1/3)), position="identity") +
+      bins=50, position="identity") +
     theme(legend.position = "none",text=element_text(size=12, family=chosenFont),
       axis.text.y=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
       axis.text.x=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
@@ -348,6 +348,5 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_tweedie.png"),width
 
 
 # --- Cleanup
-rm(datCredit, datCredit_WOFFs, datCredit_Gaus, datCredit_Gaus_WOFFs, datCredit_train, datCredit_valid,
-   datCredit_Tweedie, datCredit_WOFFs_Tweedie, modGLM_OneStage_CPG, modGLM_OneStage_Gaus, plotData,
-   g1, g2, gOverlay, gOverlay_WOFF, plot.full)
+rm(datCredit, datCredit_WOFFs, datCredit_train, datCredit_valid, modGLM_OneStage_CPG, modGLM_OneStage_Gaus, 
+   plotData, g1, g2, gOverlay, gOverlay_WOFF, plot.full)
