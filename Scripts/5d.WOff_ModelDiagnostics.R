@@ -75,11 +75,11 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 # Load thresholds
 thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # Basic discrete-time model
-(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.0525335
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.01515866
 # Advanced discrete-time model
-(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.3894059
+(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.2950287
 # Classical logit model
-(thresh_classic <- thresh_lst[["Classical"]]) # 0.5652506
+(thresh_classic <- thresh_lst[["Classical"]]) # 0.0650852
 
 
 # --- 1.4 Estimate event rates to facilitate the application of dichotomisation
@@ -264,9 +264,9 @@ datPlot <- rbind(BasAUC_B, LRAUC_B, AdvAUC_B)
 start_y <- 0.425; space <- 0.025
 y_vals <- c(start_y,start_y-space,start_y-space*2)
 # Creating an annotation dataset for easier annotations
-datAnnotate <- data.table(MeanAUC = NULL, Dataset = c("A-B","A-C","A-B"),
-                          x = rep(as.Date("2013-05-31"),3), # Text x coordinates
-                          y = y_vals )
+datAnnotate <- data.table(MeanAUC=NULL, Dataset=c("A-B","A-C","A-B"),
+                          x=rep(as.Date("2013-05-31"),3), # Text x coordinates
+                          y=y_vals )
 
 # - TTC-mean & confidence interval calculations
 confLevel <- 0.95

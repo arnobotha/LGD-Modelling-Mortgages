@@ -35,8 +35,8 @@ if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
 # - Filter to maximum spell counter
-datCredit_train <- datCredit_train_CDH#[DefSpell_Counter==1]
-datCredit_valid <- datCredit_valid_CDH#[DefSpell_Counter==1]
+datCredit_train <- datCredit_train_CDH # [DefSpell_Counter==1]
+datCredit_valid <- datCredit_valid_CDH # [DefSpell_Counter==1]
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
@@ -66,7 +66,7 @@ modGLM_OneStage_CPG <- readRDS(paste0(genObjPath,"OneStage_CPH_Model.rds"))
 
 
 
-# ------ 2. Actual LGDs
+# ------ 2. Actual overall LGDs
 
 # --- 2.1 Create graphs
 # - Graphing parameters
@@ -258,7 +258,7 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     "JS: ", sprintf("%.4f", metrics$JS),
                     sep = "")
 
-# Mean expected loss
+# - Mean expected loss
 (MeanLoss_exp <- mean(datCredit$LossRate_Tweedie, na.rm=T))
 
 # - Create plotting data
@@ -346,7 +346,7 @@ dpi <- 240
 ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_tweedie.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
-
-# --- Cleanup
-rm(datCredit, datCredit_WOFFs, datCredit_train, datCredit_valid, modGLM_OneStage_CPG, modGLM_OneStage_Gaus, 
-   plotData, g1, g2, gOverlay, gOverlay_WOFF, plot.full)
+# --- 4.4 Cleanup
+suppressWarnings(rm(datCredit, datCredit_WOFFs, datCredit_train, datCredit_valid, modGLM_OneStage_CPG, modGLM_OneStage_Gaus, 
+   plotData, g1, g2, gOverlay, gOverlay_WOFF, plot.full))
+gc()

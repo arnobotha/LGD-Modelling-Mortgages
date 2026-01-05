@@ -1,4 +1,4 @@
-# ================= LGD DISTRIBUTION ANALYSIS - ONE-STAGE MODELS ===============
+# ================= LGD DISTRIBUTION ANALYSIS - TWO-STAGE MODELS ===============
 # Comparing actual LGDs with expected LGDs from the fitted probability and 
 # severity models
 # ------------------------------------------------------------------------------
@@ -128,7 +128,7 @@ datCredit[, LossRate_est_adv:=LossSeverity*DefSpell_Event_Adv_Youden]
 datCredit[, LossRate_est_classic:=LossSeverity*DefSpell_Event_Classic_Youden]
 
 
-# --- 1.5 Subset data
+# --- 1.6 Subset data
 # - Filter to maximum spell counter
 # datCredit <- subset(datCredit, DefSpell_Counter==1)
 # datCredit <- datCredit[, .SD[which.max(DefSpell_Counter)], by=DefSpell_Key]
@@ -461,7 +461,8 @@ dpi <- 240
 ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_LR_B.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
-# --- Cleanup
-rm(datCredit, datCredit_train, datCredit_valid, datAdd, datCredit_acc, datCredit_WOFFs_acc,
+# --- 3.4 Cleanup
+suppressWarnings(rm(datCredit, datCredit_train, datCredit_valid, datAdd, datCredit_acc, datCredit_WOFFs_acc,
    datCredit_WOFFs, modLR_Adv, modLR_Bas, modLR_Classic, modGLM_Severity_CPG,
-   g1, g2, gOverlay, gOverlay_hist, gOverlay_WOFFs, plot.full, plotData)
+   g1, g2, gOverlay, gOverlay_hist, gOverlay_WOFFs, plot.full, plotData))
+gc()

@@ -496,7 +496,7 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
 # - Evaluate model
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 3 266; R^2: 2.52%; RMSE: 30.78%; MAE: 25.94%
+### RESULTS: AIC: 398.49; R^2: 22.45%; RMSE: 27.45%; MAE: 22.34%
 
 ### CONCLUSION: Select variables from automated variable selection procedure:
 ###             [pmnt_method_grp]; [Principal_Real]
@@ -544,7 +544,7 @@ vars <- c("pmnt_method_grp", "Principal_Real",
           "Balance_Real_1", "g0_Delinq_SD_6", "AgeToTerm_Aggr_Mean",
           "slc_acct_arr_dir_3", "PrevDefaults",
           "M_RealIncome_Growth_12", "NewLoans_Aggr_Prop", "Instalment_Real",
-          "M_DTI_Growth_3"
+          "M_DTI_Growth_3", "DefSpell_Age"
 )
 
 # - Fit model
@@ -554,7 +554,7 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
 # - Evaluate model
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 462; R^2: 21.80; RMSE: 27.57%; MAE: 22.43%
+### RESULTS: AIC: 398.49; R^2: 22.45%; RMSE: 27.45%; MAE: 22.34%
 
 
 # --- 9.3 Save objects

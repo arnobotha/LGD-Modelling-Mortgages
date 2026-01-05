@@ -1,180 +1,166 @@
+# ========================= LOSS RATES OVER CALENDAR TIME ======================
+# Comparing actual portfolio-level rates with expecteds from the fitted
+# probability and severity models
+# ------------------------------------------------------------------------------
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
+# ------------------------------------------------------------------------------
+# -- Script dependencies:
+#   - 0.Setup.R
+#   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Data_Prepare_Credit_Advanced.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
+#   - 2f.Data_Fusion1.R
+#   - 2g.Data_Fusion2.R
+#   - 4b(i).InputSpace_DiscreteCox.R
+#   - 4b(ii).InputSpace_DiscreteCox_Basic.R
+#   - 4c.InputSpace_LogisticRegression.R
+#   - 4d.InputSpace_TwoStage_LossSeverity.R
+#   - 4e(ii).Dichotomisation
+# -- Inputs:
+#   - datCredit_train_CDH | Prepared from script 2g
+#   - datCredit_valid_CDH | Prepared from script 2g
+#   - modLR_Bas | Basic discrete time model as fitted in script 4b(ii)
+#   - modLR_Adv | Advanced discrete time model as fitted in script 4b(i)
+#   - modLR_Classic | Classical logistic regression model as fitted in script 4c
+#   - modGLM_Severity_CPG | Single stage GLM model with a Tweedie link function
+#                           as fitted in script 4d
+#   - thres_lst | Thresholds for classifying predictions as determined in script 4e
+# -- Outputs:
+#   - <Analytics> | Graphs
+# ==============================================================================
+
+
+
 # ------ 1. Model fitting
 
+# --- 1.1 Load and prepare datasets
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
-# - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
-# remove previous objects from memory
+# - Filter for default spells
+datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key))
+datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key))
+
+# - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
+datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
+datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
+
+# - Combine training and validation datasets to facilitate "better" (smooth) graphs
+datCredit <- rbind(datCredit_train, datCredit_valid)
+
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Counter:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
+
+# - Remove objects
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
-# - Weigh default cases heavier. as determined interactively based on calibration success (script 6e)
-datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
-datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)] # for merging purposes
+
+# --- 1.2 Load models
+# - GLM with Gaussian link function
+modGLM_OneStage_Gaus <- readRDS(paste0(genObjPath,"OneStage_Gaus_Model.rds"))
+
+# - GLM with Tweedie (Compound Poisson Gaussian) link function
+modGLM_OneStage_CPG <- readRDS(paste0(genObjPath,"OneStage_CPH_Model.rds"))
+
+# - Basic discrete-time hazard model
+modLR_Bas <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
+
+# - Advanced discrete-time hazard model
+modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
+
+# - Classical logit model
+modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
+
+# - CPG severity model
+modGLM_Severity_CPG <- readRDS(paste0(genObjPath,"Severity_CPH_Model.rds"))
 
 
-# - Create subset of performing spells towards modelling each spell as a single record | Classical PD-modelling
-datTrain_classic <- subset(datCredit_train, DefSpell_Counter==1)
-datValid_classic <- subset(datCredit_valid, DefSpell_Counter==1)
+# --- 1.3 Estimate event rates to facilitate the application of dichotomisation
+# - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
+datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
+datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
+datCredit[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
-# - Assign target/response field for the classical PD-model
-datTrain_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
-datValid_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
+# - Derive survival probability S(t) = prod(1 - hazard)
+datCredit[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
+datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
+datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
-# - Create a copy of DefSpell_Age to serve as an input into the classical LGD-model
-datTrain_classic[, DefSpell_Age2 := DefSpell_Age]
-datValid_classic[, DefSpell_Age2 := DefSpell_Age]
+# - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
+datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
+datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
+datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
 
-
-# ---  Basic discrete-time hazard model
-# - Initialize variables
-vars_basic <- c("log(TimeInDefSpell)","DefSpell_Num_binned", "g0_Delinq_Lag_1",
-                "M_Inflation_Growth_9","g0_Delinq_Any_Aggr_Prop_Lag_1")
-
-# - Fit discrete-time hazard model with selected variables
-modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
-                    data=datCredit_train, family="binomial", weights= Weight)
+# - Remove added rows
+datCredit <- subset(datCredit, Counter>0)
 
 
+# --- 1.4 Dichotomise predictions
+# - Youden Index cut-offs
+# Load thresholds
+thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
+# Basic discrete-time model
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.01515866
+# Advanced discrete-time model
+(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.2950287
+# Classical logit model
+(thresh_classic <- thresh_lst[["Classical"]]) # 0.0650852
 
-# ---  Advanced discrete-time hazard model
-# - Initialize variables
-vars <- c("Time_Binned","log(TimeInDefSpell)*DefSpell_Num_binned", 
-          "DefaultStatus1_Aggr_Prop_Lag_12","g0_Delinq_Ave",
-          "InterestRate_Margin_Aggr_Med_9","NewLoans_Aggr_Prop","InterestRate_Nom",
-          "Balance_1","pmnt_method_grp","Principal","g0_Delinq_Lag_1",
-          "M_RealIncome_Growth_9", "M_Inflation_Growth_12","M_DTI_Growth_12","M_Repo_Rate_12","g0_Delinq_Any_Aggr_Prop_Lag_1")
-modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial", weights= Weight)
-
-# ------ Classical Logistic Regression model
-
-# - Initialize variables
-vars_classic <- c("g0_Delinq_Any_Aggr_Prop_Lag_12","DefaultStatus1_Aggr_Prop",
-                  "CuringEvents_Aggr_Prop","PrevDefaults",
-                  "DefSpell_Age2", "g0_Delinq_Num", "Arrears",
-                  "slc_past_due_amt_imputed_med", "DefSpell_Num_binned",
-                  "InterestRate_Margin_Aggr_Med", "AgeToTerm_Aggr_Mean", "AgeToTerm",
-                  "BalanceToPrincipal", "pmnt_method_grp",
-                  "M_RealIncome_Growth_12", "M_Inflation_Growth_3","M_DTI_Growth_6","M_Repo_Rate_2")
-
-# - Fit logistic regression model onto entire spell, similar to application credit scoring with an open-ended outcome window
-modLR_classic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_classic, collapse = " + "))),
-                      data=datTrain_classic, family="binomial")
+# - Apply dichotomisation
+datCredit[, DefSpell_Event_Adv_Youden:=ifelse(EventRate_adv>thresh_dth_adv,1,0)]
+datCredit[, DefSpell_Event_Bas_Youden:=ifelse(EventRate_bas>thresh_dth_bas,1,0)]
+datCredit[, DefSpell_Event_Classic_Youden:=ifelse(EventRate_classic>thresh_classic,1,0)]
 
 
+# --- 1.5 Estimate severities and interact them with the probabilities
+# - Forecast severities
+# One-stage Gaussian
+datCredit[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit,type="response")]
+# One-stage Tweedie
+datCredit[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit,type="response")]
+# Two-stage Tweedie
+datCredit[, LossSeverity:=predict(modGLM_Severity_CPG, newdata=datCredit, type="response")]
 
-# Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-datCredit_train[, Hazard_adv := predict(modLR, newdata=datCredit_train, type = "response")]
-datCredit_train[, Hazard_bas := predict(modLR_basic, newdata=datCredit_train, type = "response")]
-# Derive survival probability S(t) = prod ( 1- hazard)
-datCredit_train[, Survival_adv := cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
-datCredit_train[, Survival_bas := cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
-# Derive discrete density, or event probability f(t) = S(t-1) . h(t)
-datCredit_train[, EventRate_adv := shift(Survival_adv, type="lag", n=1, fill=1) * Hazard_adv , by=list(DefSpell_Key)]
-datCredit_train[, EventRate_bas := shift(Survival_bas, type="lag", n=1, fill=1) * Hazard_bas, by=list(DefSpell_Key)]
-
-
-
-# - Score using classical PD-model each instance of TimeInDefSpell as DefSpell_Age
-datCredit_train[, DefSpell_Age2 := TimeInDefSpell]
-datCredit_train[!is.na(DefSpell_Num), Hazard_PD := predict(modLR_classic, newdata=.SD[], type = "response")]
-datCredit_train[!is.na(DefSpell_Num), Survival_PD := cumprod(1-Hazard_PD), by=list(DefSpell_Key)]
-datCredit_train[!is.na(DefSpell_Num), EventRate_PD := shift(Survival_PD, type="lag", n=1, fill=1) *Hazard_PD, by=list(DefSpell_Key)]
-
-
-# Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-datCredit_valid[, Hazard_adv := predict(modLR, newdata=datCredit_valid, type = "response")]
-datCredit_valid[, Hazard_bas := predict(modLR_basic, newdata=datCredit_valid, type = "response")]
-# Derive survival probability S(t) = prod ( 1- hazard)
-datCredit_valid[, Survival_adv := cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
-datCredit_valid[, Survival_bas := cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
-# Derive discrete density, or event probability f(t) = S(t-1) . h(t)
-datCredit_valid[, EventRate_adv := shift(Survival_adv, type="lag", n=1, fill=1) * Hazard_adv, by=list(DefSpell_Key)]
-datCredit_valid[, EventRate_bas := shift(Survival_bas, type="lag", n=1, fill=1) *Hazard_bas, by=list(DefSpell_Key)]
+# - Interact severities and probabilities
+# Basic discrete time hazard model
+datCredit[, LossRate_est_bas:=LossSeverity*EventRate_bas]
+datCredit[, LossRate_est_bas_B:=LossSeverity*DefSpell_Event_Bas_Youden]
+# Advanced discrete time hazard model
+datCredit[, LossRate_est_adv:=LossSeverity*EventRate_adv]
+datCredit[, LossRate_est_adv_B:=LossSeverity*DefSpell_Event_Adv_Youden]
+# Classical logistic regression model
+datCredit[, LossRate_est_classic:=LossSeverity*EventRate_classic]
+datCredit[, LossRate_est_classic_B:=LossSeverity*DefSpell_Event_Classic_Youden]
 
 
+# --- 1.6 Subset data
+# - Filter to maximum spell counter
+# datCredit <- subset(datCredit, DefSpell_Counter==1)
+# datCredit <- datCredit[, .SD[which.max(DefSpell_Counter)], by=DefSpell_Key]
 
-# - Score using classical PD-model each instance of TimeInDefSpell as DefSpell_Age
-datCredit_valid[, DefSpell_Age2 := TimeInDefSpell]
-datCredit_valid[!is.na(DefSpell_Num), Hazard_PD := predict(modLR_classic, newdata=.SD[], type = "response")]
-datCredit_valid[!is.na(DefSpell_Num), Survival_PD := cumprod(1-Hazard_PD), by=list(DefSpell_Key)]
-datCredit_valid[!is.na(DefSpell_Num), EventRate_PD := shift(Survival_PD, type="lag", n=1, fill=1)* Hazard_PD, by=list(DefSpell_Key)]
+# - Identify where the loss rate is out of bounds and not feasible
+datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
 
-
-
-# - filter to maximum spell counter
-datCredit_train <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
-datCredit_valid <- datCredit_valid[, .SD[which.max(DefSpell_Counter)], by = LoanID]
-
-# Identify where the loss rate is out of bounds and not feasible
-datCredit_train <- datCredit_train[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
-datCredit_valid <- datCredit_valid[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
-
-# Subset to include only relevant data
-datCredit_train <- subset(datCredit_train, OOB_Ind == 0)
-datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
-
-
-# - Gaussian One-stage model
-vars <- c("PrevDefaults", "g0_Delinq_Any_Aggr_Prop_Lag_3","DefaultStatus1_Aggr_Prop_Lag_9",
-          "g0_Delinq_Ave", "CuringEvents_Aggr_Prop",
-          "slc_acct_arr_dir_3","DefSpell_Age","DefSpell_Num_binned","slc_past_due_amt_imputed_med",
-          "InstalmentToBalance_Aggr_Prop", "DefSpell_Maturity_Aggr_Mean", "NewLoans_Aggr_Prop",
-          "Principal", "InterestRate_Margin_imputed_mean", "pmnt_method_grp","InterestRate_Nom","Balance_1",
-          "M_Repo_Rate_12","M_DTI_Growth_12","M_Inflation_Growth", "M_RealIncome_Growth_2")
-
-modLR_gaussian<- glm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                      data=datCredit_train,family = gaussian(link = "identity"))
-
-# - Tweedie One-stage model
-vars <- c("InterestRate_Nom","pmnt_method_grp","Arrears","DefSpell_Age","DefSpell_Num_binned",
-          "Balance_1","Principal","DefaultStatus1_Aggr_Prop_Lag_9",
-          "M_Repo_Rate_12","M_RealIncome_Growth")
-
-modLR_tweedie <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                        data=datCredit_train)
-
-# - Initialize variables to be tested
-vars <- c("PrevDefaults","g0_Delinq_Any_Aggr_Prop_Lag_3","DefaultStatus1_Aggr_Prop_Lag_6", 
-          "slc_acct_arr_dir_3","DefSpell_Age*DefSpell_Num_binned",
-          "NewLoans_Aggr_Prop","Balance_1","Principal","pmnt_method_grp",
-          "M_RealIncome_Growth", "M_Inflation_Growth_12","M_DTI_Growth_3","M_Repo_Rate_9")
-
-
-# - Full model | Stepwise forward selection procedure
-modLR_tweedie_two_stage <- cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-                                  data=datCredit_train)
+# - Subset to include only relevant data
+datCredit <- subset(datCredit, OOB_Ind==0)
 
 
 
 
-datCredit <- rbind(datCredit_train,datCredit_valid)
-thresh_glm <- 0.2352999
-thresh_dth <- 0.1037777
-thresh_dth_bas <-  0.00795927
+# ------ 2. Comparing loss rates quantitatively (account-level)
 
-
-datCredit <- datCredit[, Youden_LR:= ifelse(EventRate_PD >= thresh_glm,1,0)]
-datCredit <- datCredit[, Youden_bas:= ifelse(EventRate_bas >= thresh_dth_bas,1,0)]
-datCredit <- datCredit[, Youden_adv:= ifelse(EventRate_adv >= thresh_dth,1,0)]
-
-
-datCredit <- datCredit[, LossSeverity:= predict(modLR_tweedie_two_stage, newdata=datCredit, type="response")]
-
-
-datCredit <- datCredit[, LossRate_est_bas_youden:= LossSeverity*Youden_bas]
-datCredit <- datCredit[, LossRate_est_adv_youden:= LossSeverity*Youden_adv]
-datCredit <- datCredit[, LossRate_est_LR_youden:=  LossSeverity*Youden_LR]
-datCredit <- datCredit[, LossRate_est_bas:= LossSeverity*EventRate_bas]
-datCredit <- datCredit[, LossRate_est_adv:= LossSeverity*EventRate_adv]
-datCredit <- datCredit[, LossRate_est_LR:=  LossSeverity*EventRate_PD]
-datCredit <- datCredit[, LossRate_tweedie:= predict(modLR_tweedie, newdata=datCredit,type="response")]
-datCredit <- datCredit[, LossRate_gaussian:= predict(modLR_gaussian, newdata=datCredit,type="response")]
-
-
+# --- 2.1 Compare loss rates
+# - Create labeling object
 model_names <- c(
   "1-stage Gaussian",
   "1-stage Tweedie",
@@ -186,37 +172,46 @@ model_names <- c(
   "2-stage DtH-Advanced B"
 )
 
-
-final_table <- tibble(
-  Model         = model_names,    
-  RMSE          = NA_real_,
-  MAE           = NA_real_,
-  KS            = NA_real_,
-  KL            = NA_real_,
-  JS            = NA_real_,
-  Kendalls_Tau  = NA_real_,
-  Spearmans_rho = NA_real_
+# - Initiate table for comparisons
+datComp <- data.table(
+  Model=model_names,    
+  RMSE=NA_real_,
+  MAE=NA_real_,
+  KS=NA_real_,
+  KL=NA_real_,
+  JS=NA_real_,
+  Kendalls_Tau=NA_real_,
+  Spearmans_rho=NA_real_
 )
 
+# - Compare actual and expected loss rates
+# One stage
+datComp[Model=="1-stage Gaussian",names(datComp)[-1]:=as.list(
+  evalModel_onestage(datCredit[LossRate_Gaussian>=0 & LossRate_Gaussian<=1],"LossRate_Real","LossRate_Gaussian",modGLM_OneStage_Gaus))]
+datComp[Model=="1-stage Tweedie",names(datComp)[-1]:=as.list(
+  evalModel_onestage(datCredit[LossRate_Tweedie>=0 & LossRate_Tweedie<=1],"LossRate_Real","LossRate_Tweedie",modGLM_OneStage_CPG))]
+# Two stage | A series (un-dichotomised)
+datComp[Model=="2-stage DtH-Basic A",names(datComp)[-1]:=as.list(
+  evalModel_twostage(datCredit[LossRate_est_bas>=0 & LossRate_est_bas<=1],"LossRate_Real","LossRate_est_bas"))]
+datComp[Model=="2-stage DtH-Advanced A",names(datComp)[-1]:=as.list(
+  evalModel_twostage(datCredit[LossRate_est_adv>=0 & LossRate_est_adv<=1],"LossRate_Real","LossRate_est_adv"))]
+datComp[Model=="2-stage LR A",names(datComp)[-1]:=as.list(
+  evalModel_twostage(datCredit[LossRate_est_classic>=0 & LossRate_est_classic<=1],"LossRate_Real","LossRate_est_classic"))]
+# Two stage | B series (dichotomised)
+datComp[Model=="2-stage DtH-Basic B",names(datComp)[-1]:=as.list(
+  evalModel_twostage(datCredit[LossRate_est_bas_B>=0 & LossRate_est_bas_B<=1],"LossRate_Real","LossRate_est_bas_B"))]
+datComp[Model=="2-stage DtH-Advanced B",names(datComp)[-1]:=as.list(
+  evalModel_twostage(datCredit[LossRate_est_adv_B>=0 & LossRate_est_adv_B<=1],"LossRate_Real","LossRate_est_adv_B"))]
+datComp[Model=="2-stage LR B",names(datComp)[-1]:=as.list(
+  evalModel_twostage(datCredit[LossRate_est_classic_B>=0 & LossRate_est_classic_B<=1],"LossRate_Real","LossRate_est_classic_B"))]
 
-final_table[1, -1] <- evalModel_onestage(datCredit,"LossRate_Real","LossRate_gaussian","gaussian",modLR_gaussian)
-final_table[2, -1] <- evalModel_onestage(datCredit,"LossRate_Real","LossRate_tweedie","tweedie",modLR_tweedie)
 
-final_table[3, -1] <- evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_LR",writeoff_type = "logistic",modLR_classic,modLR_tweedie_two_stage,NULL)
-final_table[4, -1] <- evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_bas",writeoff_type = "survival_bas",modLR_basic,modLR_tweedie_two_stage,NULL)
-final_table[5, -1] <- evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_adv",writeoff_type = "survival_adv",modLR,modLR_tweedie_two_stage,NULL)
+# --- 2.2 Graph comparison metrics
+# - Order data
+df <- datComp %>%
+  mutate(Model=factor(Model, levels=rev(model_names)))
 
-final_table[6, -1] <- evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_LR_youden",writeoff_type = "logistic",modLR_classic,modLR_tweedie_two_stage,thresh_glm)
-final_table[7, -1] <- evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_bas_youden",writeoff_type = "survival_bas",modLR_basic,modLR_tweedie_two_stage,thresh_dth_bas)
-final_table[8, -1] <- evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_adv_youden",writeoff_type = "survival_adv",modLR,modLR_tweedie_two_stage,thresh_dth)
-
-
-
-# Model order
-df <- final_table %>%
-  mutate(Model = factor(Model, levels = rev(model_names)))
-
-# Panel function 
+# - Define a panel function to facilitate graphing
 make_panel <- function(var, title, lower_better = TRUE, digits = 4) {
   best <- if(lower_better) min(df[[var]], na.rm = TRUE) else max(df[[var]], na.rm = TRUE)
   
@@ -239,155 +234,81 @@ make_panel <- function(var, title, lower_better = TRUE, digits = 4) {
     scale_y_continuous(expand = expansion(mult = c(0, 0.35))) 
 }
 
-p1 <- make_panel("MAE",          "MAE",          lower_better = TRUE,  digits = 4)
-p2 <- make_panel("KS",            "KS",            lower_better = TRUE, digits = 4)
-p3 <- make_panel("KL",            "KL",            lower_better = TRUE,  digits = 4)
-p4 <- make_panel("Spearmans_rho", "Spearman's ??",  lower_better = FALSE, digits = 4)
+# - Create a graph for each metric
+p1 <- make_panel("MAE", "MAE",lower_better=TRUE,  digits=4)
+p2 <- make_panel("KS", "KS", lower_better=TRUE, digits=4)
+p3 <- make_panel("KL", "KL", lower_better=TRUE,  digits=4)
+p4 <- make_panel("Spearmans_rho", bquote("Spearman's "~symbol(rho)), lower_better=FALSE, digits=4)
 
+# - Combine comparison graphs
+(LGD_metric <- (p1 | p2) / (p3 | p4) )
 
-LGD_metric <- (p1 | p2) / (p3 | p4) 
-
+# - Save plot
 dpi <- 300
 ggsave(LGD_metric, file=paste0(genFigPath,"/LGD_metrics.png"),width=30, height=18,dpi=dpi, bg="white")
 
-# --------------------------------------------------------------
-### AB: I've deleted this youden_threshold() function since we no longer use it. Kindly refactor code accordingly
-thresh_glm <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_PD,
-                               model_name = "Logistic regression")
-
-thresh_dth <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_adv,
-                               model_name = "DTH-advanced")
-thresh_dth_bas <- youden_threshold(datCredit$DefSpell_Event, datCredit$EventRate_bas,
-                                   model_name = "DTH-basic")
 
 
 
-# Graphing the loss severities over time
+# ------ 3. Graphing the loss severities over time
 
+# --- 3.1 Aggregate loss rates
+# - Aggregate loss rates
+# Actuals
 ActLoss_Rate <- datCredit[,mean(LossRate_Real), by=list(Date)]
-Tweedie_Loss_Rate <- datCredit[,mean(LossRate_tweedie), by=list(Date)]
-Gaussian_Loss_Rate <- datCredit[,mean(LossRate_gaussian), by=list(Date)]
-Two_stage_LR_A_Loss_Rate <- datCredit[,mean(LossRate_est_LR), by=list(Date)]
-Two_stage_LR_B_Loss_Rate <- datCredit[,mean(LossRate_est_LR_youden), by=list(Date)]
-Two_stage_bas_A_Loss_Rate <- datCredit[,mean(LossRate_est_bas), by=list(Date)]
-Two_stage_bas_B_Loss_Rate <- datCredit[,mean(LossRate_est_bas_youden), by=list(Date)]
-Two_stage_adv_A_Loss_Rate <- datCredit[,mean(LossRate_est_adv), by=list(Date)]
-Two_stage_adv_B_Loss_Rate <- datCredit[,mean(LossRate_est_adv_youden), by=list(Date)]
-
-# - Differentiation for plotting
-ActLoss_Rate[,Dataset := "A"]
-Tweedie_Loss_Rate[,Dataset := "B"]
-Gaussian_Loss_Rate[,Dataset := "C"]
-Two_stage_LR_A_Loss_Rate[,Dataset := "D"]
-Two_stage_LR_B_Loss_Rate[,Dataset := "E"]
-Two_stage_bas_A_Loss_Rate[,Dataset := "F"]
-Two_stage_bas_B_Loss_Rate[,Dataset := "G"]
-Two_stage_adv_A_Loss_Rate[,Dataset := "H"]
-Two_stage_adv_B_Loss_Rate[,Dataset := "I"]
+# One-stage
+Gaussian_Loss_Rate <- datCredit[LossRate_Gaussian>=0 & LossRate_Gaussian<=1,mean(LossRate_Gaussian), by=list(Date)]
+Tweedie_Loss_Rate <- datCredit[LossRate_Tweedie>=0 & LossRate_Tweedie<=1, mean(LossRate_Tweedie), by=list(Date)]
+# Two stage | A-series (un-dichotomised)
+Two_stage_bas_A_Loss_Rate <- datCredit[LossRate_est_bas>=0 & LossRate_est_bas<=1, mean(LossRate_est_bas), by=list(Date)]
+Two_stage_adv_A_Loss_Rate <- datCredit[LossRate_est_adv>=0 & LossRate_est_adv<=1, mean(LossRate_est_adv), by=list(Date)]
+Two_stage_classic_A_Loss_Rate <- datCredit[LossRate_est_classic>=0 & LossRate_est_classic<=1, mean(LossRate_est_classic), by=list(Date)]
+# Two stage | B-series (dichotomised)
+Two_stage_bas_B_Loss_Rate <- datCredit[LossRate_est_bas_B>=0 & LossRate_Tweedie<=1, mean(LossRate_est_bas_B), by=list(Date)]
+Two_stage_adv_B_Loss_Rate <- datCredit[LossRate_est_adv_B>=0 & LossRate_Tweedie<=1, mean(LossRate_est_adv_B), by=list(Date)]
+Two_stage_classic_B_Loss_Rate <- datCredit[LossRate_est_classic_B>=0 & LossRate_Tweedie<=1, mean(LossRate_est_classic_B), by=list(Date)]
 
 
+# --- 3.2 Preparations for plotting
+# - Create dataset-specific labels
+ActLoss_Rate[,Dataset:="A"]
+Tweedie_Loss_Rate[,Dataset:="B"]
+Gaussian_Loss_Rate[,Dataset:="C"]
+Two_stage_bas_A_Loss_Rate[,Dataset:="D"]
+Two_stage_adv_A_Loss_Rate[,Dataset:="E"]
+Two_stage_classic_A_Loss_Rate[,Dataset:="F"]
+Two_stage_bas_B_Loss_Rate[,Dataset:="G"]
+Two_stage_adv_B_Loss_Rate[,Dataset:="H"]
+Two_stage_classic_B_Loss_Rate[,Dataset:="I"]
+
+# - Create plotting object
+datPlot <- rbind(ActLoss_Rate,Tweedie_Loss_Rate,Gaussian_Loss_Rate,
+                 Two_stage_bas_A_Loss_Rate, Two_stage_adv_A_Loss_Rate, Two_stage_classic_A_Loss_Rate,
+                 Two_stage_bas_B_Loss_Rate, Two_stage_adv_B_Loss_Rate, Two_stage_classic_B_Loss_Rate)
+colnames(datPlot) <- c("Date", "LossRate", "Dataset")
+
+
+# --- 3.3 Loss rates for one-stage models
 # - Create final dataset for ggplot
-datPlot <- rbind(ActLoss_Rate,Tweedie_Loss_Rate,Gaussian_Loss_Rate,Two_stage_LR_A_Loss_Rate,Two_stage_LR_B_Loss_Rate,Two_stage_bas_A_Loss_Rate
-                 ,Two_stage_bas_B_Loss_Rate,Two_stage_adv_A_Loss_Rate,Two_stage_adv_B_Loss_Rate)
+datPlot <- rbind(ActLoss_Rate,Gaussian_Loss_Rate,Tweedie_Loss_Rate)
 
-# - Aesthetic engineering: annotations
-# Location of annotations
+# - Location of annotations
 start_y <- 0.425
 space <- 0.025
 y_vals <- c(start_y,start_y-space,start_y-space*2)
 
 # - Creating an annotation dataset for easier annotations
-datAnnotate <- data.table(MeanLossRate = NULL, Dataset = c("A-B","A-C","A-D","A-E","A-F","A-G","A-H","A-I","A-J"),
-                          x = rep(as.Date("2013-05-31"),9), # Text x coordinates
-                          y = y_vals )
+datAnnotate <- data.table(MeanLossRate=NULL, Dataset=c("A-B","A-C","A-D"),
+                          x=rep(as.Date("2014-05-31"),3), # Text x coordinates
+                          y=y_vals)
 
-# - TTC-mean & confidence interval calculations
+# - Estimate TTC-mean & confidence interval calculations
 confLevel <- 0.95
-vEventRates_Mean <- c(mean(ActLoss_Rate$V1,na.rm=T),mean(Tweedie_Loss_Rate$V1,na.rm=T),mean(Gaussian_Loss_Rate$V1,na.rm=T),mean(Two_stage_LR_A_Loss_Rate$V1,na.rm=T)
-                    ,mean(Two_stage_LR_A_Loss_Rate$V1,na.rm=T),mean(Two_stage_LR_B_Loss_Rate$V1,na.rm=T),mean(Two_stage_bas_A_Loss_Rate$V1,na.rm=T),
-                    mean(Two_stage_bas_B_Loss_Rate$V1,na.rm=T),mean(Two_stage_adv_A_Loss_Rate$V1,na.rm=T),mean(Two_stage_adv_B_Loss_Rate$V1,na.rm=T))
-                                                                                                                                                                                            
-# Standard errors
-vEventRates_stErr <- c(
-  sd(ActLoss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(ActLoss_Rate$V1))),
-  sd(Tweedie_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Tweedie_Loss_Rate$V1))),
-  sd(Gaussian_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Gaussian_Loss_Rate$V1))),
-  sd(Two_stage_LR_A_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_LR_A_Loss_Rate$V1))),
-  sd(Two_stage_LR_B_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_LR_B_Loss_Rate$V1))),
-  sd(Two_stage_bas_A_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_bas_A_Loss_Rate$V1))),
-  sd(Two_stage_bas_B_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_bas_B_Loss_Rate$V1))),
-  sd(Two_stage_adv_A_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_adv_A_Loss_Rate$V1))),
-  sd(Two_stage_adv_B_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_adv_B_Loss_Rate$V1)))
-)
-vMargin <- qnorm(1-(1-confLevel)/2) * vEventRates_stErr
-series_labels <- c("A[t]", "B[t]", "C[t]", "D[t]", "E[t]", "F[t]", "G[t]", "H[t]", "I[t]")
-vLabel <- sapply(seq_along(series_labels), function(i) {
-  paste0("'TTC-mean over '*italic(t)*' for '*italic(", series_labels[i], ")*' : ",
-    sprintf("%.2f", vEventRates_Mean[i] * 100),
-    "% ? ",
-    sprintf("%1.3f", vEventRates_stErr[i] * 100),
-    "%'")
-})
+vEventRates_Mean <- c(mean(ActLoss_Rate$V1,na.rm=T),
+                      mean(Tweedie_Loss_Rate$V1,na.rm=T),
+                      mean(Gaussian_Loss_Rate$V1,na.rm=T))
 
-datAnnotate[, Label := vLabel]
-
-# - Graphing parameters
-chosenFont <- "Cambria"; dpi <- 180
-vCol <- brewer.pal(9, "Dark2")[c(2,1,3,4,5,6,7,8,9)]
-vLabel <- c("A"=bquote(italic(A[t])~": Empirical"), "B"=bquote(italic(B[t])~": One-stage: Tweedie"), 
-            "C"=bquote(italic(B[t])~": One-stage: Gaussian"), "D"=bquote(italic(D[t])~":Two-stage: LR A"),
-            "E"=bquote(italic(E[t])~": Two-stage: LR B"), "F"=bquote(italic(F[t])~": Two-stage: DtH-Basic A"),
-            "G"=bquote(italic(G[t])~": Two-stage: DtH-Basic B"), "H"=bquote(italic(H[t])~": Two-stage: DtH-Advanced A"),
-            "I"=bquote(italic(I[t])~": Two-stage: DtH-Advanced B"))
-vShape <- c(17,20,4,5,6,7,8,9,10,11) 
-
-# - Create graph
-(g3 <- ggplot(datPlot, aes(x=Date, y=V1)) + theme_minimal() + 
-    labs(y=bquote("Loss Rate L "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
-    theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
-          axis.text.x=element_text(angle=90), 
-          strip.background=element_rect(fill="snow2", colour="snow2"),
-          strip.text=element_text(size=11, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
-    # Main graph
-    geom_line(aes(colour=Dataset, linetype=Dataset), linewidth=0.3) +    
-    geom_point(aes(colour=Dataset, shape=Dataset), size=1.8) + 
-    # Facets & scale options
-    scale_colour_manual(name = "Model", values = vCol, labels = vLabel, 
-                        guide = guide_legend(nrow = 4, byrow = TRUE)) +
-    scale_fill_manual(name = "Model", values = vCol, labels = vLabel, 
-                      guide = guide_legend(nrow = 4, byrow = TRUE)) +
-    scale_shape_manual(name = "Model", values = vShape, labels = vLabel, 
-                       guide = guide_legend(nrow = 4, byrow = TRUE)) +
-    scale_linetype_discrete(name = "Model", labels = vLabel, 
-                            guide = guide_legend(nrow = 4, byrow = TRUE)) +
-    scale_x_date(date_breaks = "6 month", date_labels = "%b %Y") +
-    scale_y_continuous(breaks = pretty_breaks(), labels = percent)
-)
-
-# - Save graph
-dpi <-180
-ggsave(g3, file=paste0(genFigPath, "LossRate-time.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
-
-# LossRate-time One stage
-# - Create final dataset for ggplot
-datPlot <- rbind(ActLoss_Rate,Tweedie_Loss_Rate,Gaussian_Loss_Rate)
-
-# - Aesthetic engineering: annotations
-# Location of annotations
-start_y <- 0.425
-space <- 0.025
-y_vals <- c(start_y,start_y-space,start_y-space*2)
-
-# - Creating an annotation dataset for easier annotations
-datAnnotate <- data.table(MeanLossRate = NULL, Dataset = c("A-B","A-C","A-D"),
-                          x = rep(as.Date("2014-05-31"),3), # Text x coordinates
-                          y = y_vals )
-
-# - TTC-mean & confidence interval calculations
-confLevel <- 0.95
-vEventRates_Mean <- c(mean(ActLoss_Rate$V1,na.rm=T),mean(Tweedie_Loss_Rate$V1,na.rm=T),mean(Gaussian_Loss_Rate$V1,na.rm=T))
-
-# Standard errors
+# - Estimate standard errors
 vEventRates_stErr <- c(
   sd(ActLoss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(ActLoss_Rate$V1))),
   sd(Tweedie_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Tweedie_Loss_Rate$V1))),

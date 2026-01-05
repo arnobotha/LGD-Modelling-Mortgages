@@ -84,11 +84,11 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 # Load thresholds
 thresh_lst <- readRDS(file=paste0(genObjPath,"Classification_Thresholds.rds"))
 # Basic discrete-time model
-(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.01399482
+(thresh_dth_bas <- thresh_lst[["Basic"]]) # 0.01515866
 # Advanced discrete-time model
-(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.299517
+(thresh_dth_adv <- thresh_lst[["Advanced"]]) # 0.2950287
 # Classical logit model
-(thresh_classic <- thresh_lst[["Classical"]]) # 0.09518478
+(thresh_classic <- thresh_lst[["Classical"]]) # 0.0650852
 
 
 # --- 1.4 Estimate event rates to facilitate the application of dichotomisation
