@@ -87,8 +87,8 @@ modGLM_Severity_CPG <- readRDS(paste0(genObjPath,"Severity_CPH_Model.rds"))
 
 # --- 1.3 Estimate event rates to facilitate the application of dichotomisation
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
-datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
+datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type="response")]
+datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type="response")]
 datCredit[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
 # - Derive survival probability S(t) = prod(1 - hazard)
@@ -125,9 +125,9 @@ datCredit[, DefSpell_Event_Classic_Youden:=ifelse(EventRate_classic>thresh_class
 # --- 1.5 Estimate severities and interact them with the probabilities
 # - Forecast severities
 # One-stage Gaussian
-datCredit[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit,type="response")]
+datCredit[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit, type="response")]
 # One-stage Tweedie
-datCredit[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit,type="response")]
+datCredit[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit, type="response")]
 # Two-stage Tweedie
 datCredit[, LossSeverity:=predict(modGLM_Severity_CPG, newdata=datCredit, type="response")]
 
@@ -141,6 +141,23 @@ datCredit[, LossRate_est_adv_B:=LossSeverity*DefSpell_Event_Adv_Youden]
 # Classical logistic regression model
 datCredit[, LossRate_est_classic:=LossSeverity*EventRate_classic]
 datCredit[, LossRate_est_classic_B:=LossSeverity*DefSpell_Event_Classic_Youden]
+
+
+# --- 1.6 Correct for non-sensical loss rates
+# One-stage models
+datCredit[, LossRate_Gaussian:=ifelse(LossRate_Gaussian<0 | LossRate_Gaussian>1, NA, LossRate_Gaussian)]
+datCredit[, LossRate_Tweedie:=ifelse(LossRate_Tweedie<0 | LossRate_Tweedie>1, NA, LossRate_Tweedie)]
+# Severity model
+datCredit[, LossSeverity:=ifelse(LossSeverity<0 | LossSeverity>1, NA, LossSeverity)]
+# Basic discrete time hazard model
+datCredit[, LossRate_est_bas:=ifelse(LossRate_est_bas<0 | LossRate_est_bas>1, NA, LossRate_est_bas)]
+datCredit[, LossRate_est_bas_B:=ifelse(LossRate_est_bas_B<0 | LossRate_est_bas_B>1, NA, LossRate_est_bas_B)]
+# Advanced discrete time hazard model
+datCredit[, LossRate_est_adv:=ifelse(LossRate_est_adv<0 | LossRate_est_adv>1, NA, LossRate_est_adv)]
+datCredit[, LossRate_est_adv_B:=ifelse(LossRate_est_adv_B<0 | LossRate_est_adv_B>1, NA, LossRate_est_adv_B)]
+# Classical logistic regression model
+datCredit[, LossRate_est_classic:=ifelse(LossRate_est_classic<0 | LossRate_est_classic>1, NA, LossRate_est_classic)]
+datCredit[, LossRate_est_classic_B:=ifelse(LossRate_est_classic_B<0 | LossRate_est_classic_B>1, NA, LossRate_est_classic_B)]
 
 
 # --- 1.6 Subset data
@@ -187,23 +204,23 @@ datComp <- data.table(
 # - Compare actual and expected loss rates
 # One stage
 datComp[Model=="1-stage Gaussian",names(datComp)[-1]:=as.list(
-  evalModel_onestage(datCredit[LossRate_Gaussian>=0 & LossRate_Gaussian<=1],"LossRate_Real","LossRate_Gaussian",modGLM_OneStage_Gaus))]
+  evalModel_onestage(datCredit,"LossRate_Real","LossRate_Gaussian",modGLM_OneStage_Gaus))]
 datComp[Model=="1-stage Tweedie",names(datComp)[-1]:=as.list(
-  evalModel_onestage(datCredit[LossRate_Tweedie>=0 & LossRate_Tweedie<=1],"LossRate_Real","LossRate_Tweedie",modGLM_OneStage_CPG))]
+  evalModel_onestage(datCredit,"LossRate_Real","LossRate_Tweedie",modGLM_OneStage_CPG))]
 # Two stage | A series (un-dichotomised)
 datComp[Model=="2-stage DtH-Basic A",names(datComp)[-1]:=as.list(
-  evalModel_twostage(datCredit[LossRate_est_bas>=0 & LossRate_est_bas<=1],"LossRate_Real","LossRate_est_bas"))]
+  evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_bas"))]
 datComp[Model=="2-stage DtH-Advanced A",names(datComp)[-1]:=as.list(
-  evalModel_twostage(datCredit[LossRate_est_adv>=0 & LossRate_est_adv<=1],"LossRate_Real","LossRate_est_adv"))]
+  evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_adv"))]
 datComp[Model=="2-stage LR A",names(datComp)[-1]:=as.list(
-  evalModel_twostage(datCredit[LossRate_est_classic>=0 & LossRate_est_classic<=1],"LossRate_Real","LossRate_est_classic"))]
+  evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_classic"))]
 # Two stage | B series (dichotomised)
 datComp[Model=="2-stage DtH-Basic B",names(datComp)[-1]:=as.list(
-  evalModel_twostage(datCredit[LossRate_est_bas_B>=0 & LossRate_est_bas_B<=1],"LossRate_Real","LossRate_est_bas_B"))]
+  evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_bas_B"))]
 datComp[Model=="2-stage DtH-Advanced B",names(datComp)[-1]:=as.list(
-  evalModel_twostage(datCredit[LossRate_est_adv_B>=0 & LossRate_est_adv_B<=1],"LossRate_Real","LossRate_est_adv_B"))]
+  evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_adv_B"))]
 datComp[Model=="2-stage LR B",names(datComp)[-1]:=as.list(
-  evalModel_twostage(datCredit[LossRate_est_classic_B>=0 & LossRate_est_classic_B<=1],"LossRate_Real","LossRate_est_classic_B"))]
+  evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_classic_B"))]
 
 
 # --- 2.2 Graph comparison metrics
@@ -250,30 +267,30 @@ ggsave(LGD_metric, file=paste0(genFigPath,"/LGD_metrics.png"),width=30, height=1
 
 
 
-# ------ 3. Graphing the loss severities over time
+# ------ 3. Graphing LGDs over time
 
 # --- 3.1 Aggregate loss rates
 # - Aggregate loss rates
 # Actuals
-ActLoss_Rate <- datCredit[,mean(LossRate_Real), by=list(Date)]
+ActLoss_Rate <- datCredit[, mean(LossRate_Real, na.rm=T), by=list(Date)]
 # One-stage
-Gaussian_Loss_Rate <- datCredit[LossRate_Gaussian>=0 & LossRate_Gaussian<=1,mean(LossRate_Gaussian), by=list(Date)]
-Tweedie_Loss_Rate <- datCredit[LossRate_Tweedie>=0 & LossRate_Tweedie<=1, mean(LossRate_Tweedie), by=list(Date)]
+Gaussian_Loss_Rate <- datCredit[,mean(LossRate_Gaussian, na.rm=T), by=list(Date)]
+Tweedie_Loss_Rate <- datCredit[, mean(LossRate_Tweedie, na.rm=T), by=list(Date)]
 # Two stage | A-series (un-dichotomised)
-Two_stage_bas_A_Loss_Rate <- datCredit[LossRate_est_bas>=0 & LossRate_est_bas<=1, mean(LossRate_est_bas), by=list(Date)]
-Two_stage_adv_A_Loss_Rate <- datCredit[LossRate_est_adv>=0 & LossRate_est_adv<=1, mean(LossRate_est_adv), by=list(Date)]
-Two_stage_classic_A_Loss_Rate <- datCredit[LossRate_est_classic>=0 & LossRate_est_classic<=1, mean(LossRate_est_classic), by=list(Date)]
+Two_stage_bas_A_Loss_Rate <- datCredit[, mean(LossRate_est_bas, na.rm=T), by=list(Date)]
+Two_stage_adv_A_Loss_Rate <- datCredit[, mean(LossRate_est_adv, na.rm=T), by=list(Date)]
+Two_stage_classic_A_Loss_Rate <- datCredit[, mean(LossRate_est_classic, na.rm=T), by=list(Date)]
 # Two stage | B-series (dichotomised)
-Two_stage_bas_B_Loss_Rate <- datCredit[LossRate_est_bas_B>=0 & LossRate_Tweedie<=1, mean(LossRate_est_bas_B), by=list(Date)]
-Two_stage_adv_B_Loss_Rate <- datCredit[LossRate_est_adv_B>=0 & LossRate_Tweedie<=1, mean(LossRate_est_adv_B), by=list(Date)]
-Two_stage_classic_B_Loss_Rate <- datCredit[LossRate_est_classic_B>=0 & LossRate_Tweedie<=1, mean(LossRate_est_classic_B), by=list(Date)]
+Two_stage_bas_B_Loss_Rate <- datCredit[, mean(LossRate_est_bas_B, na.rm=T), by=list(Date)]
+Two_stage_adv_B_Loss_Rate <- datCredit[, mean(LossRate_est_adv_B, na.rm=T), by=list(Date)]
+Two_stage_classic_B_Loss_Rate <- datCredit[, mean(LossRate_est_classic_B, na.rm=T), by=list(Date)]
 
 
 # --- 3.2 Preparations for plotting
 # - Create dataset-specific labels
 ActLoss_Rate[,Dataset:="A"]
-Tweedie_Loss_Rate[,Dataset:="B"]
-Gaussian_Loss_Rate[,Dataset:="C"]
+Gaussian_Loss_Rate[,Dataset:="B"]
+Tweedie_Loss_Rate[,Dataset:="C"]
 Two_stage_bas_A_Loss_Rate[,Dataset:="D"]
 Two_stage_adv_A_Loss_Rate[,Dataset:="E"]
 Two_stage_classic_A_Loss_Rate[,Dataset:="F"]
@@ -282,40 +299,61 @@ Two_stage_adv_B_Loss_Rate[,Dataset:="H"]
 Two_stage_classic_B_Loss_Rate[,Dataset:="I"]
 
 # - Create plotting object
-datPlot <- rbind(ActLoss_Rate,Tweedie_Loss_Rate,Gaussian_Loss_Rate,
+datPlot <- rbind(ActLoss_Rate, Tweedie_Loss_Rate, Gaussian_Loss_Rate,
                  Two_stage_bas_A_Loss_Rate, Two_stage_adv_A_Loss_Rate, Two_stage_classic_A_Loss_Rate,
                  Two_stage_bas_B_Loss_Rate, Two_stage_adv_B_Loss_Rate, Two_stage_classic_B_Loss_Rate)
 colnames(datPlot) <- c("Date", "LossRate", "Dataset")
+setorder(datPlot, Dataset, Date)
+
+# - [SANITY CHECK] Inspect loss rates
+# One-stage models
+plot(x=datPlot[Dataset=="A",Date],y=datPlot[Dataset=="A",LossRate], type="l", col="black")
+lines(x=datPlot[Dataset=="B",Date],y=datPlot[Dataset=="B",LossRate], col="blue")
+lines(x=datPlot[Dataset=="C",Date],y=datPlot[Dataset=="C",LossRate], col="red")
+# Two-stage models | A-series (un-dichotomised)
+plot(x=datPlot[Dataset=="A",Date],y=datPlot[Dataset=="A",LossRate], type="l", col="black")
+lines(x=datPlot[Dataset=="D",Date],y=datPlot[Dataset=="D",LossRate], col="blue")
+lines(x=datPlot[Dataset=="E",Date],y=datPlot[Dataset=="E",LossRate], col="red")
+lines(x=datPlot[Dataset=="F",Date],y=datPlot[Dataset=="F",LossRate], col="green")
+# Two-stage models | B-series (dichotomised)
+plot(x=datPlot[Dataset=="A",Date],y=datPlot[Dataset=="A",LossRate], type="l", col="black")
+lines(x=datPlot[Dataset=="G",Date],y=datPlot[Dataset=="G",LossRate], col="blue")
+lines(x=datPlot[Dataset=="H",Date],y=datPlot[Dataset=="H",LossRate], col="red")
+lines(x=datPlot[Dataset=="I",Date],y=datPlot[Dataset=="I",LossRate], col="green")
 
 
-# --- 3.3 Loss rates for one-stage models
-# - Create final dataset for ggplot
-datPlot <- rbind(ActLoss_Rate,Gaussian_Loss_Rate,Tweedie_Loss_Rate)
+# --- 3.3 Loss rates for one-stage model
+# -- Preliminaries
+# - Create dataset for ggplot
+datPlot_OneStage <- subset(datPlot, Dataset %in% c("A", "B", "C"))
 
 # - Location of annotations
-start_y <- 0.425
+start_y <- 0.35
 space <- 0.025
 y_vals <- c(start_y,start_y-space,start_y-space*2)
 
-# - Creating an annotation dataset for easier annotations
-datAnnotate <- data.table(MeanLossRate=NULL, Dataset=c("A-B","A-C","A-D"),
-                          x=rep(as.Date("2014-05-31"),3), # Text x coordinates
+# -- Creating an annotation dataset for TTCs
+# - Initialise dataset
+datAnnotate <- data.table(MeanLossRate=NULL, Dataset=c("A","B","C"),
+                          x=rep(as.Date("2008-05-31"),3), # Text x coordinates
                           y=y_vals)
 
 # - Estimate TTC-mean & confidence interval calculations
 confLevel <- 0.95
-vEventRates_Mean <- c(mean(ActLoss_Rate$V1,na.rm=T),
-                      mean(Tweedie_Loss_Rate$V1,na.rm=T),
-                      mean(Gaussian_Loss_Rate$V1,na.rm=T))
+vEventRates_Mean <- c(mean(datPlot_OneStage[Dataset=="A",LossRate],na.rm=T),
+                      mean(datPlot_OneStage[Dataset=="B",LossRate],na.rm=T),
+                      mean(datPlot_OneStage[Dataset=="C",LossRate],na.rm=T))
 
 # - Estimate standard errors
 vEventRates_stErr <- c(
-  sd(ActLoss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(ActLoss_Rate$V1))),
-  sd(Tweedie_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Tweedie_Loss_Rate$V1))),
-  sd(Gaussian_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Gaussian_Loss_Rate$V1)))
+  sd(datPlot_OneStage[Dataset=="A",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_OneStage[Dataset=="A",LossRate], na.rm=T)),
+  sd(datPlot_OneStage[Dataset=="B",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_OneStage[Dataset=="B",LossRate], na.rm=T)),
+  sd(datPlot_OneStage[Dataset=="C",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_OneStage[Dataset=="C",LossRate], na.rm=T))
 
 )
 vMargin <- qnorm(1-(1-confLevel)/2) * vEventRates_stErr
+
+# - Create and assign labels
 series_labels <- c("A[t]", "B[t]", "C[t]")
 vLabel <- sapply(seq_along(series_labels), function(i) {
   paste0("'TTC-mean over '*italic(t)*' for '*italic(", series_labels[i], ")*' : ",
@@ -324,41 +362,46 @@ vLabel <- sapply(seq_along(series_labels), function(i) {
          sprintf("%1.3f", vEventRates_stErr[i] * 100),
          "%'")
 })
+datAnnotate[, Label:=vLabel]
 
-datAnnotate[, Label := vLabel]
-#MAE
-start_y_mae <- 0.425
+# -- Creating an annotation dataset for MAEs
+# - Set y-positions
+start_y_mae <- 0.25
 space_mae <- 0.025
 y_vals_mae <- c(start_y_mae,
                 start_y_mae - space_mae)
+
 # - Creating an annotation dataset for easier annotations
 datAnnotate_mae <- data.table(MeanLossRate = NULL, Dataset = c("A-B","A-C"),
-                              x = rep(as.Date("2007-05-31"),2), # Text x coordinates
+                              x = rep(as.Date("2011-05-31"),2), # Text x coordinates
                               y = y_vals_mae)
-vEventRates_MAE <- c(mean(abs(ActLoss_Rate$V1-Tweedie_Loss_Rate$V1 ), na.rm=T),
-                     mean(abs(ActLoss_Rate$V1-Gaussian_Loss_Rate$V1 ), na.rm=T))
 
-series_labels_mae <- c( "B[t]", "C[t]")
+# - Estimate MAEs
+vEventRates_MAE <- c(mean(abs(datPlot_OneStage[Dataset=="A",LossRate]-datPlot_OneStage[Dataset=="B",LossRate]), na.rm=T),
+                     mean(abs(datPlot_OneStage[Dataset=="A",LossRate]-datPlot_OneStage[Dataset=="C",LossRate]), na.rm=T))
+
+# - Create and assign labels
+series_labels_mae <- c("B[t]", "C[t]")
 vLabel_MAE <- sapply(seq_along(series_labels_mae), function(i) {
   paste0(
-    "'MAE for '*italic(", series_labels_mae[i], ")*' : ",
+    "'MAE ('*italic(", series_labels_mae[i], ")*') : ",
     sprintf('%.2f', vEventRates_MAE[i] * 100),  # convert to percent
     "%'"
   )
 })
+datAnnotate_mae[, Label:=vLabel_MAE]
 
-datAnnotate_mae[, Label := vLabel_MAE]
-
-
+# -- Create graph
 # - Graphing parameters
 chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(9, "Dark2")[c(2,1,3)]
-vLabel <- c("A"=bquote(italic(A[t])~": Empirical"), "B"=bquote(italic(B[t])~": One-stage: Tweedie"), 
-            "C"=bquote(italic(C[t])~": One-stage: Gaussian"))
+vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),
+            "B"=bquote(italic(B[t])~": One-stage: Gaussian"), 
+            "C"=bquote(italic(C[t])~": One-stage: Tweedie"))
 vShape <- c(17,20,4) 
 
 # - Create graph
-(g3 <- ggplot(datPlot, aes(x=Date, y=V1)) + theme_minimal() + 
+(g3 <- ggplot(datPlot_OneStage, aes(x=Date, y=LossRate)) + theme_minimal() + 
     labs(y=bquote("Loss Rate L "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
           axis.text.x=element_text(angle=90), 
@@ -387,37 +430,41 @@ vShape <- c(17,20,4)
 dpi <-180
 ggsave(g3, file=paste0(genFigPath, "LossRate-time_onestage.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
-# - Create two-stage A
-datPlot <- rbind(ActLoss_Rate,Two_stage_LR_A_Loss_Rate,Two_stage_bas_A_Loss_Rate,
-                 Two_stage_adv_A_Loss_Rate)
 
-# - Aesthetic engineering: annotations
-# Location of annotations
-start_y <- 0.425
+# --- 3.4 Loss rates for two-stage models | Series A (un-dichotomised)
+# -- Preliminaries
+# - Create dataset for ggplot
+datPlot_TwoStage <- subset(datPlot, Dataset %in% c("A", "D", "E", "F"))
+
+# - Location of annotations
+start_y <- 0.35
 space <- 0.025
-y_vals <- c(start_y,
-            start_y - space,
-            start_y - space*2,
-            start_y - space*3)
-# - Creating an annotation dataset for easier annotations
-datAnnotate <- data.table(MeanLossRate = NULL, Dataset = c("A-B","A-C","A-D","A-E"),
-                          x = rep(as.Date("2014-05-31"),4), # Text x coordinates
-                          y = y_vals )
+y_vals <- c(start_y,start_y-space,start_y-space*2,start_y-space*3)
 
-# - TTC-mean & confidence interval calculations
+# -- Creating an annotation dataset for TTCs
+# - Initialise dataset
+datAnnotate <- data.table(MeanLossRate=NULL, Dataset=c("A","D","E", "F"),
+                          x=rep(as.Date("2013-05-31"),4), # Text x coordinates
+                          y=y_vals)
+
+# - Estimate TTC-mean & confidence interval calculations
 confLevel <- 0.95
-vEventRates_Mean <- c(mean(ActLoss_Rate$V1,na.rm=T),mean(Two_stage_LR_A_Loss_Rate$V1,na.rm=T),mean(Two_stage_bas_A_Loss_Rate$V1,na.rm=T),
-                      mean(Two_stage_adv_A_Loss_Rate$V1,na.rm=T))
+vEventRates_Mean <- c(mean(datPlot_TwoStage[Dataset=="A",LossRate],na.rm=T),
+                      mean(datPlot_TwoStage[Dataset=="D",LossRate],na.rm=T),
+                      mean(datPlot_TwoStage[Dataset=="E",LossRate],na.rm=T),
+                      mean(datPlot_TwoStage[Dataset=="F",LossRate],na.rm=T))
 
-# Standard errors
+# - Estimate standard errors
 vEventRates_stErr <- c(
-  sd(ActLoss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(ActLoss_Rate$V1))),
-  sd(Two_stage_LR_A_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_LR_A_Loss_Rate$V1))),
-  sd(Two_stage_bas_A_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_bas_A_Loss_Rate$V1))),
-  sd(Two_stage_adv_A_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_adv_A_Loss_Rate$V1)))
+  sd(datPlot_TwoStage[Dataset=="A",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_TwoStage[Dataset=="A",LossRate], na.rm=T)),
+  sd(datPlot_TwoStage[Dataset=="D",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_TwoStage[Dataset=="D",LossRate], na.rm=T)),
+  sd(datPlot_TwoStage[Dataset=="E",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_TwoStage[Dataset=="E",LossRate], na.rm=T)),
+  sd(datPlot_TwoStage[Dataset=="F",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_TwoStage[Dataset=="F",LossRate], na.rm=T))
 )
 vMargin <- qnorm(1-(1-confLevel)/2) * vEventRates_stErr
-series_labels <- c("A[t]", "D[t]", "F[t]", "H[t]")
+
+# - Create and assign labels
+series_labels <- c("A[t]", "B[t]", "C[t]", "D[t]")
 vLabel <- sapply(seq_along(series_labels), function(i) {
   paste0("'TTC-mean over '*italic(t)*' for '*italic(", series_labels[i], ")*' : ",
          sprintf("%.2f", vEventRates_Mean[i] * 100),
@@ -425,45 +472,49 @@ vLabel <- sapply(seq_along(series_labels), function(i) {
          sprintf("%1.3f", vEventRates_stErr[i] * 100),
          "%'")
 })
+datAnnotate[, Label:=vLabel]
 
-datAnnotate[, Label := vLabel]
-
-# For MAE
-start_y_mae <- 0.425
-space_mae <- 0.025
+# -- Creating an annotation dataset for MAEs
+# - Set y-positions
+start_y_mae <- 0.25
+space_mae <- 0.0225
 y_vals_mae <- c(start_y_mae,
-            start_y_mae - space_mae,
-            start_y_mae - space_mae*2)
-# - Creating an annotation dataset for easier annotations
-datAnnotate_mae <- data.table(MeanLossRate = NULL, Dataset = c("A-B","A-C","A-D"),
-                          x = rep(as.Date("2007-05-31"),3), # Text x coordinates
-                          y = y_vals_mae)
-vEventRates_MAE <- c(mean(abs(ActLoss_Rate$V1-Two_stage_LR_A_Loss_Rate$V1 ), na.rm=T),
-                      mean(abs(ActLoss_Rate$V1-Two_stage_bas_A_Loss_Rate$V1 ), na.rm=T),
-                      mean(abs(ActLoss_Rate$V1-Two_stage_adv_A_Loss_Rate$V1 ), na.rm=T))
+                start_y_mae - space_mae,
+                start_y_mae - space_mae*2)
 
-series_labels_mae <- c( "D[t]", "F[t]", "H[t]")
+# - Creating an annotation dataset for easier annotations
+datAnnotate_mae <- data.table(MeanLossRate = NULL, Dataset = c("D", "E", "F"),
+                              x = rep(as.Date("2014-05-31"),3), # Text x coordinates
+                              y = y_vals_mae)
+
+# - Estimate MAEs
+vEventRates_MAE <- c(mean(abs(datPlot_TwoStage[Dataset=="A",LossRate]-datPlot_TwoStage[Dataset=="D",LossRate]), na.rm=T),
+                     mean(abs(datPlot_TwoStage[Dataset=="A",LossRate]-datPlot_TwoStage[Dataset=="E",LossRate]), na.rm=T),
+                     mean(abs(datPlot_TwoStage[Dataset=="A",LossRate]-datPlot_TwoStage[Dataset=="F",LossRate]), na.rm=T))
+
+# - Create and assign labels
+series_labels_mae <- c("B[t]", "C[t]", "D[t]")
 vLabel_MAE <- sapply(seq_along(series_labels_mae), function(i) {
   paste0(
-    "'MAE for '*italic(", series_labels_mae[i], ")*' : ",
+    "'MAE ('*italic(", series_labels_mae[i], ")*') : ",
     sprintf('%.2f', vEventRates_MAE[i] * 100),  # convert to percent
     "%'"
   )
 })
+datAnnotate_mae[, Label:=vLabel_MAE]
 
-datAnnotate_mae[, Label := vLabel_MAE]
-
-
+# -- Create graph
 # - Graphing parameters
 chosenFont <- "Cambria"; dpi <- 180
-vCol <- brewer.pal(9, "Dark2")[c(2,1,3,4)]
-vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),"D"=bquote(italic(D[t])~":Two-stage: LR A"),
-            "F"=bquote(italic(F[t])~": Two-stage: DtH-Basic A"),
-            "H"=bquote(italic(H[t])~": Two-stage: DtH-Advanced A"))
-vShape <- c(17,20,4,5) 
+vCol <- brewer.pal(9, "Dark2")[c(2,1,3,5)]
+vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),
+            "D"=bquote(italic(B[t])~": Two-stage: DtH-Basic A"), 
+            "E"=bquote(italic(C[t])~": Two-stage: DtH-Advanced A"),
+            "F"=bquote(italic(C[t])~": Two-stage: LR A"))
+vShape <- c(17,20,4,15) 
 
 # - Create graph
-(g3 <- ggplot(datPlot, aes(x=Date, y=V1)) + theme_minimal() + 
+(g4 <- ggplot(datPlot_TwoStage, aes(x=Date, y=LossRate)) + theme_minimal() + 
     labs(y=bquote("Loss Rate L "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
           axis.text.x=element_text(angle=90), 
@@ -477,54 +528,56 @@ vShape <- c(17,20,4,5)
               family=chosenFont, size=3.5, hjust=0, parse=TRUE) +
     # Facets & scale options
     scale_colour_manual(name = "Model", values = vCol, labels = vLabel, 
-                        guide = guide_legend(nrow = 2, byrow = TRUE)) +
+                        guide = guide_legend(nrow = 1, byrow = TRUE)) +
     scale_fill_manual(name = "Model", values = vCol, labels = vLabel, 
-                      guide = guide_legend(nrow = 2, byrow = TRUE)) +
+                      guide = guide_legend(nrow = 1, byrow = TRUE)) +
     scale_shape_manual(name = "Model", values = vShape, labels = vLabel, 
-                       guide = guide_legend(nrow = 2, byrow = TRUE)) +
+                       guide = guide_legend(nrow = 1, byrow = TRUE)) +
     scale_linetype_discrete(name = "Model", labels = vLabel, 
-                            guide = guide_legend(nrow = 2, byrow = TRUE)) +
+                            guide = guide_legend(nrow = 1, byrow = TRUE)) +
     scale_x_date(date_breaks = "6 month", date_labels = "%b %Y") +
     scale_y_continuous(breaks = pretty_breaks(), labels = percent)
 )
 
 # - Save graph
 dpi <-180
-ggsave(g3, file=paste0(genFigPath, "LossRate-time_twostage_A.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
+ggsave(g4, file=paste0(genFigPath, "LossRate-time_twostage_A.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
-#Two-stage B
-# - Create final dataset for ggplot
-datPlot <- rbind(ActLoss_Rate,Two_stage_LR_B_Loss_Rate,Two_stage_bas_B_Loss_Rate,Two_stage_adv_B_Loss_Rate)
 
-# - Aesthetic engineering: annotations
-# Location of annotations
-start_y <- 0.425
+# --- 3.5 Loss rates for two-stage models | Series A (un-dichotomised)
+# -- Preliminaries
+# - Create dataset for ggplot
+datPlot_TwoStage_B <- subset(datPlot, Dataset %in% c("A", "G", "H", "I"))
+
+# - Location of annotations
+start_y <- 0.35
 space <- 0.025
-y_vals <- c(start_y,
-            start_y - space,
-            start_y - space*2,
-            start_y - space*3)
+y_vals <- c(start_y,start_y-space,start_y-space*2,start_y-space*3)
 
+# -- Creating an annotation dataset for TTCs
+# - Initialise dataset
+datAnnotate <- data.table(MeanLossRate=NULL, Dataset=c("A","D","E", "F"),
+                          x=rep(as.Date("2008-05-31"),4), # Text x coordinates
+                          y=y_vals)
 
-# - Creating an annotation dataset for easier annotations
-datAnnotate <- data.table(MeanLossRate = NULL, Dataset = c("A-B","A-C","A-D","A-E"),
-                          x = rep(as.Date("2014-05-31"),4), # Text x coordinates
-                          y = y_vals )
-
-# - TTC-mean & confidence interval calculations
+# - Estimate TTC-mean & confidence interval calculations
 confLevel <- 0.95
-vEventRates_Mean <- c(mean(ActLoss_Rate$V1,na.rm=T),mean(Two_stage_LR_B_Loss_Rate$V1,na.rm=T),
-                      mean(Two_stage_bas_B_Loss_Rate$V1,na.rm=T),mean(Two_stage_adv_B_Loss_Rate$V1,na.rm=T))
+vEventRates_Mean <- c(mean(datPlot_TwoStage_B[Dataset=="A",LossRate],na.rm=T),
+                      mean(datPlot_TwoStage_B[Dataset=="G",LossRate],na.rm=T),
+                      mean(datPlot_TwoStage_B[Dataset=="H",LossRate],na.rm=T),
+                      mean(datPlot_TwoStage_B[Dataset=="I",LossRate],na.rm=T))
 
-# Standard errors
+# - Estimate standard errors
 vEventRates_stErr <- c(
-  sd(ActLoss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(ActLoss_Rate$V1))),
-  sd(Two_stage_LR_B_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_LR_B_Loss_Rate$V1))),
-  sd(Two_stage_bas_B_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_bas_B_Loss_Rate$V1))),
-  sd(Two_stage_adv_B_Loss_Rate$V1, na.rm = TRUE) / sqrt(sum(!is.na(Two_stage_adv_B_Loss_Rate$V1)))
+  sd(datPlot_TwoStage_B[Dataset=="A",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_TwoStage_B[Dataset=="A",LossRate], na.rm=T)),
+  sd(datPlot_TwoStage_B[Dataset=="G",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_TwoStage_B[Dataset=="G",LossRate], na.rm=T)),
+  sd(datPlot_TwoStage_B[Dataset=="H",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_TwoStage_B[Dataset=="H",LossRate], na.rm=T)),
+  sd(datPlot_TwoStage_B[Dataset=="I",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_TwoStage_B[Dataset=="I",LossRate], na.rm=T))
 )
 vMargin <- qnorm(1-(1-confLevel)/2) * vEventRates_stErr
-series_labels <- c("A[t]", "E[t]", "G[t]", "I[t]")
+
+# - Create and assign labels
+series_labels <- c("A[t]", "B[t]", "C[t]", "D[t]")
 vLabel <- sapply(seq_along(series_labels), function(i) {
   paste0("'TTC-mean over '*italic(t)*' for '*italic(", series_labels[i], ")*' : ",
          sprintf("%.2f", vEventRates_Mean[i] * 100),
@@ -532,45 +585,49 @@ vLabel <- sapply(seq_along(series_labels), function(i) {
          sprintf("%1.3f", vEventRates_stErr[i] * 100),
          "%'")
 })
+datAnnotate[, Label:=vLabel]
 
-datAnnotate[, Label := vLabel]
-# MAE
-start_y_mae <- 0.425
+# -- Creating an annotation dataset for MAEs
+# - Set y-positions
+start_y_mae <- 0.225
 space_mae <- 0.025
 y_vals_mae <- c(start_y_mae,
                 start_y_mae - space_mae,
                 start_y_mae - space_mae*2)
-# - Creating an annotation dataset for easier annotations
-datAnnotate_mae <- data.table(MeanLossRate = NULL, Dataset = c("A-B","A-C","A-D"),
-                              x = rep(as.Date("2007-05-31"),3), # Text x coordinates
-                              y = y_vals_mae)
-vEventRates_MAE <- c(mean(abs(ActLoss_Rate$V1-Two_stage_LR_B_Loss_Rate$V1 ), na.rm=T),
-                     mean(abs(ActLoss_Rate$V1-Two_stage_bas_B_Loss_Rate$V1 ), na.rm=T),
-                     mean(abs(ActLoss_Rate$V1-Two_stage_adv_B_Loss_Rate$V1 ), na.rm=T))
 
-series_labels_mae <- c( "E[t]", "G[t]", "I[t]")
+# - Creating an annotation dataset for easier annotations
+datAnnotate_mae <- data.table(MeanLossRate = NULL, Dataset = c("G", "H", "I"),
+                              x = rep(as.Date("2011-05-31"),3), # Text x coordinates
+                              y = y_vals_mae)
+
+# - Estimate MAEs
+vEventRates_MAE <- c(mean(abs(datPlot_TwoStage_B[Dataset=="A",LossRate]-datPlot_TwoStage_B[Dataset=="G",LossRate]), na.rm=T),
+                     mean(abs(datPlot_TwoStage_B[Dataset=="A",LossRate]-datPlot_TwoStage_B[Dataset=="H",LossRate]), na.rm=T),
+                     mean(abs(datPlot_TwoStage_B[Dataset=="A",LossRate]-datPlot_TwoStage_B[Dataset=="I",LossRate]), na.rm=T))
+
+# - Create and assign labels
+series_labels_mae <- c("B[t]", "C[t]", "D[t]")
 vLabel_MAE <- sapply(seq_along(series_labels_mae), function(i) {
   paste0(
-    "'MAE for '*italic(", series_labels_mae[i], ")*' : ",
+    "'MAE ('*italic(", series_labels_mae[i], ")*') : ",
     sprintf('%.2f', vEventRates_MAE[i] * 100),  # convert to percent
     "%'"
   )
 })
+datAnnotate_mae[, Label:=vLabel_MAE]
 
-datAnnotate_mae[, Label := vLabel_MAE]
-
-
+# -- Create graph
 # - Graphing parameters
 chosenFont <- "Cambria"; dpi <- 180
-vCol <- brewer.pal(9, "Dark2")[c(2,1,3,4)]
-vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),  
-            "E"=bquote(italic(E[t])~": Two-stage: LR B"),
-            "G"=bquote(italic(G[t])~": Two-stage: DtH-Basic B"),
-            "I"=bquote(italic(I[t])~": Two-stage: DtH-Advanced B"))
-vShape <- c(17,20,4,5) 
+vCol <- brewer.pal(9, "Dark2")[c(2,1,3,5)]
+vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),
+            "G"=bquote(italic(B[t])~": Two-stage: DtH-Basic B"), 
+            "H"=bquote(italic(C[t])~": Two-stage: DtH-Advanced B"),
+            "I"=bquote(italic(D[t])~": Two-stage: LR B"))
+vShape <- c(17,20,4,15) 
 
 # - Create graph
-(g3 <- ggplot(datPlot, aes(x=Date, y=V1)) + theme_minimal() + 
+(g5 <- ggplot(datPlot_TwoStage_B, aes(x=Date, y=LossRate)) + theme_minimal() + 
     labs(y=bquote("Loss Rate L "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
           axis.text.x=element_text(angle=90), 
@@ -584,63 +641,18 @@ vShape <- c(17,20,4,5)
               family=chosenFont, size=3.5, hjust=0, parse=TRUE) +
     # Facets & scale options
     scale_colour_manual(name = "Model", values = vCol, labels = vLabel, 
-                        guide = guide_legend(nrow = 2, byrow = TRUE)) +
+                        guide = guide_legend(nrow = 1, byrow = TRUE)) +
     scale_fill_manual(name = "Model", values = vCol, labels = vLabel, 
-                      guide = guide_legend(nrow = 2, byrow = TRUE)) +
+                      guide = guide_legend(nrow = 1, byrow = TRUE)) +
     scale_shape_manual(name = "Model", values = vShape, labels = vLabel, 
-                       guide = guide_legend(nrow = 2, byrow = TRUE)) +
+                       guide = guide_legend(nrow = 1, byrow = TRUE)) +
     scale_linetype_discrete(name = "Model", labels = vLabel, 
-                            guide = guide_legend(nrow = 2, byrow = TRUE)) +
+                            guide = guide_legend(nrow = 1, byrow = TRUE)) +
     scale_x_date(date_breaks = "6 month", date_labels = "%b %Y") +
     scale_y_continuous(breaks = pretty_breaks(), labels = percent)
 )
 
 # - Save graph
 dpi <-180
-ggsave(g3, file=paste0(genFigPath, "LossRate-time_twostage_B.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
-# Loss severity graph
+ggsave(g5, file=paste0(genFigPath, "LossRate-time_twostage_B.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
-meanLoss_TruEnd <- mean(datCredit$LossSeverity, na.rm=T)
-datCredit[LossSeverity > 1, LossSeverity := 1]
-
-# - main graphs a) Overall LGD distribution
-(g2 <- ggplot(datCredit, aes(x=LossSeverity)) + theme_bw() +
-    geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=round(2*datCredit[,.N]^(1/3)),
-                   position="identity", fill=vCol[1], colour=vCol[1]) + 
-    geom_vline(xintercept=meanLoss_TruEnd, linewidth=0.6, colour=vCol[1], linetype="dashed") + 
-    annotate(geom="text", x=meanLoss_TruEnd*0.8, y=10, family=chosenFont,
-             label = paste0("Mean Loss: ", sprintf("%.1f", meanLoss_TruEnd*100), "%"), size=3, colour=vCol[1], angle=90) +     
-    # facets & scale options
-    labs(x=bquote({Realised~loss~rate~italic(L)}), 
-         y="Histogram and density of resolved defaults [write-offs]") + 
-    theme(text=element_text(family=chosenFont),legend.position="bottom",
-          strip.background=element_rect(fill="snow2", colour="snow2"),
-          strip.text = element_text(size=8, colour="gray50"), 
-          strip.text.y.right = element_text(angle=90)) + 
-    scale_x_continuous(breaks=pretty_breaks(), label=percent)
-)
-
-
-plotData <- melt(datCredit,measure.vars = c("LossRate_Real", "LossSeverity"),variable.name = "Type",value.name = "LossRate")
-plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossSeverity"),
-                          labels = c("Empirical", "Loss Severity"))]
-plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
-
-gOverlay <- ggplot(plotData, aes(x = LossRate)) + 
-  theme_bw() + geom_histogram(
-    aes(y = after_stat(density), fill = Type, colour = Type),
-    alpha = 0.35,bins = round(2 * datCredit[, .N]^(1/3)), position = "identity") +
-  labs(x = bquote({Realised~loss~rate~italic(L)}), y = "Histogram of loss rates" ) +
-  theme(text = element_text(family = chosenFont),legend.position = "bottom",
-        strip.background = element_rect(fill = "snow2", colour = "snow2"),
-        strip.text = element_text(size = 8, colour = "gray50"),
-        strip.placement = "outside",        
-        strip.text.y.right = element_text(angle = 90)) +
-  scale_x_continuous(breaks = pretty_breaks(), labels = scales::percent) +
-  scale_colour_manual(values = c(vCol[1], vCol[2])) +
-  scale_fill_manual(values   = c(vCol[1], vCol[2])) +
-  facet_grid(FacetLabel ~., scales="free")
-
-# - save plot
-dpi <- 180
-ggsave(gOverlay, file=paste0(genFigPath,"/ActvsExp_Loss_Severity.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
