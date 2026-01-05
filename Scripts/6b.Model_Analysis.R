@@ -335,7 +335,7 @@ y_vals <- c(start_y,start_y-space,start_y-space*2)
 # -- Creating an annotation dataset for TTCs
 # - Initialise dataset
 datAnnotate <- data.table(MeanLossRate=NULL, Dataset=c("A","B","C"),
-                          x=rep(as.Date("2008-05-31"),3), # Text x coordinates
+                          x=rep(as.Date("2012-10-31"),3), # Text x coordinates
                           y=y_vals)
 
 # - Estimate TTC-mean & confidence interval calculations
@@ -373,7 +373,7 @@ y_vals_mae <- c(start_y_mae,
 
 # - Creating an annotation dataset for easier annotations
 datAnnotate_mae <- data.table(MeanLossRate = NULL, Dataset = c("A-B","A-C"),
-                              x = rep(as.Date("2011-05-31"),2), # Text x coordinates
+                              x = rep(as.Date("2014-05-31"),2), # Text x coordinates
                               y = y_vals_mae)
 
 # - Estimate MAEs
@@ -443,8 +443,8 @@ y_vals <- c(start_y,start_y-space,start_y-space*2,start_y-space*3)
 
 # -- Creating an annotation dataset for TTCs
 # - Initialise dataset
-datAnnotate <- data.table(MeanLossRate=NULL, Dataset=c("A","D","E", "F"),
-                          x=rep(as.Date("2013-05-31"),4), # Text x coordinates
+datAnnotate <- data.table(MeanLossRate=NULL, Dataset=c("A","D","E","F"),
+                          x=rep(as.Date("2012-10-31"),4), # Text x coordinates
                           y=y_vals)
 
 # - Estimate TTC-mean & confidence interval calculations
@@ -506,11 +506,11 @@ datAnnotate_mae[, Label:=vLabel_MAE]
 # -- Create graph
 # - Graphing parameters
 chosenFont <- "Cambria"; dpi <- 180
-vCol <- brewer.pal(9, "Dark2")[c(2,1,3,5)]
+vCol <- brewer.pal(8, "Dark2")[c(2,1,3,5)]
 vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),
             "D"=bquote(italic(B[t])~": Two-stage: DtH-Basic A"), 
             "E"=bquote(italic(C[t])~": Two-stage: DtH-Advanced A"),
-            "F"=bquote(italic(C[t])~": Two-stage: LR A"))
+            "F"=bquote(italic(D[t])~": Two-stage: LR A"))
 vShape <- c(17,20,4,15) 
 
 # - Create graph
@@ -523,8 +523,8 @@ vShape <- c(17,20,4,15)
     # Main graph
     geom_line(aes(colour=Dataset, linetype=Dataset), linewidth=0.3) +    
     geom_point(aes(colour=Dataset, shape=Dataset), size=1.8) + 
-    geom_text(data=datAnnotate, aes(x=x, y=y, label = Label), family=chosenFont, size=3.5, hjust=0, parse=TRUE) +
-    geom_text(data=datAnnotate_mae, aes(x=x, y=y, label = Label),
+    geom_text(data=datAnnotate, aes(x=x, y=y, label=Label), family=chosenFont, size=3.5, hjust=0, parse=TRUE) +
+    geom_text(data=datAnnotate_mae, aes(x=x, y=y, label=Label),
               family=chosenFont, size=3.5, hjust=0, parse=TRUE) +
     # Facets & scale options
     scale_colour_manual(name = "Model", values = vCol, labels = vLabel, 
@@ -550,14 +550,14 @@ ggsave(g4, file=paste0(genFigPath, "LossRate-time_twostage_A.png"), width=1600/d
 datPlot_TwoStage_B <- subset(datPlot, Dataset %in% c("A", "G", "H", "I"))
 
 # - Location of annotations
-start_y <- 0.35
+start_y <- 0.425
 space <- 0.025
 y_vals <- c(start_y,start_y-space,start_y-space*2,start_y-space*3)
 
 # -- Creating an annotation dataset for TTCs
 # - Initialise dataset
 datAnnotate <- data.table(MeanLossRate=NULL, Dataset=c("A","D","E", "F"),
-                          x=rep(as.Date("2008-05-31"),4), # Text x coordinates
+                          x=rep(as.Date("2012-10-31"),4), # Text x coordinates
                           y=y_vals)
 
 # - Estimate TTC-mean & confidence interval calculations
@@ -589,7 +589,7 @@ datAnnotate[, Label:=vLabel]
 
 # -- Creating an annotation dataset for MAEs
 # - Set y-positions
-start_y_mae <- 0.225
+start_y_mae <- 0.30
 space_mae <- 0.025
 y_vals_mae <- c(start_y_mae,
                 start_y_mae - space_mae,
@@ -597,7 +597,7 @@ y_vals_mae <- c(start_y_mae,
 
 # - Creating an annotation dataset for easier annotations
 datAnnotate_mae <- data.table(MeanLossRate = NULL, Dataset = c("G", "H", "I"),
-                              x = rep(as.Date("2011-05-31"),3), # Text x coordinates
+                              x = rep(as.Date("2014-05-31"),3), # Text x coordinates
                               y = y_vals_mae)
 
 # - Estimate MAEs
@@ -656,3 +656,16 @@ vShape <- c(17,20,4,15)
 dpi <-180
 ggsave(g5, file=paste0(genFigPath, "LossRate-time_twostage_B.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
+
+# --- 3.6 Clean-up
+suppressWarnings(rm(datAdd, datAnnotate, datAnnotate_mae,
+                    datCredit_train, datCredit_valid, datCredit,
+                    datComp, datPlot, datPlot_OneStage, datPlot_TwoStage,
+                    datPlot_TwoStage_B, df, g3, g4 ,g5,
+                    Gaussian_Loss_Rate, LGD_metric, modGLM_OneStage_CPG,
+                    modGLM_OneStage_Gaus, modGLM_Severity_CPG, modLR_Bas,
+                    modLR_Adv, modLR_Classic, p1, p2, p3, p4, thresh_lst, ActLoss_Rate,
+                    Tweedie_Loss_Rate, Two_stage_adv_A_Loss_Rate, Two_stage_adv_B_Loss_Rate,
+                    Two_stage_bas_A_Loss_Rate, Two_stage_bas_B_Loss_Rate, Two_stage_classic_A_Loss_Rate,
+                    Two_stage_classic_B_Loss_Rate, vLabel))
+gc()

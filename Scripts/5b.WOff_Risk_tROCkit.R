@@ -677,7 +677,7 @@ objROC44_LR <- tROC.multi(datGiven=datCredit, modGiven=modLR_Classic, month_End=
                           predType="response")
 proc.time() - ptm
 objROC44_LR$AUC; objROC44_LR$ROC_graph
-### RESULTS: AUC up to t: 65.46%, achieved in 4260 secs
+### RESULTS: AUC up to t: 64.84%, achieved in 15 939 secs
 
 
 # --- 7.2 Basic discrete-time model | A-series (non-dichotomised)
