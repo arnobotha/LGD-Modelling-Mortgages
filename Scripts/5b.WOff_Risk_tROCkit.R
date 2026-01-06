@@ -690,7 +690,7 @@ objROC44_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, m
                                        predType="response")
 proc.time() - ptm
 objROC44_CDH_CoxDisc_bas$AUC; objROC44_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 61.98%, achieved in 332 secs
+### RESULTS: AUC up to t: 61.18%, achieved in 1238 secs
 
 
 # --- 7.3 Advanced discrete-time model | A-series (non-dichotomised)
@@ -703,7 +703,7 @@ objROC44_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv, m
                                        predType="response")
 proc.time() - ptm
 objROC44_CDH_CoxDisc_adv$AUC; objROC44_CDH_CoxDisc_adv$ROC_graph
-### RESULTS: AUC up to t: 96.82%, achieved in 3847.32  secs
+### RESULTS: AUC up to t: 97.15%, achieved in 16 785  secs
 
 
 # --- 7.4 Classical logistic regression model | B-series (dichotomised)
@@ -716,7 +716,7 @@ objROC44_LR_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Classic, month_En
                             predType="response", MarkerGiven="EventRate_classic", threshold=thresh_classic)
 proc.time() - ptm
 objROC44_LR_B$AUC; objROC44_LR_B$ROC_graph
-### RESULTS: AUC up to t: 50%, achieved in 3318 secs
+### RESULTS: AUC up to t: 45.30%, achieved in 175 secs
 
 
 # --- 7.5 Basic discrete-time model | B-series (dichotomised)
@@ -729,7 +729,7 @@ objROC44_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas,
                                        predType="response", MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
 objROC44_CDH_CoxDisc_bas_B$AUC; objROC44_CDH_CoxDisc_bas_B$ROC_graph
-### RESULTS: AUC up to t: 50%, achieved in 33 secs
+### RESULTS: AUC up to t: 49.55%, achieved in 166 secs
 
 
 # --- 7.6 Advanced discrete-time model | B-series (dichotomised)
@@ -742,7 +742,7 @@ objROC44_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv,
                                          predType="response", MarkerGiven="EventRate_adv", threshold=thresh_dth_adv)
 proc.time() - ptm
 objROC44_CDH_CoxDisc_adv_B$AUC; objROC44_CDH_CoxDisc_adv_B$ROC_graph
-### RESULTS: AUC up to t: 50.65%, achieved in 35 secs
+### RESULTS: AUC up to t: 51.30%, achieved in 168 secs
 
 
 # --- 7.7 Save objects
@@ -893,10 +893,11 @@ ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffModel-Combined-
        width=1800/dpi, height=1500/dpi, dpi=dpi, bg="white")
 
 
-
-
-
-
-
-
+# --- 8.4 Clean-up
+suppressWarnings(rm(datAdd, datCredit, datCredit_train_CDH, datCredit_train,
+   datCredit_valid_CDH, datCredit_valid, datGraph, gg,
+   modLR_Bas, modLR_Adv, modLR_Classic, objROC44_CDH_CoxDisc_bas, objROC44_CDH_CoxDisc_adv,
+   objROC44_LR, objROC44_CDH_CoxDisc_bas_B, objROC44_CDH_CoxDisc_adv_B, objROC44_LR_B,
+   thresh_lst, vecTROC, vLabels, vLabels_F))
+gc()
 
