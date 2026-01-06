@@ -328,8 +328,8 @@ lines(x=datPlot[Dataset=="I",Date],y=datPlot[Dataset=="I",LossRate], col="green"
 datPlot_OneStage <- subset(datPlot, Dataset %in% c("A", "B", "C"))
 
 # - Location of annotations
-start_y <- 0.35
-space <- 0.025
+start_y <- 0.275
+space <- 0.02
 y_vals <- c(start_y,start_y-space,start_y-space*2)
 
 # -- Creating an annotation dataset for TTCs
@@ -366,8 +366,8 @@ datAnnotate[, Label:=vLabel]
 
 # -- Creating an annotation dataset for MAEs
 # - Set y-positions
-start_y_mae <- 0.25
-space_mae <- 0.025
+start_y_mae <- 0.2
+space_mae <- 0.02
 y_vals_mae <- c(start_y_mae,
                 start_y_mae - space_mae)
 
@@ -401,7 +401,7 @@ vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),
 vShape <- c(17,20,4) 
 
 # - Create graph
-(g3 <- ggplot(datPlot_OneStage, aes(x=Date, y=LossRate)) + theme_minimal() + 
+(g3 <- ggplot(datPlot_OneStage[Date>="2008-05-31" & Date<="2022-06-30"], aes(x=Date, y=LossRate)) + theme_minimal() + 
     labs(y=bquote("Loss Rate L "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
           axis.text.x=element_text(angle=90), 
@@ -437,8 +437,8 @@ ggsave(g3, file=paste0(genFigPath, "LossRate-time_onestage.png"), width=1600/dpi
 datPlot_TwoStage <- subset(datPlot, Dataset %in% c("A", "D", "E", "F"))
 
 # - Location of annotations
-start_y <- 0.35
-space <- 0.025
+start_y <- 0.3
+space <- 0.02
 y_vals <- c(start_y,start_y-space,start_y-space*2,start_y-space*3)
 
 # -- Creating an annotation dataset for TTCs
@@ -476,8 +476,8 @@ datAnnotate[, Label:=vLabel]
 
 # -- Creating an annotation dataset for MAEs
 # - Set y-positions
-start_y_mae <- 0.25
-space_mae <- 0.0225
+start_y_mae <- 0.2
+space_mae <- 0.02
 y_vals_mae <- c(start_y_mae,
                 start_y_mae - space_mae,
                 start_y_mae - space_mae*2)
@@ -514,7 +514,7 @@ vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),
 vShape <- c(17,20,4,15) 
 
 # - Create graph
-(g4 <- ggplot(datPlot_TwoStage, aes(x=Date, y=LossRate)) + theme_minimal() + 
+(g4 <- ggplot(datPlot_TwoStage[Date>="2008-01-31" & Date<="2022-05-31"], aes(x=Date, y=LossRate)) + theme_minimal() + 
     labs(y=bquote("Loss Rate L "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
           axis.text.x=element_text(angle=90), 
@@ -544,14 +544,14 @@ dpi <-180
 ggsave(g4, file=paste0(genFigPath, "LossRate-time_twostage_A.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
-# --- 3.5 Loss rates for two-stage models | Series A (un-dichotomised)
+# --- 3.5 Loss rates for two-stage models | Series B (dichotomised)
 # -- Preliminaries
 # - Create dataset for ggplot
 datPlot_TwoStage_B <- subset(datPlot, Dataset %in% c("A", "G", "H", "I"))
 
 # - Location of annotations
-start_y <- 0.425
-space <- 0.025
+start_y <- 0.3
+space <- 0.02
 y_vals <- c(start_y,start_y-space,start_y-space*2,start_y-space*3)
 
 # -- Creating an annotation dataset for TTCs
@@ -589,8 +589,8 @@ datAnnotate[, Label:=vLabel]
 
 # -- Creating an annotation dataset for MAEs
 # - Set y-positions
-start_y_mae <- 0.30
-space_mae <- 0.025
+start_y_mae <- 0.2
+space_mae <- 0.02
 y_vals_mae <- c(start_y_mae,
                 start_y_mae - space_mae,
                 start_y_mae - space_mae*2)
@@ -627,7 +627,7 @@ vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),
 vShape <- c(17,20,4,15) 
 
 # - Create graph
-(g5 <- ggplot(datPlot_TwoStage_B, aes(x=Date, y=LossRate)) + theme_minimal() + 
+(g5 <- ggplot(datPlot_TwoStage_B[Date>="2008-01-31" & Date<="2022-05-31"], aes(x=Date, y=LossRate)) + theme_minimal() + 
     labs(y=bquote("Loss Rate L "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
           axis.text.x=element_text(angle=90), 

@@ -111,6 +111,12 @@ datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1)-
 datCredit <- subset(datCredit, Counter>0)
 
 
+# --- 1.5 Dichotomise event rates
+datCredit[, DefSpell_Event_Adv_Youden:=ifelse(EventRate_adv>thresh_dth_adv,1,0)]
+datCredit[, DefSpell_Event_Bas_Youden:=ifelse(EventRate_bas>thresh_dth_bas,1,0)]
+datCredit[, DefSpell_Event_Classic_Youden:=ifelse(EventRate_classic>thresh_classic,1,0)]
+
+
 
 
 # ------ 2. tROC analyses | Basic discrete-time hazard model A (non-dichotomised)
@@ -668,16 +674,15 @@ suppressWarnings(rm(gg, vLabels, vLabels_F, vecTROC, datGraph, dat,
 ###       - Assume dependence (by specifying ID-field) amongst certain observations clustered around ID-values
 
 # --- 7.1 Classical logistic regression model | A-series (non-dichotomised)
-predictTime <- 44
+# - Create an event indicator
+datCredit[, DefSpell_Event2 := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
+
+# - Run ROC analyses on the subet data
 ptm <- proc.time() #IGNORE: for computation time calculation
-objROC44_LR <- tROC.multi(datGiven=datCredit, modGiven=modLR_Classic, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
-                          fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="DefSpell_Age",
-                          graphName="WOffLRModel-ROC_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
-                          caseStudyName=paste0("LR_", predictTime), numThreads=12, logPath=genPath, 
-                          predType="response")
+objROC_LR <- roc(response=datCredit[DefSpell_Counter==1, DefSpell_Event2], predictor=datCredit[DefSpell_Counter==1, Hazard_classic])
 proc.time() - ptm
-objROC44_LR$AUC; objROC44_LR$ROC_graph
-### RESULTS: AUC up to t: 64.84%, achieved in 15 939 secs
+objROC_LR$auc; plot(objROC_LR)
+### RESULTS: AUC up to t: 86.29%, achieved in 1 secs
 
 
 # --- 7.2 Basic discrete-time model | A-series (non-dichotomised)
@@ -707,16 +712,11 @@ objROC44_CDH_CoxDisc_adv$AUC; objROC44_CDH_CoxDisc_adv$ROC_graph
 
 
 # --- 7.4 Classical logistic regression model | B-series (dichotomised)
-predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation
-objROC44_LR_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Classic, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
-                            fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="DefSpell_Age",
-                            graphName="WOffLRModel-ROC_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
-                            caseStudyName=paste0("LR_", predictTime), numThreads=12, logPath=genPath, 
-                            predType="response", MarkerGiven="EventRate_classic", threshold=thresh_classic)
+objROC_LR_B <- roc(response=datCredit[DefSpell_Counter==1, DefSpell_Event2], predictor=datCredit[DefSpell_Counter==1, DefSpell_Event_Classic_Youden])
 proc.time() - ptm
-objROC44_LR_B$AUC; objROC44_LR_B$ROC_graph
-### RESULTS: AUC up to t: 45.30%, achieved in 175 secs
+objROC_LR_B$auc; plot(objROC_LR_B)
+### RESULTS: AUC up to t: 74.83%, achieved in 1 secs
 
 
 # --- 7.5 Basic discrete-time model | B-series (dichotomised)
@@ -747,12 +747,12 @@ objROC44_CDH_CoxDisc_adv_B$AUC; objROC44_CDH_CoxDisc_adv_B$ROC_graph
 
 # --- 7.7 Save objects
 # - Series A models (non-dichotomised)
-saveRDS(objROC44_LR, paste0(genPath,"WOffSurvModel-LR-Dichotomised-ROC_Depedendence_44_bas.rds"))
-saveRDS(objROC44_CDH_CoxDisc_bas, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_44_bas.rds"))
-saveRDS(objROC44_CDH_CoxDisc_adv, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_44_adv.rds"))
+saveRDS(objROC_LR, paste0(genPath,"WOffSurvModel-LR-ROC.rds"))
+saveRDS(objROC44_CDH_CoxDisc_bas, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_44_bas.rds"))
+saveRDS(objROC44_CDH_CoxDisc_adv, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_44_adv.rds"))
 
 # - Series B models (dichotomised)
-saveRDS(objROC44_LR_B, paste0(genPath,"WOffSurvModel-LR-Dichotomised-ROC_Depedendence_44_bas.rds"))
+saveRDS(objROC_LR_B, paste0(genPath,"WOffSurvModel-LR-Dichotomised-ROC.rds"))
 saveRDS(objROC44_CDH_CoxDisc_bas_B, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_44_bas.rds"))
 saveRDS(objROC44_CDH_CoxDisc_adv_B, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_44_adv.rds"))
 
@@ -763,12 +763,12 @@ saveRDS(objROC44_CDH_CoxDisc_adv_B, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Di
 
 # --- 8.1 Ensure required objects exist in memory
 # - Series A models (non-dichotomised)
-if (!exists('objROC44_LR')) objROC44_LR <- readRDS(paste0(genPath,"WOffSurvModel-LR-Dichotomised-ROC_Depedendence_44_bas.rds")); gc()
+if (!exists('objROC44_LR')) objROC44_LR <- readRDS(paste0(genPath,"WOffSurvModel-LR-ROC.rds")); gc()
 if (!exists('objROC44_CDH_CoxDisc_bas')) objROC44_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_44_bas.rds")); gc()
 if (!exists('objROC44_CDH_CoxDisc_adv')) objROC44_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_44_adv.rds")); gc()
 
 # - Series B models (dichotomised)
-if (!exists('objROC44_LR_B')) objROC44_LR_B <- readRDS(paste0(genPath,"WOffSurvModel-LR-Dichotomised-ROC_Depedendence_44_bas.rds")); gc()
+if (!exists('objROC44_LR_B')) objROC44_LR_B <- readRDS(paste0(genPath,"WOffSurvModel-LR-Dichotomised-ROC.rds")); gc()
 if (!exists('objROC44_CDH_CoxDisc_bas_B')) objROC44_CDH_CoxDisc_bas_B <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_44_bas.rds")); gc()
 if (!exists('objROC44_CDH_CoxDisc_adv_B')) objROC44_CDH_CoxDisc_adv_B <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-Dichotomised-ROC_Depedendence_44_adv.rds")); gc()
 
@@ -786,16 +786,22 @@ for (i in 1:length(vecPercTimepoint)) {
   # datGraph <- data.frame(x = vFPR[-(nThresh+1)], y=vTPR[-1])
   
   # Create a data object for the current prediction time
-  if (i == 1) {
+  if (i==1) {
     datGraph <- data.table(PredictTime=paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
                            x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR)
+    vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$AUC * 100, format = "f", digits = 2)) * "%")
     
-  } else {
+  } else if (i==2) {
     datGraph <- rbind(datGraph, 
                       data.table(PredictTime= paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
                                  x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR))
+    vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$AUC * 100, format = "f", digits = 2)) * "%")
+  } else if (i==3) {
+    datGraph <- rbind(datGraph, 
+                      data.table(PredictTime= paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$thresholds, 
+                                 x=1-vecTROC[[i]]$specificities, y=vecTROC[[i]]$sensitivities))
+    vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$auc * 100, format = "f", digits = 2)) * "%")
   }
-  vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$AUC * 100, format = "f", digits = 2)) * "%")
 }
 
 # - Set graphing parameters
@@ -836,7 +842,7 @@ ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffModel-Combined.
 # --- 8.3 Compare ROCs of the B-series models (dichotomised)
 # - Set ROC-parameters and initialize data structures
 vecPercTimepoint <- c(44,44,44)
-vecTROC <- list(objROC44_CDH_CoxDisc_adv_B, objROC44_CDH_CoxDisc_bas_B ,objROC44_LR_B)
+vecTROC <- list(objROC44_CDH_CoxDisc_adv_B, objROC44_CDH_CoxDisc_bas_B ,objROC_LR_B)
 vLabels <- vector("list", length=length(vecPercTimepoint))
 vModel <- c("DtH-Advanced B","DtH-Basic B", "Logistic Regression B")
 
@@ -846,16 +852,21 @@ for (i in 1:length(vecPercTimepoint)) {
   # datGraph <- data.frame(x = vFPR[-(nThresh+1)], y=vTPR[-1])
   
   # Create a data object for the current prediction time
-  if (i == 1) {
+  if (i==1) {
     datGraph <- data.table(PredictTime=paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
                            x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR)
-    
-  } else {
+    vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$AUC * 100, format = "f", digits = 2)) * "%")
+  } else if (i==2) {
     datGraph <- rbind(datGraph, 
                       data.table(PredictTime= paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
                                  x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR))
+    vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$AUC * 100, format = "f", digits = 2)) * "%")
+  } else if (i==3) {
+    datGraph <- rbind(datGraph, 
+                      data.table(PredictTime= paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$thresholds, 
+                                 x=1-vecTROC[[i]]$specificities, y=vecTROC[[i]]$sensitivities))
+    vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$auc * 100, format = "f", digits = 2)) * "%")
   }
-  vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$AUC * 100, format = "f", digits = 2)) * "%")
 }
 
 # - Set graphing parameters
@@ -872,16 +883,16 @@ chosenFont <- "Cambria"
           legend.position.inside = c(0.725,0.2),
           legend.background = element_rect(fill="snow2", color="black",
                                            linetype="solid", linewidth=0.1)) +
-    labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
-           bquote("True Positive Rate "*italic(T^"+"))) + 
+    labs(x=bquote("False Positive Rate "*italic(F^"+")),
+         y=bquote("True Positive Rate "*italic(T^"+"))) + 
     # Add 45-degree line
-    geom_segment(x = 0, y = 0, xend = 1, yend = 1, color = "grey", linewidth=0.2) +
+    geom_segment(x=0, y=0, xend=1, yend=1, color="grey", linewidth=0.2) +
     # Main line graph
     geom_step(aes(x=x, y=y, linetype=PredictTime, colour=PredictTime), linewidth=0.5) + 
     #geom_point(aes(x=x, y=y, shape=PredictTime, colour=PredictTime), size=0.25) +
     # Facets and scales
     facet_grid(FacetLabel ~ .) +  
-    facet_wrap(~FacetLabel, labeller = label_parsed, strip.position = "right")+
+    facet_wrap(~FacetLabel, labeller = label_parsed, strip.position = "right") +
     scale_color_manual(name=bquote("ROC"*(italic(t))), values=vCol, labels=vLabels) + 
     scale_linetype_discrete(name=bquote("ROC"*(italic(t))), labels=vLabels) + 
     scale_shape_discrete(name=bquote("ROC"*(italic(t))), labels=vLabels) + 
