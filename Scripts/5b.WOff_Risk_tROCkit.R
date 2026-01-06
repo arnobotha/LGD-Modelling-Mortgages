@@ -695,7 +695,7 @@ objROC44_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas, m
                                        predType="response")
 proc.time() - ptm
 objROC44_CDH_CoxDisc_bas$AUC; objROC44_CDH_CoxDisc_bas$ROC_graph
-### RESULTS: AUC up to t: 61.18%, achieved in 1238 secs
+### RESULTS: AUC up to t: 61.18%, achieved in 1316 secs
 
 
 # --- 7.3 Advanced discrete-time model | A-series (non-dichotomised)

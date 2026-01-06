@@ -305,6 +305,9 @@ datPlot <- rbind(ActLoss_Rate, Tweedie_Loss_Rate, Gaussian_Loss_Rate,
 colnames(datPlot) <- c("Date", "LossRate", "Dataset")
 setorder(datPlot, Dataset, Date)
 
+# - Subset plotting data for extreme points at the end and start of the sampling window
+datPlot <- subset(datPlot, Date>="2008-05-31" & Date<="2022-05-31")
+
 # - [SANITY CHECK] Inspect loss rates
 # One-stage models
 plot(x=datPlot[Dataset=="A",Date],y=datPlot[Dataset=="A",LossRate], type="l", col="black")
@@ -401,7 +404,7 @@ vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),
 vShape <- c(17,20,4) 
 
 # - Create graph
-(g3 <- ggplot(datPlot_OneStage[Date>="2008-05-31" & Date<="2022-06-30"], aes(x=Date, y=LossRate)) + theme_minimal() + 
+(g3 <- ggplot(datPlot_OneStage, aes(x=Date, y=LossRate)) + theme_minimal() + 
     labs(y=bquote("Loss Rate L "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
           axis.text.x=element_text(angle=90), 
@@ -514,7 +517,7 @@ vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),
 vShape <- c(17,20,4,15) 
 
 # - Create graph
-(g4 <- ggplot(datPlot_TwoStage[Date>="2008-01-31" & Date<="2022-05-31"], aes(x=Date, y=LossRate)) + theme_minimal() + 
+(g4 <- ggplot(datPlot_TwoStage, aes(x=Date, y=LossRate)) + theme_minimal() + 
     labs(y=bquote("Loss Rate L "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
           axis.text.x=element_text(angle=90), 
@@ -627,7 +630,7 @@ vLabel <- c("A"=bquote(italic(A[t])~": Empirical"),
 vShape <- c(17,20,4,15) 
 
 # - Create graph
-(g5 <- ggplot(datPlot_TwoStage_B[Date>="2008-01-31" & Date<="2022-05-31"], aes(x=Date, y=LossRate)) + theme_minimal() + 
+(g5 <- ggplot(datPlot_TwoStage_B, aes(x=Date, y=LossRate)) + theme_minimal() + 
     labs(y=bquote("Loss Rate L "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
           axis.text.x=element_text(angle=90), 
