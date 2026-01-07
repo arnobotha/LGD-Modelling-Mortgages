@@ -154,17 +154,29 @@ evalLS <- function(model_full, dat_train, targetFld, model_base = NULL) {
 
 
 
-
+# --- A stepwise selection procedure to select variables from a GLM with a Tweedie link function based on AICs
+# Input:  [base_model]: An empty (intercept-only) GLM model with a Tweedie link function
+#         [full_model]: A non-empty GLM model with a Tweedie link function
+#         [data]: The data used to train the GLM model
+#         [threshold]: The threshold for adding/removing variables to the model
+#                      Set to the number of observations in the training dataset by default
+#         [trace]: Optional parameter for tracing errors
+# Output: <GLM model with a Tweedie link function>
 stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(nrow(data)), trace = TRUE) {
-  # Initialize
+  # - Unit test conditions | Internal
+  # base_model<-modGLM_base; full_model<-modGLM_full; data<-datCredit_train
+  # threshold<-log(nrow(data)); trace<-T
+  
+  # - Initialize variables
   best_model <- base_model
   best_formula <- formula(base_model)
   best_aic <- AIC(best_model)
   full_terms <- attr(terms(full_model), "term.labels")
+  improved <- TRUE
   
   if (trace) cat("Initial AIC:", round(best_aic, 3), "\n")
   
-  improved <- TRUE
+  # --- Conduct stepwise selection until the criteria is satisfied
   while (improved) {
     improved <- FALSE
     candidate_models <- list()
@@ -175,8 +187,9 @@ stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(nr
     # ---- FORWARD STEP ----
     addable <- setdiff(full_terms, current_terms)
     for (term in addable) {
+      # term <- addable[1]
       f_try <- update(best_formula, paste(". ~ . +", term))
-      m_try <- try(cpglm(f_try, data = data), silent = TRUE)
+      m_try <- try(cpglm(f_try, data=data), silent = TRUE)
       if (!inherits(m_try, "try-error") && !any(is.na(coef(m_try)))) {
         candidate_models[[paste0("+", term)]] <- m_try
         candidate_aics[paste0("+", term)] <- AIC(m_try)
@@ -187,8 +200,9 @@ stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(nr
     # ---- BACKWARD STEP ----
     removable <- current_terms
     for (term in removable) {
+      # term <- removable[1]
       f_try <- update(best_formula, paste(". ~ . -", term))
-      m_try <- try(cpglm(f_try, data = data), silent = TRUE)
+      m_try <- try(cpglm(f_try, data=data), silent=TRUE)
       if (!inherits(m_try, "try-error") && !any(is.na(coef(m_try)))) {
         candidate_models[[paste0("-", term)]] <- m_try
         candidate_aics[paste0("-", term)] <- AIC(m_try)
@@ -196,13 +210,13 @@ stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(nr
       } else if (trace) cat("Skipped -", term, "(failed)\n")
     }
     
-    if (length(candidate_aics) == 0) break
+    if (length(candidate_aics)==0) break
     
-    # Choose best candidate
+    # --- Choose best candidate
     best_op <- names(which.min(candidate_aics))
     best_aic_new <- min(candidate_aics)
     
-    # Accept only if AIC improves sufficiently
+    # --- Accept only if AIC improves sufficiently
     if (best_aic_new + threshold < best_aic) {
       best_model <- candidate_models[[best_op]]
       best_formula <- formula(best_model)
@@ -212,6 +226,7 @@ stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(nr
     }
   }
   
+  # --- Print progress to log
   if (trace) {
     cat("\nFinal model formula:\n")
     print(best_formula)
