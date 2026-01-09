@@ -729,7 +729,7 @@ objROC44_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas,
                                        predType="response", MarkerGiven="EventRate_bas", threshold=thresh_dth_bas)
 proc.time() - ptm
 objROC44_CDH_CoxDisc_bas_B$AUC; objROC44_CDH_CoxDisc_bas_B$ROC_graph
-### RESULTS: AUC up to t: 49.55%, achieved in 166 secs
+### RESULTS: AUC up to t: 49.55%, achieved in 114 secs
 
 
 # --- 7.6 Advanced discrete-time model | B-series (dichotomised)
@@ -742,7 +742,7 @@ objROC44_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv,
                                          predType="response", MarkerGiven="EventRate_adv", threshold=thresh_dth_adv)
 proc.time() - ptm
 objROC44_CDH_CoxDisc_adv_B$AUC; objROC44_CDH_CoxDisc_adv_B$ROC_graph
-### RESULTS: AUC up to t: 51.30%, achieved in 168 secs
+### RESULTS: AUC up to t: 51.30%, achieved in 116 secs
 
 
 # --- 7.7 Save objects

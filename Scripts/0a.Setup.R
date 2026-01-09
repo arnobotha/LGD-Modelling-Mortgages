@@ -68,6 +68,7 @@ require(cplm)
 require(tweedie)
 require(pcaPP)
 require(caret)
+require(MST) # for survival trees
 #for plots
 require(ggplot2)
 require(ggpp) # Extensions to ggplot2, particularly geom_table
