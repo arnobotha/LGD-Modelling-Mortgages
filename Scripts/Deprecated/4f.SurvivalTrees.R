@@ -89,14 +89,27 @@ require(rpart)
 
 # - Fit tree
 start_time <- proc.time()
-SurvTree_Rpart <- ctree(Surv(DefSpell_Age,DefSpell_Event)~
+# cp=complexity parameter (smaller = bigger trees)
+SurvTree_Rpart <- rpart(Surv(DefSpell_Age,DefSpell_Event)~
                              PrevDefaults+InterestRate_Nom+BalanceToPrincipal_1+
                              pmnt_method_grp+M_Repo_Rate_6+M_DTI_Growth_6,
-                           data=datCredit_train_smp_cross,
-                           control=ctree_control(mincriterion=0.95,
-                                                 minsplit=50, minbucket=20, maxdepth=6))
+                           data=datCredit_train_smp_cross, method="exp", 
+                        control=rpart.control(minsplit=30, cp=0.001))
 end_time <- proc.time()
 (delta_time <- end_time - start_time)
+
+# Prune (optional)
+best_cp <- SurvTree_Rpart$cptable[which.min(SurvTree_Rpart$cptable[, "xerror"]), "CP"]
+SurvTree_Rpart_pruned <- prune(SurvTree_Rpart, cp = best_cp)
+
+# - Visualise tree
+rpart.plot::rpart.plot(SurvTree_Rpart)
+rpart.plot::rpart.plot(SurvTree_Rpart_pruned)
+
+### CONCLUSION: After some experimentation with prediction using an rpart-object, it seems that
+# this approach cannot handle time-dependent covariates, other than observing them once at the start of each spell.
+# This is a fundamental limitation and therefore, we will not pursue rpart-objects any further.
+
 
 
 # --- 2.2 Partykit
@@ -110,8 +123,11 @@ SurvTree_PartyKit <- ctree(Surv(DefSpell_Age,DefSpell_Event)~
                            PrevDefaults_fac+InterestRate_Nom+BalanceToPrincipal_1+
                            pmnt_method_grp_fac+M_Repo_Rate_6+M_DTI_Growth_6,
                            data=datCredit_train_smp,
-                           control=ctree_control(mincriterion=0.99,
-                                                 minsplit=100, minbucket=50, maxdepth=4))
+                           control=ctree_control(mincriterion=0.99, # 1 - p-value threshold (default ≈ 5% significance)
+                                                 minsplit=100, # minimum number of observations to attempt a split
+                                                 minbucket=50, # minimum number in terminal node (common default)
+                                                 testtype = "Bonferroni",      # most conservative → classical feeling
+                                                 maxdepth=4))
 end_time <- proc.time()
 (delta_time <- end_time - start_time)
 ### Runtime = 1 sec
