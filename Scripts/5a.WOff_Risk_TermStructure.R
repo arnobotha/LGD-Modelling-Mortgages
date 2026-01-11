@@ -44,10 +44,6 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 # - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
-# - Create start and stop columns
-datCredit_train[, Start:=TimeInDefSpell-1]
-datCredit_valid[, Start:=TimeInDefSpell-1]
-
 # - Weigh write-off cases
 datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 datCredit_valid[, Weight:=ifelse(DefSpell_Event==1,1,1)]
@@ -102,7 +98,7 @@ datSurv_act <- datSurv_act %>%
   # Calculate cumulative hazard rate
   mutate(CHaz=cumsum(Hazard_Actual)) %>%
   # Probability mass function f(t)=h(t)*S(t-1)
-  mutate(EventRate=Hazard_Actual*shift(SurvivalProb_KM, n=1, fill=1)) %>%
+  mutate(EventRate=Hazard_Actual*data.table::shift(SurvivalProb_KM, n=1, fill=1)) %>%
   # Filter for observations with events and censoring
   filter(Event_n > 0 | Censored_n >0) %>% as.data.table()
 
@@ -122,7 +118,6 @@ datSurv_act[,AtRisk_perc:=AtRisk_n/max(AtRisk_n, na.rm=T)]
 
 # - Create an additional record for each default spell
 datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
-datAdd[, Start:=Start-1]
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
 datAdd[, Counter:=0]
 

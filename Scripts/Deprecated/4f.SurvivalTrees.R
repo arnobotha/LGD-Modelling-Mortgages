@@ -54,7 +54,7 @@ datCredit_train_smp <- subset(datCredit_train, LoanID %in% datKeys_train_smp$V1)
 datCredit_valid_smp <- subset(datCredit_valid, LoanID %in% datKeys_valid_smp$V1)
 
 
-# --- 1.3 Final data preperations
+# --- 1.3 Final data preparations
 # - Add an event indicator
 datCredit_train_smp[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist=="WOFF",1,0)]
 datCredit_valid_smp[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist=="WOFF",1,0)]

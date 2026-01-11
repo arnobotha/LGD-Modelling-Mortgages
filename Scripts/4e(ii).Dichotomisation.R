@@ -66,7 +66,6 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
 # - Create an additional record for each default spell
 datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
-datAdd[, Start:=Start-1]
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
 datAdd[, Counter:=0]
 

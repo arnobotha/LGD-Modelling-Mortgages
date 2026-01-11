@@ -1,6 +1,6 @@
 # ================================= SURVIVAL TREES ======================================
-# Fitting and testing surival trees in predicting the occurence of write-off in defaulted
-# loans
+# Fitting and testing survival trees in predicting the occurrence of write-off in defaulted
+# loans at each time point during a default spell
 # ---------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Marcel Muller (MM)
@@ -95,8 +95,10 @@ SurvTree_PartyKit <- ctree(Surv(DefSpell_Age,DefSpell_Event)~
                              Principal_Real + M_RealGDP_Growth_12 + g0_Delinq_Num +
                              M_Repo_Rate_2 + M_Inflation_Growth_3,
                            data=datCredit_train_smp_cross,
-                           control=ctree_control(mincriterion=0.99,
-                                                 minsplit=1000, minbucket=50, maxdepth=2))
+                           control=ctree_control(mincriterion=0.99, # 1 - p-value threshold (default ≈ 5% significance)
+                                                 minsplit=1000, # minimum number of observations to attempt a split
+                                                 minbucket=50, # minimum number in terminal node (common default)
+                                                 maxdepth=2))
 end_time <- proc.time()
 (delta_time <- end_time - start_time)
 ### Runtime = 1 sec
@@ -115,7 +117,7 @@ datCredit_valid_smp_cross[,SurvTree_PartyKit_Node:=predict(SurvTree_PartyKit, da
 km_partykit <- survfit(Surv(TimeInDefSpell, DefSpell_Event)~SurvTree_PartyKit_Node, data=datCredit_train_smp_cross)
 
 # - Create a survival dataset from the training data
-km_complete <- summary(km_partykit, times=1:max(datCredit_train_smp_cross$DefSpell_Age))
+km_complete <- summary(km_partykit, times=1:max(datCredit_train_smp_cross$DefSpell_Age, na.rm=T))
 surv_df <- data.table(time=km_complete$time,
                       surv=km_complete$surv,
                       strata=km_complete$strata)
