@@ -41,7 +41,7 @@ rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 # --- Create a super-subsample to facilitate rapid model development
 # - Set sub-sample size (% of full training set)
-smp_frac <- 0.5
+smp_frac <- 0.75
 
 # - Get unique account numbers (only select accounts that had a default event)
 datKeys_train <- data.table(LoanID=unique(datCredit_train[!is.na(DefSpell_Key),LoanID]))
@@ -97,13 +97,13 @@ SurvTree_LRTCIT  <- LTRCIT(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, eve
                              Principal_Real + M_RealGDP_Growth_12 + g0_Delinq_Num +
                              M_Repo_Rate_2 + M_Inflation_Growth_3,
                            data=datCredit_train_smp,
-                           Control=partykit::ctree_control(mincriterion=0.99, # 1 - p-value threshold (default ≈ 5% significance)
-                                                 minsplit=500, # minimum number of observations to attempt a split
+                           Control=partykit::ctree_control(mincriterion=0.99, # 1 - p-value threshold (default = 5% significance)
+                                                 minsplit=1000, # minimum number of observations to attempt a split
                                                  minbucket=50, # minimum number in terminal node
                                                  maxdepth=7,
                                                  testtype = "Bonferroni")) # default – strongest multiple testing correction))
 end_time <- proc.time()
-(delta_time <- end_time - start_time) # 2099.91 seconds.
+(delta_time <- end_time - start_time) # 2351.00 seconds.
 
 # - Visualise tree
 plot(SurvTree_LRTCIT ) # Kaplan-Meier curves for the observations within each node
@@ -114,8 +114,8 @@ plot(SurvTree_LRTCIT ) # Kaplan-Meier curves for the observations within each no
 # ------ 3 Obtain survival probability predictions
 
 # - Point to main credit data
-datCredit <- rbind(data.table(datCredit_train, Sample="Training"),
-                   data.table(datCredit_valid, Sample="Validation"))
+datCredit <- rbind(data.table(datCredit_train_smp, Sample="Training"),
+                   data.table(datCredit_valid_smp, Sample="Validation"))
 
 # - Handle left-truncated spells by adding a starting record 
 ### NOTE:  This is necessary for calculating certain survival quantities later
@@ -129,19 +129,41 @@ datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInD
 # Predict survival curves (list of survfit objects): equal to number of rows in sample
 survFits <- predict(SurvTree_LRTCIT , newdata = datCredit, type = "prob")
 
-# - Remove added rows
-datCredit <- subset(datCredit, Counter>0)
-
 
 
 # ------ 4 Calculate survival-related quantities (hazard) from survival probability predictions
+
 # Function for extracting survival probabilities within a mapply-setup (later)
-extractSurv <- function(survFit, t) {
-  if (length(survFit$time) == 0) return(1)  # Edge case: no events in node at S=1
-  survFit_t <- summary(survFit, times = t)
-  if (length(survFit_t$surv) == 0) return(0.5)  # Edge case: no time found, return median of S(t)=0.5
-  if (is.na(survFit_t$surv)) return(survFit_t$surv[length(survFit_t$surv)])  # If t > max time, use last surv
-  return(survFit_t$surv)
+extractSurv <- function(survFit, t, extrapolate="last", floor=NULL) {
+  if (length(survFit$time) == 0) return(1)  # Edge case: No events in terminal node → everyone survives
+  
+  # retrieve survival probability at given t
+  survFit_t <- summary(survFit, times = t)$surv
+  
+  # Most common & recommended logic gate; simply return retrieved result
+  if (length(survFit_t) > 0) {
+    if (!is.na(survFit_t)) return(survFit_t)
+  }
+  
+  # Remaining cases need treatment. Extrapolation is now necessary  since t > last observed time in survFit object
+  last_surv <- tail(survFit$surv, 1) # obtain last survival probability
+  
+  if (extrapolate == "last") {
+    result <- last_surv
+  } else if (extrapolate == "zero") {
+    result <- 0
+  } else if (extrapolate == "floor" && !is.null(floor)) {
+    result <- last_surv
+  } else result <- last_surv  # fallback
+  
+  # Optional safety floor (common in credit scoring)
+  if (!is.null(floor) && is.numeric(floor)) result <- max(result, floor)
+  
+  return(result)
+  
+  #if (length(survFit_t$surv) == 0) return(0)  # Edge case: no time found
+  #if (is.na(survFit_t$surv)) return(survFit_t$surv[length(survFit_t$surv)])  # If t > max time, use last surv
+  #return(survFit_t$surv)
 }
 
 # Obtain survival probabilities by feeding the list of KM-objects (survFits) together with [TimeInDefSpell]-vector
@@ -149,22 +171,23 @@ extractSurv <- function(survFit, t) {
 start_time <- proc.time()
 datCredit[, SurvProb := mapply(function(p, times) {
   extractSurv(p, times)}, p = survFits, times = TimeInDefSpell)]
-proc.time() - start_time # 102.46 seconds.
+proc.time() - start_time # 482.27 seconds.
+
 
 # - Calculate hazard rate
-### AB: Still need to add record before the first one for dealing with left-truncated cases in getting their first
-# survival probabilities right
 datCredit[, hazard := (data.table::shift(SurvProb,fill=1)-SurvProb)/
                            data.table::shift(SurvProb,fill=1), by=list(DefSpell_Key)]
 datCredit[is.infinite(hazard) & hazard < 0, hazard := 0] # fail-safe
 
 # Diagnostic plot for single loan
-datCredit_test <- subset(datCredit, LoanID == unique(datCredit[DefSpell_Age > 10, LoanID])[1])
-plot(datCredit_test$SurvProb); plot(datCredit_test$hazard)
+#datCredit_test <- subset(datCredit, LoanID == unique(datCredit[DefSpell_Age > 10, LoanID])[1])
+#plot(datCredit_test$SurvProb); plot(datCredit_test$hazard)
 
 # - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
 datCredit[, EventRate_SurvTree := data.table::shift(SurvProb, type="lag", n=1, fill=1) - SurvProb, by=list(DefSpell_Key)]
 
+# - Remove added rows
+datCredit <- subset(datCredit, Counter>0)
 
 
 
@@ -175,16 +198,20 @@ datCredit[, EventRate_SurvTree := data.table::shift(SurvProb, type="lag", n=1, f
 objROC <- roc(response=datCredit[Sample=="Validation", DefSpell_Event], 
               predictor=datCredit[Sample=="Validation", hazard])
 objROC$auc; plot(objROC)
-### RESULTS: 
-# Tree-depth 2 (100% training subsample), minsplit=1000 : AUC = 0.5493
-# Tree-depth 5 (25% training subsample),  minsplit=1000 : AUC = 0.5279
-# Tree-depth 5 (50% training subsample),  minsplit=1000 : AUC = 0.6519
-# Tree-depth 7 (50% training subsample),  minsplit=1000  : AUC = 
-# Tree-depth 7 (50% training subsample),  minsplit=500  : AUC = 
+### RESULTS: AUC over various hyper-parametrisations
+# Max Tree-depth 2 (100% training subsample),  minsplit=1000 : AUC = 0.5493
+# Max Tree-depth 5 (25% training subsample),   minsplit=1000 : AUC = 0.5279
+# Max Tree-depth 5 (50% training subsample),   minsplit=1000 : AUC = 0.6520
+# Max Tree-depth 5 (75% training subsample),   minsplit=1000 : AUC = 0.5301
+# Max Tree-depth 7 (50% training subsample),   minsplit=1000 : AUC = 0.608
+# Max Tree-depth 7 (75% training subsample),   minsplit=1000 : AUC = 
+# Max Tree-depth 10 (50% training subsample),  minsplit=1000 : AUC = 
+# Max Tree-depth 10 (75% training subsample),  minsplit=1000 : AUC = 
 
 ### CONCLUSIONS:
 # Greater subsampling fractions seem to increase AUC at a given parameter-set, which is sensible given that the 
-# tree has more observations from which to learn.
+# tree has more observations from which to learn. This is also in line with Fu2018's findings regarding the 
+# interaction of censoring and sample size
 
 
 # --- Constructing the empirical term-structure of write-off using a Kaplan-Meier estimator
@@ -192,7 +219,7 @@ objROC$auc; plot(objROC)
 # - Estimate survival rate of the main event S(t) = P(T >=t) for time-to-event variable T
 # Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
 km_Default <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=DefSpell_Event==1, type="counting") ~ 1, 
-                      id=DefSpell_Key, data=datCredit)
+                      id=DefSpell_Key, data=rbind(datCredit_train, datCredit_valid))
 
 # - Create survival table
 (datSurv_act <- surv_summary(km_Default))
@@ -223,6 +250,7 @@ datSurv_exp <- datCredit[,.(EventRate_SurvTree = mean(EventRate_SurvTree, na.rm=
 
 # --- Compare empirical vs expected term-structures, having aggregated the event probabilities from the survival tree
 plot(datSurv_act[Time<=120, EventRate], type="b")
+lines(datSurv_exp[TimeInDefSpell<=120, EventRate_SurvTree], type="b", col="red")
 plot(datSurv_exp[TimeInDefSpell<=120, EventRate_SurvTree], type="b", col="red")
 
 ### AB: Run full gamut of diagnostics in ther scripts, including tBS (first), term-structures, 
