@@ -140,6 +140,8 @@ plot(SurvTree_PartyKit)
 datCredit_valid_smp[,SurvTree_PartyKit_Node:=predict(SurvTree_PartyKit, datCredit_valid_smp, type="node")]
 # Fit a survival object for each node
 km_partykit <- survfit(Surv(TimeInDefSpell, DefSpell_Event)~SurvTree_PartyKit_Node, data=datCredit_valid_smp)
+### MM: Check if we can specify "stata" in the KM-esitmor function instead
+### MM: Refine script
 # Create a survival dataset
 surv_df <- data.frame(
   time   = km_partykit$time,

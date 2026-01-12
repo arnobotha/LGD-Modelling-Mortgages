@@ -59,9 +59,9 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
 
 
-# ------ 3. Constructing expected term-structures of write-off | un-dichotomised / raw
+# ------ 2. Constructing expected term-structures of write-off | un-dichotomised / raw
 
-# --- 3.1 Handle left-truncated spells by adding a starting record 
+# --- 2.1 Handle left-truncated spells by adding a starting record 
 ### NOTE:  This is necessary for calculating certain survival quantities later
 
 # - Create an additional record for each default spell
@@ -73,7 +73,7 @@ datAdd[, Counter:=0]
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
 
 
-# --- 3.2 Calculate account-level survival quantities of interest
+# --- 2.2 Calculate account-level survival quantities of interest
 # - Score using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
 datCredit[, DefSpell_Age2:=DefSpell_Age]; datCredit[, DefSpell_Age:=TimeInDefSpell]
 
@@ -96,7 +96,7 @@ datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) 
 datCredit <- subset(datCredit, Counter > 0)
 
 
-# --- 3.3 Filtering
+# --- 2.3 Filtering
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit[, OOB_Ind:=ifelse(LossRate_Real < 0 | LossRate_Real > 1,1,0)]
 
@@ -154,7 +154,7 @@ datGiven_classic <- datCredit_train_classic[,list(DefSpell_Event, EventRate_clas
 ### RESULTS: Threshold at a=(1-q1)/q1: 0.2930735
 
 
-# --- 3.2 Save thresholds to disk
+# --- 3.3 Save thresholds to disk
 # - Combine thresholds into a single list
 thres_lst <- list("Basic"=thresh_dth_bas$cutoff,
                   "Advanced"=thresh_dth_adv$cutoff,
@@ -164,7 +164,7 @@ thres_lst <- list("Basic"=thresh_dth_bas$cutoff,
 saveRDS(thres_lst, file=paste0(genObjPath,"Classification_Thresholds.rds"))
 
 
-# --- 3.3 Clean-up
+# --- 3.4 Clean-up
 suppressWarnings(rm(datCredit_train, datCredit_train_classic,
                     modLR_adv, modLR_bas, modLR_classic, thresh_dth_bas,
                     thresh_dth_adv, thresh_lr_classic, thres_lst))
