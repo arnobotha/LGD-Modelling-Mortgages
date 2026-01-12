@@ -103,9 +103,9 @@ datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
 datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
 # - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
-datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1)-Survival_adv, by=list(DefSpell_Key)]
-datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1)-Survival_bas, by=list(DefSpell_Key)]
-datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1)-Survival_classic, by=list(DefSpell_Key)]
+datCredit[, EventRate_adv:=data.table::shift(Survival_adv, type="lag", n=1, fill=1)-Survival_adv, by=list(DefSpell_Key)]
+datCredit[, EventRate_bas:=data.table::shift(Survival_bas, type="lag", n=1, fill=1)-Survival_bas, by=list(DefSpell_Key)]
+datCredit[, EventRate_classic:=data.table::shift(Survival_classic, type="lag", n=1, fill=1)-Survival_classic, by=list(DefSpell_Key)]
 
 # - Remove added rows
 datCredit <- subset(datCredit, Counter>0)
