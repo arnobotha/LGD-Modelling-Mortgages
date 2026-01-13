@@ -491,17 +491,23 @@ tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.0
   # caseStudyName=paste0("CoxDisc_PWPST_", predictTime); numThreads=12; logPath=genPath
   # month_Start=0; Graph=T; predType="response"; reportFlag=T
   # MarkerGiven=EventRate_bas ; threshold=0.5
+  datGiven <- datCredit; modGiven <- NA; month_End <- predictTime; sLambda <- 0.05; estMethod <- "NN-0/1"; numDigits <- 4; 
+  fld_ID <- "DefSpell_Key"; fld_Event <- "WOff_Ind"; eventVal <- 1; fld_StartTime <- "Start"; fld_EndTime <- "TimeInDefSpell";
+  caseStudyName <- paste0("Cond_SurvTree_", predictTime); numThreads <- 12; logPath <- genPath; 
+  predType <- "response"; MarkerGiven <- "Hazard"; Graph <- F
   
   
   # -- Error handling
   if (!is.data.table(datGiven)) {
     stop("[datGiven] must be a data table.\n")
   }# Test whether datGiven is a data table
-  if (!any( class(modGiven) %in% c("coxph","lm","glm"))) {
+  if (!any(class(modGiven) %in% c("coxph","lm","glm", "logical"))) {
     stop("[modGiven] must be a valid 'coxph' or 'glm' model object.\n")
   }# Test whether [cox] is a coxph model
-  if (!all(all.vars(formula(modGiven)) %in% colnames(datGiven))){
-    stop("[datGiven] does not contain the variables required within the [modGiven] object.\n")
+  if (class(modGiven)!="logical"){
+    if (!all(all.vars(formula(modGiven)) %in% colnames(datGiven))){
+      stop("[datGiven] does not contain the variables required within the [modGiven] object.\n")
+    }
   }# Test whether [datGiven] contains the variables on which [cox] was built
   if (!is.numeric(month_Start) || !is.numeric(month_End)) {
     stop("[month_Start] and [month_End] must be numeric.\n")

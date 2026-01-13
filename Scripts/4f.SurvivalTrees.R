@@ -53,6 +53,10 @@ datKeys_valid_smp <- datKeys_valid %>% slice_sample(prop=smp_frac) %>% as.data.t
 datCredit_train_smp <- subset(datCredit_train, LoanID %in% datKeys_train_smp$V1)
 datCredit_valid_smp <- subset(datCredit_valid, LoanID %in% datKeys_valid_smp$V1)
 
+# - Subset only default spells
+datCredit_train_smp <- subset(datCredit_train_smp, !is.na(DefSpell_Key))
+datCredit_valid_smp <- subset(datCredit_valid_smp, !is.na(DefSpell_Key))
+
 
 # --- 1.3 Final data preperations
 # - Add an event indicator

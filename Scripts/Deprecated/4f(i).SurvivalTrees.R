@@ -69,11 +69,11 @@ datCredit_valid_smp[,PrevDefaults_num:=as.numeric(PrevDefaults)]
 
 # - Transform categorical variables to factor
 # Payment method
-datCredit_train_smp[,pmnt_method_grp_fac:=as.numeric(pmnt_method_grp)]
-datCredit_valid_smp[,pmnt_method_grp_fac:=as.numeric(pmnt_method_grp)]
+datCredit_train_smp[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+datCredit_valid_smp[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
 # Previous defaults
-datCredit_train_smp[,PrevDefaults_fac:=as.numeric(PrevDefaults)]
-datCredit_valid_smp[,PrevDefaults_fac:=as.numeric(PrevDefaults)]
+datCredit_train_smp[,PrevDefaults_fac:=as.factor(PrevDefaults)]
+datCredit_valid_smp[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 
 # - Create a cross-sectional dataset
 datCredit_train_smp_cross <- subset(datCredit_train_smp, DefSpell_Counter==1)
