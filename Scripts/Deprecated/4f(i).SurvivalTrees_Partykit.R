@@ -134,25 +134,25 @@ datSurv <- data.table(Time=km_partykit$time,
 )
 datSurv[, Node:=as.integer(sub(".*=", "", Node))]
 
+# - Create observations for the gaps in the KM objects
+max_time <- max(datSurv$Time)
+grid <- CJ(Node=unique(datSurv$Node), Time=1:max_time)
+datSurv_full <- merge(grid,datSurv, by=c("Node", "Time"), all.x=T)
+datSurv_full[, Surv:=na.locf(Surv, na.rm=FALSE), by=Node]
+
 # - Estimate hazards
-# datHaz <- datSurv[,Hazard:=(data.table::shift(Surv,fill=1)-Surv)/data.table::shift(Surv,fill=1), by=list(Node)] #  %>% mutate(Hazard=(lag(Surv)-Surv)/lag(Surv)) %>% data.table()
+datHaz <- datSurv_full[,Hazard:=(data.table::shift(Surv,fill=1)-Surv)/data.table::shift(Surv,fill=1), by=list(Node)]
 
 # - Impose a floor & ceiling for non-logical values
-datHaz[is.infinite(Hazard) | Hazard < 0, Hazard:=0]
-
-# - Fill nan values with zeroes
-datHaz[is.nan(Hazard), Hazard:=0]
+datHaz[is.infinite(Hazard) | Hazard<0, Hazard:=0]
 
 # - Join hazards back to main dataset
-# datCredit_valid_smp[,Hazard:=NULL]
 datCredit <- merge(datCredit,
                    datHaz,
                    by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"),
                    all.x=T)
 
-# datCredit[,,Hazard:=(data.table::shift(Surv,fill=1)-Surv)/data.table::shift(Surv,fill=1), by=list(Node)]
-# datCredit[is.infinite(Hazard) | Hazard < 0, Hazard:=0]
-# datCredit[is.nan(Hazard), Hazard:=0]
+datCredit[is.na(Hazard), Hazard:=0]
 
 # - [SANITY CHECK] Inspect KM-estimated survival probabilities
 n_nodes <- length(unique(km_partykit$strata))
@@ -175,10 +175,7 @@ ggplot(datHaz[Time<=120], aes(x=Time, y=Hazard, group=Node)) + geom_line(aes(col
 sum(is.nan(datCredit$Hazard))/datCredit[,.N]*100
 ### RESULTS: 0%
 sum(is.na(datCredit$Hazard))/datCredit[,.N]*100
-### RESULTS: 0.2109481% missingness within the hazard rates
-
-# - Fill missing values with zeros
-datCredit[is.na(Hazard), Hazard:=0]
+### RESULTS: 0
 
 
 # --- 3.2 Generate survival quantity predictions given the fitted tree | Using package-functions
@@ -225,7 +222,7 @@ extractSurv <- function(survFit, t, extrapolate="last", floor=NULL) {
 # into the extractSurv()-function across all rows
 start_time <- proc.time()
 datCredit[, SurvProb:=mapply(function(p, times) {
-  extractSurv(p, times, extrapolate)}, p=survFits, times=TimeInDefSpell, extrapolate="zero")]
+  extractSurv(p, times)}, p=survFits, times=TimeInDefSpell)]
 proc.time() - start_time # 6.62 seconds.
 
 # - Estimate hazard rates
