@@ -110,15 +110,6 @@ plot(SurvTree_PartyKit)
 datCredit <- rbind(data.table(datCredit_train_smp, Sample="Training"),
                    data.table(datCredit_valid_smp, Sample="Validation"))
 
-# - Handle left-truncated spells by adding a starting record 
-### NOTE:  This is necessary for calculating certain survival quantities later
-# Create an additional record for each default spell
-datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
-datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
-datAdd[, Counter:=0]
-# Add record to main dataset
-datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
-
 # - Get node from tree
 datCredit[,Node:=predict(SurvTree_PartyKit, datCredit, type="node")]
 datCredit_train_smp_cross[,Node:=predict(SurvTree_PartyKit, datCredit_train_smp_cross, type="node")]
@@ -179,9 +170,12 @@ sum(is.na(datCredit$Hazard))/datCredit[,.N]*100
 
 
 # --- 3.2 Generate survival quantity predictions given the fitted tree | Using package-functions
-# - Predict survival curves (list of survfit objects): equal to number of rows in sample
+# - Render predictions
+# Predict survival curves (list of survfit objects): equal to number of rows in sample
 survFits <- predict(SurvTree_PartyKit , newdata=datCredit_train_smp_cross, type="prob")
+# Predict nodes
 survFits_node <- predict(SurvTree_PartyKit , newdata=datCredit_train_smp_cross, type="node")
+# Combine predictions in a convenient data.table
 survFits_map <- data.table(survFits=survFits, Node=survFits_node)
 
 # - Function for extracting survival probabilities within a mapply-setup (later)
@@ -231,42 +225,94 @@ datCredit[, Hazard2:=(data.table::shift(SurvProb,fill=1)-SurvProb)/
 datCredit[is.infinite(Hazard2) | Hazard2<0, Hazard2:=0] # fail-safe
 
 # - [SANITY CHECK] Inspect KM-estimated survival probabilities
+# Filter data.table to have one the unique survival curves
 survFits_map_uni <- survFits_map[!duplicated(Node)]
 dat_survFits_uni <- rbindlist(lapply(1:survFits_map_uni[,.N],
                                      function(i){surv_i <- survFits_map_uni[i,1][[1]]
-                                                 data.table(Time=surv_i[[1]]$time,
-                                                            Surv=surv_i[[1]]$surv,
-                                                            Node=survFits_map_uni[i,2][[1]])})
-                              )
+                                     data.table(Time=surv_i[[1]]$time,
+                                                Surv=surv_i[[1]]$surv,
+                                                Node=survFits_map_uni[i,2][[1]])})
+)
+# Get total number of nodes
 n_nodes <- unique(dat_survFits_uni$Node)
+# Plot survival estimates
 ggplot(dat_survFits_uni, aes(x=Time, y=Surv, group=Node)) + geom_line(aes(colour=Node))
 ### RESUTLS: Estimates look reasonable and risk differentiation is present (though the lines seem very close in some instances)
 
-  
-# --- 3.3 Compare approaches
+
+# --- 3.3 Generate survival quantity predictions given the fitted tree | Using package-functions - Alternative
+# - Enrich the survival curves to carry over the last known survival probability for each missing time
+max_time <- max(dat_survFits_uni$Time)
+grid <- CJ(Node=unique(dat_survFits_uni$Node), Time=1:max_time)
+datSurv_full_alt <- merge(grid, dat_survFits_uni, by=c("Node", "Time"), all.x=T)
+datSurv_full_alt[, Surv:=na.locf(Surv, na.rm=FALSE), by=Node]
+
+# - Estimate hazards
+datHaz_alt <- datSurv_full_alt[,Hazard3:=(data.table::shift(Surv,fill=1)-Surv)/data.table::shift(Surv,fill=1), by=list(Node)]
+datHaz_alt[,`:=`(Surv3=Surv, Surv=NULL)]
+
+# - Impose a floor & ceiling for non-logical values
+datHaz_alt[is.infinite(Hazard3) | Hazard3<0, Hazard3:=0]
+
+# - Join hazards back to main dataset
+datCredit <- merge(datCredit,
+                   datHaz_alt,
+                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"),
+                   all.x=T)
+
+datCredit[is.na(Hazard3), Hazard3:=0]
+ 
+# - [SANITY CHECK] Inspect hazards
+ggplot(datHaz_alt[Time<=120], aes(x=Time, y=Hazard3, group=Node)) + geom_line(aes(col=Node))
+### RESULTS: Hazards are crossing in a few instances, but their seems to be good differentiation
+
+# - [SANITY CHECK] Inspect reasonableness of hazards
+sum(is.nan(datCredit$Hazard3))/datCredit[,.N]*100
+### RESULTS: 0%
+sum(is.na(datCredit$Hazard3))/datCredit[,.N]*100
+### RESULTS: 0
+
+
+# --- 3.4 Compare approaches
 # - Survival probabilities | Portfolio-level
 # All nodes
 ggplot(dat_survFits_uni, aes(x=Time, y=Surv, group=Node)) + geom_line(aes(colour=Node))
 ggplot(datHaz, aes(x=Time, y=Surv, group=Node)) + geom_line(aes(colour=Node))
+ggplot(datHaz_alt, aes(x=Time, y=Surv3, group=Node)) + geom_line(aes(colour=Node))
 ### RESULTS: Graphs appear identical
 # A singular node
 Node_Select <- 7
 plot(dat_survFits_uni[Node==Node_Select & Time<=120, Time], dat_survFits_uni[Node==Node_Select & Time<=120, Surv], type="l", col="red")
 lines(datHaz[Node==Node_Select & Time<=120, Time], datHaz[Node==Node_Select & Time<=120, Surv], type="l", col="blue")
+lines(datHaz_alt[Node==Node_Select & Time<=120, Time], datHaz_alt[Node==Node_Select & Time<=120, Surv3], type="l", col="green")
 ### RESULTS: Graphs appear identical
 
 # - Hazards | Account-level
+# Approach 1 vs 2
 diff <- datCredit$Hazard-datCredit$Hazard2
-mean(diff)
-### RESULTS: -0.04524568
+mean(diff, na.rm=T)
+### RESULTS: -0.04415482
 sum(diff>0.001); sum(diff>0.001)/length(diff)
-### RESULTS:  243 412 observations (~40%) where difference between hazards are large than 0.1
+### RESULTS:  240 798 observations (~40%) where difference between hazards are large than 0.001
+# Approach 1 vs 3
+diff <- datCredit$Hazard-datCredit$Hazard3
+mean(diff, na.rm=T)
+### RESULTS: 0
+sum(diff>0.001); sum(diff>0.001)/length(diff)
+### RESULTS:  0 observations (0%) where difference between hazards are large than 0.001
+# Approach 2 vs 3
+diff <- datCredit$Hazard2-datCredit$Hazard3
+mean(diff, na.rm=T)
+### RESULTS: 0.04415482
+sum(diff>0.001); sum(diff>0.001)/length(diff)
+### RESULTS:  234745 observations (~40%) where difference between hazards are large than 0.001
 
-### CONCLUSION: Hazards rate are not the same, this likely stems from the following:
-###              - The survival rates per node are identical, so the aggregate KM objects are fine
-###              - The hazard rate in approach 1 is calculated within the aggregated dataset before joining it to the credit data
-###              - The hazard rate in approach 2 is calculate within the credit data after the KM data has been added to it
-###              - The calculation of the hazard outside/inside the data may be the cause of the differences
+### CONCLUSION: 1) Hazard rates are not the same between approaches 1 & 2 and 2 & 3, this likely stems from the following:
+###               - The survival rates per node are identical, so the aggregate KM objects are fine
+###               - The hazard rate in approach 1 is calculated within the aggregated dataset before joining it to the credit data
+###               - The hazard rate in approach 2 is calculate within the credit data after the KM data has been added to it
+###               - The calculation of the hazard outside/inside the data may be the cause of the differences
+###             2) Hazard rates are the same between approaches 1 & 3
 
 
 
@@ -278,10 +324,11 @@ sum(diff>0.001); sum(diff>0.001)/length(diff)
 
 # - Perform ROC analysis | Cross-sectional data
 objROC_ST <- roc(response=datCredit[Sample=="Validation" & DefSpell_Counter==1,DefSpell_Event],
-                 predictor=datCredit[Sample=="Validation" & DefSpell_Counter==1,Hazard2])
+                 predictor=datCredit[Sample=="Validation" & DefSpell_Counter==1,Hazard])
 objROC_ST$auc; plot(objROC_ST)
-### RESULTS: AUC=50% (maximum node depth=2 & 100% training sample) (Hazard from approach 1)
-### RESULTS: AUC=52.57% (maximum node depth=2 & 100% training sample) (Hazard from approach 2)
+### RESULTS: AUC=73.99% (maximum node depth=2 & 100% training sample) (Hazard from approach 1)
+### RESULTS: AUC=53.7% (maximum node depth=2 & 100% training sample) (Hazard from approach 2)
+### RESULTS: AUC=73.99% (maximum node depth=2 & 100% training sample) (Hazard from approach 3)
 
 # - Perform time-dependent ROC analysis
 predictTime <- 44
@@ -289,11 +336,12 @@ ptm <- proc.time() #IGNORE: for computation time calculation
 objROC44_ST <- tROC.multi(datGiven=datCredit, modGiven=NA, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
                           fld_ID="DefSpell_Key", fld_Event="WOff_Ind", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                           caseStudyName=paste0("Cond_SurvTree_", predictTime), numThreads=12, logPath=genPath, 
-                          predType="response", MarkerGiven="Hazard2", Graph=F)
+                          predType="response", MarkerGiven="Hazard", Graph=F)
 proc.time() - ptm
-objROC44_ST$AUC #; objROC44_CDH_CoxDisc_bas_B$ROC_graph
-### RESULTS: AUC up to t: 79.83602% %, achieved in 176 secs (Hazard from approach 1)
-### RESULTS: AUC up to t: 79.83602% %, achieved in 176 secs (Hazard from approach 2)
+objROC44_ST$AUC #; objROC44_ST$ROC_graph
+### RESULTS: AUC up to t: 80.2782%, achieved in 176 secs (Hazard from approach 1)
+### RESULTS: AUC up to t: 80.2782%, achieved in 176 secs (Hazard from approach 2)
+### RESULTS: AUC up to t: %, achieved in 176 secs (Hazard from approach 3)
 
 ### CONCLUSION: 
 
@@ -326,7 +374,16 @@ setorder(datSurv_act, Time)
 datSurv_act[,AtRisk_perc:=AtRisk_n/max(AtRisk_n, na.rm=T)]
 
 
-# --- 4.3 Estimate event rates | Expected
+# --- 4.3 Estimate event rates | Expected - Approach 1
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Counter:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
+
 # - Estimate event rate
 datCredit[, EventRate:=data.table::shift(Surv, type="lag", n=1, fill=1)-Surv, by=list(DefSpell_Key)]
 
@@ -335,11 +392,40 @@ datCredit<- subset(datCredit, Counter > 0)
 
 # - Aggregate account-specific event rates
 datSurv_exp <- datCredit[,.(EventRate=mean(EventRate, na.rm=T)),by=list(TimeInDefSpell)]
+datSurv_exp <- datSurv_exp[order(TimeInDefSpell)]
 
 
-# --- 4.4 Compare event rates
-plot(x=datSurv_exp[TimeInDefSpell<=120, TimeInDefSpell], y=datSurv_exp[TimeInDefSpell<=120, EventRate], type="b", col="green")
-lines(datSurv_act[Time<=120, EventRate], type="b", col="red")
+# --- 4.4 Estimate event rates | Expected - Approach 
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Counter:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, TimeInDefSpell)
+
+# - Estimate event rate
+datCredit[, EventRate2:=data.table::shift(SurvProb, type="lag", n=1, fill=1)-SurvProb, by=list(DefSpell_Key)]
+
+# - Remove added rows
+datCredit<- subset(datCredit, Counter > 0)
+
+# - Aggregate account-specific event rates
+datSurv_exp2 <- datCredit[,.(EventRate2=mean(EventRate2, na.rm=T)),by=list(TimeInDefSpell)]
+datSurv_exp2 <- datSurv_exp2[order(TimeInDefSpell)]
 
 
+# --- 4.5 Compare event rates
+# - Approach 1
+plot(x=datSurv_exp[TimeInDefSpell<=120, TimeInDefSpell], y=datSurv_exp[TimeInDefSpell<=120, EventRate], type="l", col="green")
+lines(datSurv_act[Time<=120, EventRate], type="l", col="red")
+mean(abs(datSurv_exp[TimeInDefSpell<=120,EventRate] - datSurv_act[Time<=120,EventRate]), na.rm=T)
+### RESULTS: MAE=0.004147642
+
+# - Approach 2
+plot(x=datSurv_exp2[TimeInDefSpell<=120, TimeInDefSpell], y=datSurv_exp2[TimeInDefSpell<=120, EventRate2], type="l", col="green")
+lines(datSurv_act[Time<=120, EventRate], type="l", col="red")
+mean(abs(datSurv_exp2[TimeInDefSpell<=120,EventRate2] - datSurv_act[Time<=120,EventRate]), na.rm=T)
+### RESULTS: MAE=0.02186276
 
