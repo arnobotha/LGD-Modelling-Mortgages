@@ -40,8 +40,10 @@ rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 
 # --- Create a super-subsample to facilitate rapid model development
-# - Set sub-sample size (% of full training set)
-smp_frac <- 0.75
+# - Parameters
+smp_frac <- 2/3 # Set sub-sample size (% of full training set)
+maxAge <- 240 # Set maximum spell age in filtering out outliers
+
 
 # - Get unique account numbers (only select accounts that had a default event)
 datKeys_train <- data.table(LoanID=unique(datCredit_train[!is.na(DefSpell_Key),LoanID]))
@@ -66,14 +68,6 @@ datCredit_valid_smp <- subset(datCredit_valid_smp, !is.na(DefSpell_Key))
 datCredit_train_smp[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist=="WOFF",1,0)]
 datCredit_valid_smp[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist=="WOFF",1,0)]
 
-# - Transform categorical variables to numeric
-# Payment method
-datCredit_train_smp[,pmnt_method_grp_num:=as.numeric(pmnt_method_grp)]
-datCredit_valid_smp[,pmnt_method_grp_num:=as.numeric(pmnt_method_grp)]
-# Previous defaults
-datCredit_train_smp[,PrevDefaults_num:=as.numeric(PrevDefaults)]
-datCredit_valid_smp[,PrevDefaults_num:=as.numeric(PrevDefaults)]
-
 # - Transform categorical variables to factor
 # Payment method
 datCredit_train_smp[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
@@ -81,6 +75,12 @@ datCredit_valid_smp[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
 # Previous defaults
 datCredit_train_smp[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 datCredit_valid_smp[,PrevDefaults_fac:=as.factor(PrevDefaults)]
+
+# - Subset time in spell to preset max
+if (!is.na(maxAge)){
+  datCredit_train_smp <- subset(datCredit_train_smp, DefSpell_Age <= maxAge)
+  datCredit_valid_smp <- subset(datCredit_valid_smp, DefSpell_Age <= maxAge)
+}
 
 
 
@@ -90,17 +90,22 @@ datCredit_valid_smp[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 # Terminal nodes contain Kaplan-Meier survival curves
 start_time <- proc.time()
 SurvTree_LRTCIT  <- LTRCIT(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=WOff_Ind==1) ~
-                             PrevDefaults_fac + DefSpell_Num_binned +
-                             ArrearsToBalance_1_Aggr_Prop + Balance_Real_1 +
-                             pmnt_method_grp_fac + InterestRate_Margin_Aggr_Med_2 + InterestRate_Nom +
-                             DefaultStatus1_Aggr_Prop_Lag_12 + g0_Delinq_Ave + M_DTI_Growth_6 +
-                             Principal_Real + M_RealGDP_Growth_12 + g0_Delinq_Num +
-                             M_Repo_Rate_2 + M_Inflation_Growth_3,
+                             # PrevDefaults_fac + DefSpell_Num_binned +
+                             # ArrearsToBalance_1_Aggr_Prop + Balance_Real_1 +
+                             # pmnt_method_grp_fac + InterestRate_Margin_Aggr_Med_2 + InterestRate_Nom +
+                             # DefaultStatus1_Aggr_Prop_Lag_12 + g0_Delinq_Ave + M_DTI_Growth_6 +
+                             # Principal_Real + M_RealGDP_Growth_12 + g0_Delinq_Num +
+                             # M_Repo_Rate_2 + M_Inflation_Growth_3,
+                             PrevDefaults_fac + DefSpell_Num_binned + Balance_Real_1 + Principal_Real + 
+                             ArrearsToBalance_1_Aggr_Prop + g0_Delinq_Num +  +
+                             pmnt_method_grp_fac + InterestRate_Margin_Aggr_Med_3 + InterestRate_Nom +
+                             DefaultStatus1_Aggr_Prop_Lag_12 + g0_Delinq_Ave + g0_Delinq_Lag_1 + 
+                             M_DTI_Growth_12 + M_RealIncome_Growth_9 + M_Repo_Rate_12 + M_Inflation_Growth_12,
                            data=datCredit_train_smp,
                            Control=partykit::ctree_control(mincriterion=0.99, # 1 - p-value threshold (default = 5% significance)
                                                  minsplit=1000, # minimum number of observations to attempt a split
                                                  minbucket=50, # minimum number in terminal node
-                                                 maxdepth=7,
+                                                 maxdepth=5,
                                                  testtype = "Bonferroni")) # default – strongest multiple testing correction))
 end_time <- proc.time()
 (delta_time <- end_time - start_time) # 2351.00 seconds.
@@ -145,7 +150,7 @@ extractSurv <- function(survFit, t, extrapolate="last", floor=NULL) {
     if (!is.na(survFit_t)) return(survFit_t)
   }
   
-  # Remaining cases need treatment. Extrapolation is now necessary  since t > last observed time in survFit object
+  # Remaining cases need treatment. Extrapolation is now necessary since t > last observed time in survFit object
   last_surv <- tail(survFit$surv, 1) # obtain last survival probability
   
   if (extrapolate == "last") {
@@ -199,19 +204,46 @@ objROC <- roc(response=datCredit[Sample=="Validation", DefSpell_Event],
               predictor=datCredit[Sample=="Validation", hazard])
 objROC$auc; plot(objROC)
 ### RESULTS: AUC over various hyper-parametrisations
-# Max Tree-depth 2 (100% training subsample),  minsplit=1000 : AUC = 0.5493
-# Max Tree-depth 5 (25% training subsample),   minsplit=1000 : AUC = 0.5279
-# Max Tree-depth 5 (50% training subsample),   minsplit=1000 : AUC = 0.6520
-# Max Tree-depth 5 (75% training subsample),   minsplit=1000 : AUC = 0.5301
-# Max Tree-depth 7 (50% training subsample),   minsplit=1000 : AUC = 0.608
-# Max Tree-depth 7 (75% training subsample),   minsplit=1000 : AUC = 
-# Max Tree-depth 10 (50% training subsample),  minsplit=1000 : AUC = 
-# Max Tree-depth 10 (75% training subsample),  minsplit=1000 : AUC = 
+# -- Varying subsample size and maximum tree depth
+# Max Tree-depth 2 (100% training subsample),   minsplit=1000 : AUC = 0.5493
+# Max Tree-depth 4 (50% training subsample),    minsplit=1000 : AUC = 0.6541
+# Max Tree-depth 4 (75% training subsample),    minsplit=1000 : AUC = 0.5322
+# Max Tree-depth 5 (25% training subsample),    minsplit=1000 : AUC = 0.5279
+# Max Tree-depth 5 (50% training subsample),    minsplit=1000 : AUC = 0.6520
+# Max Tree-depth 5 (75% training subsample),    minsplit=1000 : AUC = 0.5301
+# Max Tree-depth 6 (50% training subsample),    minsplit=1000 : AUC = 0.6361
+# Max Tree-depth 6 (75% training subsample),    minsplit=1000 : AUC = 0.5425
+# Max Tree-depth 7 (50% training subsample),    minsplit=1000 : AUC = 0.6080
+# Max Tree-depth 7 (75% training subsample),    minsplit=1000 : AUC = 0.5435
+# Max Tree-depth 10 (50% training subsample),   minsplit=1000 : AUC = 0.5298
+# Max Tree-depth 10 (75% training subsample),   minsplit=1000 : AUC = 0.5330
+# Max Tree-depth 10 (100% training subsample),  minsplit=1000 : AUC = 0.5376
+# -- Varying subsample size & minbucket at a given max tree depth of 6
+# Max Tree-depth 6 (75% training subsample),    minbucket=50 : AUC = 0.5425
+# Max Tree-depth 6 (75% training subsample),    minbucket=250: AUC = 0.5425
+# Max Tree-depth 6 (75% training subsample),    minbucket=500: AUC = 0.5424
+# -- Restricting time in default to preset max (240), and varying by tree depth and subsample size
+# Max Tree-depth 4 (50% training subsample),    minsplit=1000 : AUC = 0.6573
+# Max Tree-depth 4 (75% training subsample),    minsplit=1000 : AUC = 0.5535
+# Max Tree-depth 5 (50% training subsample),    minsplit=1000 : AUC = 0.6550
+# Max Tree-depth 5 (75% training subsample),    minsplit=1000 : AUC = 0.5799
+# -- Changing input space for a tree by swapping in the input space from the DtH-Advanced model
+# NOTE: Time in default still restricted to a preset max (240)
+# Max Tree-depth 4 (33% training subsample),    minsplit=1000 : AUC = 0.6572
+# Max Tree-depth 4 (50% training subsample),    minsplit=1000 : AUC = 0.6636
+# Max Tree-depth 4 (67% training subsample),    minsplit=1000 : AUC = 0.6694
+# Max Tree-depth 4 (75% training subsample),    minsplit=1000 : AUC = 0.5556
+# Max Tree-depth 5 (50% training subsample),    minsplit=1000 : AUC = 0.6491
+# Max Tree-depth 5 (67% training subsample),    minsplit=1000 : AUC = 0.6663
+# Max Tree-depth 5 (75% training subsample),    minsplit=1000 : AUC = 0.5538
+
 
 ### CONCLUSIONS:
 # Greater subsampling fractions seem to increase AUC at a given parameter-set, which is sensible given that the 
 # tree has more observations from which to learn. This is also in line with Fu2018's findings regarding the 
-# interaction of censoring and sample size
+# interaction of censoring and sample size. Furthermore, varying minbucket did not seem to affect the AUC at all.
+# Upon inspecting many of the resulting tree-structures via plot(), it seems the KM-curves are afflicted by a 
+# lot of outliers, which may affect the overall tree fit.
 
 
 # --- Constructing the empirical term-structure of write-off using a Kaplan-Meier estimator
@@ -252,6 +284,5 @@ datSurv_exp <- datCredit[,.(EventRate_SurvTree = mean(EventRate_SurvTree, na.rm=
 plot(datSurv_act[Time<=120, EventRate], type="b")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_SurvTree], type="b", col="red")
 plot(datSurv_exp[TimeInDefSpell<=120, EventRate_SurvTree], type="b", col="red")
-
-### AB: Run full gamut of diagnostics in ther scripts, including tBS (first), term-structures, 
-# and then tROC (lastly) if the other diagnostics are satisfactory
+mean(abs(datSurv_act[Time<=120, EventRate] - datSurv_exp[TimeInDefSpell<=120, EventRate_SurvTree])) * 100
+### RESULTS: Max Tree-depth 5 (67% training subsample): MAE = 1.6284%
