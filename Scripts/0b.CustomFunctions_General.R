@@ -1176,8 +1176,6 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
   }
 }
 
-
-
 # - Unit test
 # require(ISLR); require(OptimalCutpoints); require(DEoptimR) # Robust Optimisation Tool		
 # datTrain <- data.table(ISLR::Default); datTrain[, `:=`(default=ifelse(default=="No",0,1), student=as.factor(student))]
@@ -1190,3 +1188,74 @@ GenYoudenIndex<-function(optimise_type="Model", Trained_Model=NA, Train_DataSet,
 # # - Custom Gen_Youd_Ind function
 #Gen_Youd_Ind(logit_model,datTrain,"default",4) # Optimal Cut-off = 0.2120438; Optimal Criterion = -6.673423
 #Gen_Youd_Ind(logit_model,datTrain,"default_fac",4) # Optimal Cut-off = 0.2120438; Optimal Criterion = -6.673423
+
+
+
+# -------- Rendering predictions
+
+# -- Predicting using a given survival tree
+# - This function runs an optimisation procedure to find a threshold that optimises the 
+# Generalised Youden Index for a trained model.
+### INPUT:
+# - surv_tree: a fitted conditional inference survival tree from the pary package
+# - datTrain: the training dataset used to fit the tree
+# - fld_DefSpell_Age: Field name of the default spell age in datTrain
+# - fld_DefSpell_Event: Field name of the default spell event in datTrain
+# - max_DefSpell_Age: Maximum default spell age to consider (filters applied otherwise)
+### OUTPUT: 
+# - A dataset containing survival quantities per node
+
+predSurv <- function(survTree, datGiven, fld_DefSpell_Age, fld_DefSpell_Event,
+                     max_DefSpell_Age=NA) {
+  # - Unit test conditions | Internal
+  # survTree<-SurvTree_PartyKit; datGiven <-copy(datCredit_train_smp_cross)
+  # fld_DefSpell_Age<-"DefSpell_Age"; fld_DefSpell_Event<-"DefSpell_Event"
+  # max_DefSpell_Age<-600
+  
+  # - Make a copy of the given training data to avoid potential cross contamination
+  if (!is.na(max_DefSpell_Age)){
+    datTrain <- subset(datGiven, get(fld_DefSpell_Age)<=max_DefSpell_Age)
+  } else {
+    datTrain <- copy(datGiven)
+  }
+  
+  # - Get node from tree
+  datTrain[,Node:=predict(survTree, datTrain, type="node")]
+  
+  # - Fit a survival object for each node | Using the training data only to align with how the tree was fitted
+  km_partykit <- survfit(Surv(get(fld_DefSpell_Age), get(fld_DefSpell_Event)) ~ strata(Node),
+                         data=datTrain)
+  
+  # - Create a combined longitudinal survival dataset (grain = survival probability per time per node)
+  datSurv <- data.table(Time=km_partykit$time,
+                        Surv=km_partykit$surv,
+                        Node=rep(names(km_partykit$strata), km_partykit$strata)
+  )
+  datSurv[, Node:=as.integer(sub(".*=", "", Node))]
+  
+  # - Create observations for the gaps in the KM objects
+  if (!is.na(max_DefSpell_Age)) {max_time<-max_DefSpell_Age} else {max_time <- 600}
+  grid <- CJ(Node=unique(datSurv$Node), Time=1:max_time)
+  datSurv_full <- merge(grid,datSurv, by=c("Node", "Time"), all.x=T)
+  
+  # - Data corrections
+  # Take last known survival probabilities for missing periods (where no events occured)
+  datSurv_full[, Surv:=na.locf(Surv, na.rm=FALSE), by=Node]
+  # Replace all NA values with 1 since these constitute the start times of nodes with no events
+  datSurv_full[is.na(Surv),Surv:=1]
+  
+  # - Estimate hazards
+  datHaz <- datSurv_full[,Hazard:=(data.table::shift(Surv,fill=1)-Surv)/data.table::shift(Surv,fill=1), by=list(Node)]
+  
+  # - Impose a floor & ceiling for non-logical values
+  datHaz[is.infinite(Hazard) | Hazard<0, Hazard:=0]
+  datHaz[is.na(Hazard), Hazard:=0] # To ensure that the hazard is defined where survival rates are zeroes
+  
+  # - Estimate event rate
+  datHaz[,EventRate:=data.table::shift(Surv, n=1, type="lag")-Surv, by=list(Node)]
+  datHaz[is.na(EventRate),EventRate:=0]
+  
+  # - Return data.table
+  return(datHaz)
+  
+}

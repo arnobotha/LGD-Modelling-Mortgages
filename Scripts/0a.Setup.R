@@ -55,6 +55,7 @@ require(DEoptimR) # For optimisation via differential evolution algorithms
 require(survival) # for survival modelling
 require(zoo)
 require(car)
+require(partykit) # for fitting conditional inference survival trees
 require(survivalROC) # for time-dependent ROC-analysis from Heagerty et al.
 #require(survAUC) # for time-dependent ROC-analysis (alternative from Potapov et al.)
 #require(tdROC) # for time-dependent ROC-analysis ([outdated?] alternative from Li et al.)

@@ -39,7 +39,7 @@ rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 # --- 1.2 Create a super-subsample to facilitate rapid model development
 # - Set sub-sample size (% of full training set)
-smp_frac <- 0.25
+smp_frac <- 0.25 ### MM: Increase size
 
 # - Get unique account numbers (only select accounts that had a default event)
 datKeys_train <- data.table(unique(datCredit_train[!is.na(DefSpell_Key),LoanID]))
@@ -74,6 +74,12 @@ datCredit_valid_smp[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 # - Create a cross-sectional dataset
 datCredit_train_smp_cross <- subset(datCredit_train_smp, DefSpell_Counter==1)
 datCredit_valid_smp_cross <- subset(datCredit_valid_smp, DefSpell_Counter==1)
+### MM: Impose a limit of default spell age of 240
+
+
+# --- 1.4 Additional parameters
+# - Maximum tree-depth
+max_depth <- 3
 
 
 
@@ -92,8 +98,9 @@ SurvTree_PartyKit <- ctree(Surv(DefSpell_Age,DefSpell_Event)~
                            control=ctree_control(mincriterion=0.99, # 1 - p-value threshold (default ≈ 5% significance)
                                                  minsplit=100, # minimum number of observations to attempt a split
                                                  minbucket=50, # minimum number in terminal node (common default)
-                                                 testtype = "Bonferroni", # most conservative → classical feeling
-                                                 maxdepth=2))
+                                                 testtype="Bonferroni", # most conservative → classical feeling
+                                                 maxdepth=max_depth))
+### MM: Try and use the advanced model's input space
 proc.time() - start_time
 ### Runtime = 1 sec
 
@@ -129,13 +136,22 @@ datSurv[, Node:=as.integer(sub(".*=", "", Node))]
 max_time <- max(datSurv$Time)
 grid <- CJ(Node=unique(datSurv$Node), Time=1:max_time)
 datSurv_full <- merge(grid,datSurv, by=c("Node", "Time"), all.x=T)
+
+# - Data corrections
+# Take last known survival probabilities for missing periods (where no events occured)
 datSurv_full[, Surv:=na.locf(Surv, na.rm=FALSE), by=Node]
+# Replace all NA values with 1 since these constitute the start times of nodes with no events
+datSurv_full[is.na(Surv),Surv:=1]
 
 # - Estimate hazards
 datHaz <- datSurv_full[,Hazard:=(data.table::shift(Surv,fill=1)-Surv)/data.table::shift(Surv,fill=1), by=list(Node)]
 
 # - Impose a floor & ceiling for non-logical values
 datHaz[is.infinite(Hazard) | Hazard<0, Hazard:=0]
+
+# - Estimate event rate
+datHaz[,EventRate:=data.table::shift(Surv, n=1, type="lag")-Surv, by=list(Node)]
+datHaz[is.na(EventRate),EventRate:=0]
 
 # - Join hazards back to main dataset
 datCredit <- merge(datCredit,
@@ -234,7 +250,7 @@ dat_survFits_uni <- rbindlist(lapply(1:survFits_map_uni[,.N],
                                                 Node=survFits_map_uni[i,2][[1]])})
 )
 # Get total number of nodes
-n_nodes <- unique(dat_survFits_uni$Node)
+(n_nodes <- unique(dat_survFits_uni$Node))
 # Plot survival estimates
 ggplot(dat_survFits_uni, aes(x=Time, y=Surv, group=Node)) + geom_line(aes(colour=Node))
 ### RESUTLS: Estimates look reasonable and risk differentiation is present (though the lines seem very close in some instances)
@@ -246,6 +262,12 @@ max_time <- max(dat_survFits_uni$Time)
 grid <- CJ(Node=unique(dat_survFits_uni$Node), Time=1:max_time)
 datSurv_full_alt <- merge(grid, dat_survFits_uni, by=c("Node", "Time"), all.x=T)
 datSurv_full_alt[, Surv:=na.locf(Surv, na.rm=FALSE), by=Node]
+
+# - Data corrections
+# Take last known survival probabilities for missing periods (where no events occurred)
+datSurv_full_alt[, Surv:=na.locf(Surv, na.rm=FALSE), by=Node]
+# Replace all NA values with 1 since these constitute the start times of nodes with no events
+datSurv_full_alt[is.na(Surv), Surv:=1]
 
 # - Estimate hazards
 datHaz_alt <- datSurv_full_alt[,Hazard3:=(data.table::shift(Surv,fill=1)-Surv)/data.table::shift(Surv,fill=1), by=list(Node)]
@@ -281,7 +303,7 @@ ggplot(datHaz, aes(x=Time, y=Surv, group=Node)) + geom_line(aes(colour=Node))
 ggplot(datHaz_alt, aes(x=Time, y=Surv3, group=Node)) + geom_line(aes(colour=Node))
 ### RESULTS: Graphs appear identical
 # A singular node
-Node_Select <- 7
+(Node_Select <- unique(dat_survFits_uni$Node)[[1]])
 plot(dat_survFits_uni[Node==Node_Select & Time<=120, Time], dat_survFits_uni[Node==Node_Select & Time<=120, Surv], type="l", col="red")
 lines(datHaz[Node==Node_Select & Time<=120, Time], datHaz[Node==Node_Select & Time<=120, Surv], type="l", col="blue")
 lines(datHaz_alt[Node==Node_Select & Time<=120, Time], datHaz_alt[Node==Node_Select & Time<=120, Surv3], type="l", col="green")
@@ -291,21 +313,33 @@ lines(datHaz_alt[Node==Node_Select & Time<=120, Time], datHaz_alt[Node==Node_Sel
 # Approach 1 vs 2
 diff <- datCredit$Hazard-datCredit$Hazard2
 mean(diff, na.rm=T)
-### RESULTS: -0.04415482
+### RESULTS: -0.04313153 (maximum tree-depth=1)
+### RESULTS: -0.04415482 (maximum tree-depth=2)
+### RESULTS: -0.04493432 (maximum tree-depth=3)
+### RESULTS: -0.05041631 (maximum tree-depth=4)
+### RESULTS: -0.05319919 (maximum tree-depth=5)
+### RESULTS: -0.05232045 (maximum tree-depth=10)
 sum(diff>0.001); sum(diff>0.001)/length(diff)
 ### RESULTS:  240 798 observations (~40%) where difference between hazards are large than 0.001
 # Approach 1 vs 3
 diff <- datCredit$Hazard-datCredit$Hazard3
 mean(diff, na.rm=T)
-### RESULTS: 0
+### RESULTS: 0 (maximum tree-depth=2)
+### RESULTS: 0 (maximum tree-depth=5)
 sum(diff>0.001); sum(diff>0.001)/length(diff)
-### RESULTS:  0 observations (0%) where difference between hazards are large than 0.001
+### RESULTS:  0 observations (0%) where difference between hazards are large than 0.001 (maximum tree-depth=2)
+### RESULTS:  0 observations (0%) where difference between hazards are large than 0.001 (maximum tree-depth=5)
 # Approach 2 vs 3
 diff <- datCredit$Hazard2-datCredit$Hazard3
 mean(diff, na.rm=T)
-### RESULTS: 0.04415482
+### RESULTS: 0.04313153 (maximum tree-depth=1)
+### RESULTS: 0.04415482 (maximum tree-depth=2)
+### RESULTS: 0.04493432 (maximum tree-depth=3)
+### RESULTS: 0.05041631 (maximum tree-depth=4)
+### RESULTS: 0.05319919 (maximum tree-depth=5)
+### RESULTS: 0.05232045 (maximum tree-depth=10)
 sum(diff>0.001); sum(diff>0.001)/length(diff)
-### RESULTS:  234745 observations (~40%) where difference between hazards are large than 0.001
+### RESULTS:  234 745 observations (~40%) where difference between hazards are large than 0.001
 
 ### CONCLUSION: 1) Hazard rates are not the same between approaches 1 & 2 and 2 & 3, this likely stems from the following:
 ###               - The survival rates per node are identical, so the aggregate KM objects are fine
@@ -320,17 +354,7 @@ sum(diff>0.001); sum(diff>0.001)/length(diff)
 # ------ 4. Evaluate tree accuracy
 
 # --- 4.1 ROC analysis
-# - Subset validation dataset for only the first observation (to align with how the model was trained)
-
-# - Perform ROC analysis | Cross-sectional data
-objROC_ST <- roc(response=datCredit[Sample=="Validation" & DefSpell_Counter==1,DefSpell_Event],
-                 predictor=datCredit[Sample=="Validation" & DefSpell_Counter==1,Hazard])
-objROC_ST$auc; plot(objROC_ST)
-### RESULTS: AUC=73.99% (maximum node depth=2 & 100% training sample) (Hazard from approach 1)
-### RESULTS: AUC=53.7% (maximum node depth=2 & 100% training sample) (Hazard from approach 2)
-### RESULTS: AUC=73.99% (maximum node depth=2 & 100% training sample) (Hazard from approach 3)
-
-# - Perform time-dependent ROC analysis
+# - Perform time-dependent ROC analysis | Approach 1
 predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation
 objROC44_ST <- tROC.multi(datGiven=datCredit, modGiven=NA, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
@@ -339,9 +363,28 @@ objROC44_ST <- tROC.multi(datGiven=datCredit, modGiven=NA, month_End=predictTime
                           predType="response", MarkerGiven="Hazard", Graph=F)
 proc.time() - ptm
 objROC44_ST$AUC #; objROC44_ST$ROC_graph
-### RESULTS: AUC up to t: 80.2782%, achieved in 176 secs (Hazard from approach 1)
-### RESULTS: AUC up to t: 80.2782%, achieved in 176 secs (Hazard from approach 2)
-### RESULTS: AUC up to t: %, achieved in 176 secs (Hazard from approach 3)
+
+# -- Sampling fraction=0.25; No filtering on DefaultSpell_Age; Curated input space used:
+### RESULTS: AUC up to t: 85.25415%, achieved in 176 secs (maximum node depth=1 & Hazard from approach 1)
+### RESULTS: AUC up to t: 81.77467%, achieved in 176 secs (maximum node depth=2 & Hazard from approach 1)
+### RESULTS: AUC up to t: 73.70919%, achieved in 176 secs (maximum node depth=3 & Hazard from approach 1)
+### RESULTS: AUC up to t: %, achieved in 176 secs (maximum node depth=4 & Hazard from approach 1)
+### RESULTS: AUC up to t: %, achieved in 176 secs (maximum node depth=5 & Hazard from approach 1)
+
+# - Perform time-dependent ROC analysis | Approach 2
+predictTime <- 44
+ptm <- proc.time() #IGNORE: for computation time calculation
+objROC44_ST <- tROC.multi(datGiven=datCredit, modGiven=NA, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
+                          fld_ID="DefSpell_Key", fld_Event="WOff_Ind", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                          caseStudyName=paste0("Cond_SurvTree_", predictTime), numThreads=12, logPath=genPath, 
+                          predType="response", MarkerGiven="Hazard2", Graph=F)
+proc.time() - ptm
+objROC44_ST$AUC #; objROC44_ST$ROC_graph
+### RESULTS: AUC up to t: 85.25415%, achieved in 176 secs (maximum node depth=1 & Hazard from approach 1)
+### RESULTS: AUC up to t: 81.77467%, achieved in 176 secs (maximum node depth=2 & Hazard from approach 2)
+### RESULTS: AUC up to t: 73.70919%, achieved in 176 secs (maximum node depth=3 & Hazard from approach 2)
+### RESULTS: AUC up to t: 73.73953%, achieved in 176 secs (maximum node depth=4 & Hazard from approach 2)
+### RESULTS: AUC up to t: 70.98365%, achieved in 176 secs (maximum node depth=5 & Hazard from approach 2)
 
 ### CONCLUSION: 
 
@@ -352,7 +395,7 @@ km_Default <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=WO
                       id=DefSpell_Key, data=datCredit)
 
 # - Create survival table
-(datSurv_act <- surv_summary(km_Default))
+datSurv_act <- surv_summary(km_Default)
 
 # - Enrich data
 datSurv_act <- datSurv_act %>%
@@ -421,11 +464,28 @@ datSurv_exp2 <- datSurv_exp2[order(TimeInDefSpell)]
 plot(x=datSurv_exp[TimeInDefSpell<=120, TimeInDefSpell], y=datSurv_exp[TimeInDefSpell<=120, EventRate], type="l", col="green")
 lines(datSurv_act[Time<=120, EventRate], type="l", col="red")
 mean(abs(datSurv_exp[TimeInDefSpell<=120,EventRate] - datSurv_act[Time<=120,EventRate]), na.rm=T)
-### RESULTS: MAE=0.004147642
+### RESULTS: MAE=0.002126404 (0.2126404%) (maximum tree-depth=1)
+### RESULTS: MAE=0.002484871 (0.3893818%) (maximum tree-depth=2)
+### RESULTS: MAE=0.004670193 (0.4670193%) (maximum tree-depth=3)
+### RESULTS: MAE=0.004355022 (0.4355022%) (maximum tree-depth=4)
+### RESULTS: MAE=0.004415156 (0.4415156%) (maximum tree-depth=5)
 
 # - Approach 2
 plot(x=datSurv_exp2[TimeInDefSpell<=120, TimeInDefSpell], y=datSurv_exp2[TimeInDefSpell<=120, EventRate2], type="l", col="green")
 lines(datSurv_act[Time<=120, EventRate], type="l", col="red")
 mean(abs(datSurv_exp2[TimeInDefSpell<=120,EventRate2] - datSurv_act[Time<=120,EventRate]), na.rm=T)
-### RESULTS: MAE=0.02186276
+### RESULTS: MAE=0.01814868 (1.814868%) (maximum tree-depth=1)
+### RESULTS: MAE=0.02202688 (2.202688%) (maximum tree-depth=2)
+### RESULTS: MAE=0.01873454 (1.873454%) (maximum tree-depth=3)
+### RESULTS: MAE=0.02283583 (2.28583%) (maximum tree-depth=4)
+### RESULTS: MAE=0.01856957 (1.856957%) (maximum tree-depth=5)
+
+
+# --- 4.6 Inspect account-specific forecasts
+(accnt_i <- unique(datCredit[TimeInDefSpell>60 & Date>"2015-01-30", DefSpell_Key])[[800]])
+### DefSpell_Key=3000001353076_1; 3000000550609_1; 3000012184718_1
+dat_accnt_i <- datCredit[DefSpell_Key==accnt_i,c("DefSpell_Key","Date","TimeInDefSpell",
+                                                     "Node","Surv","SurvProb","EventRate",
+                                                     "EventRate2","Hazard","Hazard2")]
+
 

@@ -467,7 +467,7 @@ tROC <- function(datGiven, cox, month_Start=0, month_End, sLambda=0.05, estMetho
 #         [threshold]: A given threshold to dichotomise marker values
 # Output: [AUC]: The time-dependent Area under the curve (AUC) in summarising the corresponding time-dependent ROC-graph
 #         [ROC_graph]: The associated ROC-graph as a ggplot-object
-tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.05, estMethod="NN-0/1", numDigits=2, 
+tROC.multi <- function(datGiven, modGiven=NA, month_Start=0, month_End, sLambda=0.05, estMethod="NN-0/1", numDigits=2, 
                        fld_ID=NA, fld_Event="MainEvent_Ind", eventVal=1, fld_StartTime="Start", fld_EndTime="Stop",
                        Graph=TRUE, graphName="timedROC-Graph", genFigPathGiven=paste0(getwd(),"/"), numThreads=4, 
                        caseStudyName="Main",reportFlag=T, logPath=paste0(getwd(),"/"), predType="exp",
@@ -491,20 +491,15 @@ tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.0
   # caseStudyName=paste0("CoxDisc_PWPST_", predictTime); numThreads=12; logPath=genPath
   # month_Start=0; Graph=T; predType="response"; reportFlag=T
   # MarkerGiven=EventRate_bas ; threshold=0.5
-  datGiven <- datCredit; modGiven <- NA; month_End <- predictTime; sLambda <- 0.05; estMethod <- "NN-0/1"; numDigits <- 4; 
-  fld_ID <- "DefSpell_Key"; fld_Event <- "WOff_Ind"; eventVal <- 1; fld_StartTime <- "Start"; fld_EndTime <- "TimeInDefSpell";
-  caseStudyName <- paste0("Cond_SurvTree_", predictTime); numThreads <- 12; logPath <- genPath; 
-  predType <- "response"; MarkerGiven <- "Hazard"; Graph <- F
-  
   
   # -- Error handling
   if (!is.data.table(datGiven)) {
     stop("[datGiven] must be a data table.\n")
   }# Test whether datGiven is a data table
-  if (!any(class(modGiven) %in% c("coxph","lm","glm", "logical"))) {
+  if (!is.na(modGiven) & !any(class(modGiven) %in% c("coxph","lm","glm"))) {
     stop("[modGiven] must be a valid 'coxph' or 'glm' model object.\n")
   }# Test whether [cox] is a coxph model
-  if (class(modGiven)!="logical"){
+  if (!is.na(modGiven)){
     if (!all(all.vars(formula(modGiven)) %in% colnames(datGiven))){
       stop("[datGiven] does not contain the variables required within the [modGiven] object.\n")
     }
@@ -764,9 +759,10 @@ tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.0
       # - Create a data object for plotting purposes
       datGraph <- data.frame(x = vFPR[-(nThresh+1)], y=vTPR[-1])
       datSegment <- data.frame(x = 0, y = 0, xend = 1, yend = 1)
-      # - Annotate with concordance (Harrell's C)
-      conc=percent(as.numeric(concordance(modGiven,newdata=datGiven)[1]),accuracy=0.001)
       
+      # - Annotate with concordance (Harrell's C)
+      if (!is.na(modGiven)) { conc=percent(as.numeric(concordance(modGiven,newdata=datGiven)[1]),accuracy=0.001)
+      } else conc=NA
       
       # - Aesthetic parameters
       vCol <- brewer.pal(8,"Set1")[c(2)]
@@ -794,7 +790,7 @@ tROC.multi <- function(datGiven, modGiven, month_Start=0, month_End, sLambda=0.0
       retObj <- list(AUC = sArea, ROC_graph=gg, Thresholds=c(-Inf, thresholds), TPR=vTPR, 
                      FPR=vFPR, SurvivalProb_Mean = S_mean)
       
-    } else{ retObj <- list(AUC = sArea, Thresholds=c(-Inf, thresholds), TPR=vTPR, FPR=vFPR, SurvivalProb_Mean = S_mean) }
+    } else { retObj <- list(AUC = sArea, Thresholds=c(-Inf, thresholds), TPR=vTPR, FPR=vFPR, SurvivalProb_Mean = S_mean) }
     
     
     # - Conclude program and return results
