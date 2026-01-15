@@ -79,7 +79,7 @@ datCredit_valid_smp_cross <- subset(datCredit_valid_smp, DefSpell_Counter==1)
 
 # --- 1.4 Additional parameters
 # - Maximum tree-depth
-max_depth <- 10
+max_depth <- 4
 
 # - Maximum default spell age to model on (NA for no restriction)
 max_DefSpell_Age <- NA
@@ -154,7 +154,7 @@ datCredit <- merge(datCredit,
 
 # - [SANITY CHECK] Inspect reasonableness of survival probabilities
 ggplot(datHaz[Time<=120], aes(x=Time, y=Surv, group=Node)) + geom_line(aes(col=Node))
-### RESULTS: Hazards are crossing in a few instances, but their seems to be good differentiation
+### RESULTS: Hazards are crossing in a few instances, but there seems to be good differentiation
 check1.1 <- sum(is.nan(datCredit$Surv))/datCredit[,.N]
 if (check1.1==0) {cat("SAFE: No undefined survival probabilities present.\n")} else {cat("WARNING:", percent(check1.1), "% of survival probabilities are undefined.\n")}
 ### RESULTS: Safe
@@ -164,7 +164,7 @@ if (check1.2==0) {cat("SAFE: No missing survival probabilities present.\n")} els
 
 # - [SANITY CHECK] Inspect reasonableness of hazards
 ggplot(datHaz[Time<=120], aes(x=Time, y=Hazard, group=Node)) + geom_line(aes(col=Node))
-### RESULTS: Hazards are crossing in a few instances, but their seems to be good differentiation
+### RESULTS: Hazards are crossing in a few instances, but there seems to be good differentiation
 check2.1 <- sum(is.nan(datCredit$Hazard))/datCredit[,.N]
 if (check2.1==0) {cat("SAFE: No undefined hazards present.\n")} else {cat("WARNING:", percent(check2.1), "% of hazards are undefined.\n")}
 ### RESULTS: Safe
@@ -174,7 +174,7 @@ if (check2.2==0) {cat("SAFE: No missing hazards present.\n")} else {cat("WARNING
 
 # - [SANITY CHECK] Inspect reasonableness of event rates
 ggplot(datHaz[Time<=120], aes(x=Time, y=EventRate, group=Node)) + geom_line(aes(col=Node))
-### RESULTS: Event rates are crossing in a few instances, but their seems to be good differentiation
+### RESULTS: Event rates are crossing in a few instances, but there seems to be good differentiation
 check3.1 <- sum(is.nan(datCredit$EventRate))/datCredit[,.N]
 if (check3.1==0) {cat("SAFE: No undefined event rates present.\n")} else {cat("WARNING:", round(check3.1*100,4), "% of event rates are undefined.\n")}
 ### RESULTS: Safe
@@ -394,4 +394,4 @@ mean(abs(datSurv_exp[TimeInDefSpell<=120,EventRate] - datSurv_act[Time<=120,Even
 
 # --- 4.6 Save model
 SurvTree_CTree <- list(datTrain=datCredit_train_smp_cross,survTree=SurvTree_PartyKit)
-saveRDS(surv, file=paste0(genObjPath,"SurvTree_CTree.rds"))
+saveRDS(SurvTree_CTree, file=paste0(genObjPath,"SurvTree_CTree.rds"))
