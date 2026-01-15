@@ -74,7 +74,6 @@ datCredit_valid_smp[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 # - Create a cross-sectional dataset
 datCredit_train_smp_cross <- subset(datCredit_train_smp, DefSpell_Counter==1)
 datCredit_valid_smp_cross <- subset(datCredit_valid_smp, DefSpell_Counter==1)
-### MM: Impose a limit of default spell age of 240
 
 
 # --- 1.4 Additional parameters
