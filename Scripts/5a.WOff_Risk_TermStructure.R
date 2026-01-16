@@ -48,6 +48,14 @@ rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 datCredit_valid[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 
+# - Transform categorical variables to factor
+# Payment method
+datCredit_train[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+datCredit_valid[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+# Previous defaults
+datCredit_train[,PrevDefaults_fac:=as.factor(PrevDefaults)]
+datCredit_valid[,PrevDefaults_fac:=as.factor(PrevDefaults)]
+
 
 # --- 1.2 Load models
 # - Basic discrete-time hazard model
@@ -58,6 +66,9 @@ modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
 # - Classic logit model
 modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
+
+# - Tree model
+SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 
 
 # --- 1.3 Additional parameters
@@ -154,7 +165,26 @@ datCredit[,Youden_adv:=ifelse(EventRate_adv>thresh_dth_adv,1,0)]
 datCredit[,Youden_classic:=ifelse(EventRate_classic>thres_classic,1,0)]
 
 
-# --- 3.5 Aggregate event rates to period-level
+# --- 3.5 Predict survival quantities using survival tree
+
+# - Create a cross-sectional dataset for graphing purposes
+datCredit_train_smp_cross <- subset(datCredit_train_smp, DefSpell_Counter==1)
+
+# - Get node predictions from tree
+datCredit[,Node:=predict(SurvTree_CTree$survTree, datCredit, type="node")]
+datCredit_train_smp_cross[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_smp_cross, type="node")]
+
+# - Fit a survival object for each node | Using the training data only to align with how the tree was fitted
+datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_smp_cross,
+                   fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event",
+                   max_DefSpell_Age=240)
+
+# - Join hazards back to main dataset
+datCredit <- merge(datCredit, datHaz[, list(Node, Time, EventRate_SurvTree=EventRate)],
+                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T)
+
+
+# --- 3.6 Aggregate event rates to period-level
 datSurv_exp <- datCredit[,.(# Basic model
   EventRate_bas=mean(EventRate_bas, na.rm=T),
   EventRate_bas_Youden=mean(Youden_bas, na.rm=T),
@@ -164,12 +194,14 @@ datSurv_exp <- datCredit[,.(# Basic model
   # Classical model
   EventRate_classic=mean(EventRate_classic, na.rm=T),
   EventRate_classic_Youden=mean(Youden_classic, na.rm=T),
+  # Survival tree
+  EventRate_SurvTree=mean(EventRate_SurvTree, na.rm=T),
   # Empirical estimates
   EventRate_Emp=sum(DefSpell_Event)/.N),
   by=list(TimeInDefSpell)]
 
 
-# --- 3.6 [SANITY CHECK] Graphing survival quantities
+# --- 3.7 [SANITY CHECK] Graphing survival quantities
 # - Comparing the event rate and hazard rate of the actuals
 plot(datSurv_exp[TimeInDefSpell<=120, EventRate_Emp], type="b", col="green") ### MM: Event rate as calculated by d(t)/n(t) -> EventRate_Emp=sum(DefSpell_Event)/.N)
 lines(datSurv_act[Time<=120, EventRate], type="b", col="red") ### MM: Event rate as calculated by KM-estimator (S(t-1)*h(t))
@@ -186,6 +218,7 @@ lines(datSurv_exp[TimeInDefSpell<=120, EventRate_bas], type="b", col="green")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_bas_Youden], type="b", col="purple")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_classic], type="b", col="cyan")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_classic_Youden], type="b", col="orange")
+lines(datSurv_exp[TimeInDefSpell<=120, EventRate_SurvTree], type="b", col="gray")
 
 
 
@@ -203,6 +236,7 @@ sDf_Act <- 12
 sDf_Bas <- 12; sDf_BasYoud <- 12
 sDf_Adv <- 12; sDf_AdvYoud <- 12
 sDf_Clas <- 2; sDf_ClasYoud <- 4
+sDf_SurvTree <- 12
 # Actuals
 smthEventRate_act <- lm(EventRate~ns(Time, df=sDf_Act), data=datSurv_act[Time<=sMaxSpellAge])
 # Basic model
@@ -214,10 +248,13 @@ smthEventRate_Exp_adv_Youden <- lm(EventRate_adv_Youden~ns(TimeInDefSpell, df=sD
 # Classical model
 smthEventRate_Exp_classic <- lm(EventRate_classic~ns(TimeInDefSpell, df=sDf_Clas), data=datSurv_exp[TimeInDefSpell<=sMaxSpellAge])
 smthEventRate_Exp_classic_Youden <- lm(EventRate_classic_Youden~ns(TimeInDefSpell, df=sDf_ClasYoud), data=datSurv_exp[TimeInDefSpell<=sMaxSpellAge])
+# Survival tree
+smthEventRate_Exp_SurvTree <- lm(EventRate_SurvTree~ns(TimeInDefSpell, df=sDf_SurvTree), data=datSurv_exp[TimeInDefSpell<=sMaxSpellAge])
 
 # - [SANITY CHECK] Evaluate splines
 # summary(smthEventRate_act); summary(smthEventRate_Exp_bas); summary(smthEventRate_Exp_adv); summary(smthEventRate_Exp_classic)
 # summary(smthEventRate_Exp_adv_Youden);summary(smthEventRate_Exp_bas_Youden); summary(smthEventRate_Exp_bas_Youden)
+# summary(smthEventRate_Exp_SurvTree)
 
 # - Render predictions based on fitted smoother, with standard errors for confidence intervals
 # Actuals
@@ -231,6 +268,8 @@ vPredSmth_Exp_adv_Youden <- predict(smthEventRate_Exp_adv_Youden, newdata=datSur
 # Classical model
 vPredSmth_Exp_classic <- predict(smthEventRate_Exp_classic, newdata=datSurv_exp, se=T)
 vPredSmth_Exp_classic_Youden <- predict(smthEventRate_Exp_classic_Youden, newdata=datSurv_exp, se=T)
+# Classical model
+vPredSmth_Exp_SurvTree <- predict(smthEventRate_Exp_SurvTree, newdata=datSurv_exp, se=T)
 
 # - Add smoothed estimate to graphing object
 # Actuals
@@ -244,6 +283,8 @@ datSurv_exp[, EventRate_spline_adv_Youden:=vPredSmth_Exp_adv_Youden$fit]
 # Classical model
 datSurv_exp[, EventRate_spline_classic:=vPredSmth_Exp_classic$fit]
 datSurv_exp[, EventRate_spline_classic_Youden:=vPredSmth_Exp_classic_Youden$fit]
+# Classical model
+datSurv_exp[, EventRate_spline_SurvTree:=vPredSmth_Exp_SurvTree$fit]
 
 
 # --- 4.2 Create graphing data
@@ -261,18 +302,22 @@ datGraph <- rbind(datSurv_act[,list(Time=Time, EventRate=EventRate, Type="a_Actu
                   datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_classic, Type="k_Expected_classic")],
                   datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_classic, Type="l_Expected_spline_classic")],
                   datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_classic_Youden, Type="m_Expected_classic_Youden")],
-                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_classic_Youden, Type="n_Expected_spline_classic_Youden")]
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_classic_Youden, Type="n_Expected_spline_classic_Youden")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_SurvTree, Type="o_Expected_SurvTree")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_spline_SurvTree, Type="p_Expected_spline_SurvTree")]
 )
 
 # - Create different groupings for graphing purposes
 # Non-splines
 datGraph[Type %in% c("a_Actual","c_Expected_bas", "e_Expected_bas_Youden", "g_Expected_adv",
-                     "i_Expected_adv_Youden", "k_Expected_classic", "m_Expected_classic_Youden"),
+                     "i_Expected_adv_Youden", "k_Expected_classic", "m_Expected_classic_Youden",
+                     "o_Expected_SurvTree"),
          EventRatePoint:=EventRate]
 # Splines
 datGraph[Type %in% c("b_Actual_spline","d_Expected_spline_bas", "f_Expected_spline_bas_Youden",
                      "h_Expected_spline_adv", "j_Expected_spline_adv_Youden",
-                     "l_Expected_spline_classic", "n_Expected_spline_classic_Youden"),
+                     "l_Expected_spline_classic", "n_Expected_spline_classic_Youden",
+                     "p_Expected_spline_SurvTree"),
          EventRateLine:=EventRate]
 
 # - Set facet label
@@ -293,32 +338,33 @@ datMAE <- datGraph %>%
 # Classical model
 (MAE_eventProb_classic <- mean(abs(datMAE$a_Actual - datMAE$k_Expected_classic), na.rm=T))
 (MAE_eventProb_classic_Youden <- mean(abs(datMAE$a_Actual - datMAE$m_Expected_classic_Youden), na.rm=T))
-
+# Classical model
+(MAE_eventProb_SurvTree <- mean(abs(datMAE$a_Actual - datMAE$o_Expected_SurvTree), na.rm=T))
 
 
 
 # ------ 5. Graphing the event density / probability mass function f(t) | Best fitting model
 # --- 5.1 Preliminaries 
 # - Subset data
-datGraph_main <- subset(datGraph, Type %in% c("a_Actual", "b_Actual_spline", "c_Expected_bas",
-                                              "d_Expected_spline_bas", "g_Expected_adv",
-                                              "h_Expected_spline_adv", "i_Expected_adv_Youden",
-                                              "j_Expected_spline_adv_Youden", "k_Expected_classic"
-                                              )
-                        )
+datGraph_main <- subset(datGraph, Type %in% c("a_Actual", "b_Actual_spline", 
+                                              "c_Expected_bas", "d_Expected_spline_bas", 
+                                              "g_Expected_adv", "h_Expected_spline_adv", 
+                                              "i_Expected_adv_Youden", "j_Expected_spline_adv_Youden", 
+                                              "o_Expected_SurvTree", "p_Expected_spline_SurvTree"))
 
 # - Graphing parameters
-vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,2,7,8,9,10,11,12)]
+vCol <- brewer.pal(12, "Paired")[c(3,4, 5,6, 1,2, 7,8, 9,10, 11,12)]
 length(vCol)
-vLabel2 <- c("b_Actual_spline"=paste0("Empirical Spline"), 
+vLabel2 <- c("b_Actual_spline"=paste0("Spline: Empirical"), 
              "d_Expected_spline_bas"=paste0("Spline: DtH-Basic A"),
              "h_Expected_spline_adv"=paste0("Spline: DtH-Advanced A"),
              "l_Expected_spline_classic"=paste0("Spline: LR A"),
              "j_Expected_spline_adv_Youden"=paste0("Spline: DtH-Advanced B"),
              "a_Actual"="Empirical", "c_Expected_bas"="DtH-Basic A", "g_Expected_adv"="DtH-Advanced A",
              "k_Expected_classic"="LR A",
-             "i_Expected_adv_Youden"="DtH-Advanced B")
-vSize <- c(0.2,0.3,0.2,0.3,0.2,0.3, 0.2, 0.3, 0.2, 0.3,0.2,0.3)
+             "i_Expected_adv_Youden"="DtH-Advanced B",
+             "o_Expected_SurvTree"="ST", "p_Expected_spline_SurvTree"="Spline: ST")
+vSize <- c(0.2,0.3, 0.2,0.3, 0.2,0.3, 0.2,0.3, 0.2,0.3, 0.2,0.3)
 vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid","dashed", "solid","dashed", "solid","dashed", "solid")
 vShapeType <- c(15,NA,16,NA,17,NA,0,NA,1,NA)
 chosenFont <- "Cambria"
@@ -342,10 +388,10 @@ mainEventName <- "Write-off"
              size = 3) + 
     annotate("text", y=0.0275,x=75, label=paste0("MAE (DtH-Advanced A): ", percent(MAE_eventProb_adv, accuracy=0.0001)), family=chosenFont,
              size = 3) + 
-    annotate("text", y=0.025,x=75, label=paste0("MAE (LR A): ", percent(MAE_eventProb_classic, accuracy=0.0001)), family=chosenFont,
-             size = 3)+
-    annotate("text", y=0.0225,x=75, label=paste0("MAE (DtH-Advanced B): ", percent(MAE_eventProb_adv_Youden, accuracy=0.0001)), family=chosenFont,
-             size = 3)+
+    annotate("text", y=0.025,x=75, label=paste0("MAE (DtH-Advanced B): ", percent(MAE_eventProb_adv_Youden, accuracy=0.0001)), family=chosenFont,
+             size = 3) +
+    annotate("text", y=0.0225,x=75, label=paste0("MAE (ST): ", percent(MAE_eventProb_SurvTree, accuracy=0.0001)), family=chosenFont,
+             size = 3) +    
     # Scales and options
     facet_grid(FacetLabel ~ .) + 
     scale_colour_manual(name="", values=vCol, labels=vLabel2) + 
@@ -370,7 +416,7 @@ ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_
 # - Create graphing data object for the two that are out of range
 datGraph_OOB <- datGraph %>% subset(Type %in% c("a_Actual", "b_Actual_spline",
                                                 "e_Expected_bas_Youden", "f_Expected_spline_bas_Youden",
-                                                "m_Expected_classic_Youden"))
+                                                "k_Expected_classic", "m_Expected_classic_Youden"))
 
 # - Facet label
 datGraph_OOB[, FacetLabel:="Term-structure of write-off risk"]
@@ -378,15 +424,15 @@ datGraph_OOB[, FacetLabel:="Term-structure of write-off risk"]
 
 # --- 5.2 Graph of worst fitting models
 # - Graphing parameters
-vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,2)]
-vLabel2 <- c("b_Actual_spline"=paste0("Empirical spline"), 
+vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,7)]
+vLabel2 <- c("b_Actual_spline"=paste0("Spline: Empirical"), 
              "n_Expected_spline_classic_Youden"=paste0("Spline: LR B"),
              "f_Expected_spline_bas_Youden"=paste0("Spline: DtH-Basic B"),
              "a_Actual"="Empirical", "m_Expected_classic_Youden"="LR B",
-             "e_Expected_bas_Youden"="DtH-Basic B")
-vSize <- c(0.2,0.3,0.2,0.3,0.2,0.3)
-vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "solid")
-vShapeType <- c(15,NA,16,NA,17,NA)
+             "e_Expected_bas_Youden"="DtH-Basic B", "k_Expected_classic"="LR A")
+vSize <- c(0.2,0.3, 0.2,0.3, 0.2,0.2)
+vLineType <- c("dashed", "solid", "dashed", "solid", "dashed", "dashed")
+vShapeType <- c(15,NA,16,NA,17,0)
 chosenFont <- "Cambria"
 mainEventName <- "Write-off"
 
@@ -403,9 +449,11 @@ mainEventName <- "Write-off"
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
     # Annotations
-    annotate("text", y=0.5,x=90, label=paste0("MAE (LR B): ", percent(MAE_eventProb_classic_Youden, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.5,x=110, label=paste0("MAE (LR A): ", percent(MAE_eventProb_classic, accuracy=0.0001)), family=chosenFont,
+             size = 3) +     
+    annotate("text", y=0.46,x=110, label=paste0("MAE (LR B): ", percent(MAE_eventProb_classic_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3) + 
-    annotate("text", y=0.46,x=90, label=paste0("MAE (DtH-Basic B): ", percent(MAE_eventProb_bas_Youden, accuracy=0.0001)), family=chosenFont,
+    annotate("text", y=0.42,x=110, label=paste0("MAE (DtH-Basic B): ", percent(MAE_eventProb_bas_Youden, accuracy=0.0001)), family=chosenFont,
              size = 3) +
     # Scales and options
     facet_grid(FacetLabel ~ .) + 
@@ -420,7 +468,7 @@ mainEventName <- "Write-off"
 
 # - Create zoomed-in inset graph
 (gsurv_ft2 <- ggplot(datGraph_OOB[Time <= sMaxSpellAge_graph & Type %in% c("a_Actual","b_Actual_spline",
-                                                                           "m_Expected_classic_Youden"),],
+                                                                           "k_Expected_classic", "m_Expected_classic_Youden"),],
                      aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
     theme_bw() +
     theme(legend.position="none", text=element_text(size=12, family="Cambria"),
@@ -437,10 +485,10 @@ mainEventName <- "Write-off"
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
     # Scales and options
-    scale_colour_manual(name="", values=vCol[c(1,2,5)], labels=vLabel2) + 
-    scale_linewidth_manual(name="", values=vSize[c(1,2,5)], labels=vLabel2) + 
-    scale_linetype_manual(name="", values=vLineType[c(1,2,5)], labels=vLabel2) + 
-    scale_shape_manual(name="", values=vShapeType[c(1,2,5)], labels=vLabel2) + 
+    scale_colour_manual(name="", values=vCol[c(1,2,5,6)], labels=vLabel2) + 
+    scale_linewidth_manual(name="", values=vSize[c(1,2,5,6)], labels=vLabel2) + 
+    scale_linetype_manual(name="", values=vLineType[c(1,2,5,6)], labels=vLabel2) + 
+    scale_shape_manual(name="", values=vShapeType[c(1,2,5,6)], labels=vLabel2) + 
     scale_y_continuous(breaks=breaks_pretty(), label=percent)+ 
     scale_x_continuous(breaks=breaks_pretty(n=8), label=comma) + 
     guides(color=guide_legend(nrow=2)) +
