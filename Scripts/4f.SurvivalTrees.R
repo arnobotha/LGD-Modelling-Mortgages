@@ -394,4 +394,4 @@ mean(abs(datSurv_exp[TimeInDefSpell<=120,EventRate] - datSurv_act[Time<=120,Even
 
 # --- 4.6 Save model
 SurvTree_CTree <- list(datTrain=datCredit_train_smp_cross,survTree=SurvTree_PartyKit)
-saveRDS(surv, file=paste0(genObjPath,"SurvTree_CTree.rds"))
+saveRDS(SurvTree_CTree, file=paste0(genObjPath,"SurvTree_CTree.rds"))
