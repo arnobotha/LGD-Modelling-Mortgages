@@ -244,7 +244,7 @@ objROC44_ST$AUC ;objROC44_ST$ROC_graph
 ### RESULTS: AUC up to t: 72.16271%, achieved in 231 secs (DefSpell_Age<=80)
 ### CONCLUSION: Candidates are maximum node depths of 1, 2, and 3
 
-# -- Sampling fraction=1; no filter on DefaultSpell_Age; Advanced DtH input space used; maximum node depth=3
+# -- Sampling fraction=1; no filter on DefaultSpell_Age; Advanced DtH input space used; multiple node depths
 ### RESULTS: AUC up to t: 86.81077%, achieved in 202 secs (maximum node depth=1)
 ### RESULTS: AUC up to t: 78.87941%, achieved in 274 secs (maximum node depth=2)
 ### RESULTS: AUC up to t: 75.55762%, achieved in 327 secs (maximum node depth=3)

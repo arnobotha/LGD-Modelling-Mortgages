@@ -20,16 +20,19 @@
 #           [brierType]: The survival quantity to used in estimating the tBrier score; either
 #                         1) "Survival": The survival probability
 #                         2) "EventRate": The event rate
+#                         3) "Given-Survival: The survival probabilities have been pre-calculated
+#                         3) "Given-Survival: The event rates have been pre-calculated
 # Output:   Vector of tBS-values; Integrated Brier Score (IBS)
-tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=300,
+tBrierScore <- function(datGiven, modGiven=NA, predType="response", spellPeriodMax=300,
                         fldKey="DefSpell_Key", fldStart = "Start", fldStop="TimeInDefSpell", fldCounter="Counter",
                         fldEvent="DefSpell_Event", fldCensored="DefSpell_Censored", fldSpellAge="DefSpell_Age",
-                        fldSpellOutcome="DefSpellResol_Type_Hist", threshold=NA, brierType="Survival") {
+                        fldSpellOutcome="DefSpellResol_Type_Hist", threshold=NA, brierType="Survival",
+                        fldSurvival=NA, fldHazard=NA, flfEventRate=NA) {
   # Testing conditions
   # datGiven <- datCredit; modGiven <- cox_PWPST_basic ; predType <- "exp"; spellPeriodMax <- 300
   # fldKey <- "PerfSpell_Key"; fldStart <- "Start"; fldStop<-"TimeInPerfSpell";
   # fldCensored<-"PerfSpell_Censored"; fldSpellAge<-"PerfSpell_Age"; fldSpellOutcome<-"PerfSpellResol_Type_Hist"
-  # fldEvent="PerfSpell_Event"
+  # fldEvent="PerfSpell_Event"; brierType<-"Survival"; fldSurvival<-NA; fldHazard<-NA; fldEventRate<-NA
   
   
   # --- Estimate survival rate of the censoring event G(t) = P(C >= t) for time-to-censoring variable C
@@ -61,22 +64,33 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
   
   
   # --- Calculate survival quantities of interest
-  # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-  datGiven[, Hazard := predict(modGiven, newdata=datGiven, type=predType)]
-  
-  if (predType=="response") {
-    # - Derive survival probability S(t) = \prod ( 1- hazard), based on output of predict()
-    datGiven[, Survival := cumprod(1-Hazard), by=list(get(fldKey))]
+  if (brierType %in% c("Survival","EventRate")){
+    # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
+    datGiven[, Hazard := predict(modGiven, newdata=datGiven, type=predType)]
     
-  } else if (predType=="exp") {
-    # - Calculate survival probability S(t,x)=exp(-H(t,x)), based on output of predict()
-    # NOTE: Hazard is actually the cumulative hazard in this context
-    datGiven[, Survival := exp(-Hazard), by=list(get(fldKey))] 
-  }
-  
-  # - Estimate the event rate if specified
-  if (brierType=="EventRate"){
-    datGiven[, EventRate:=shift(Survival,fill=1,n=1,type="lag")-Survival, by=list(get(fldKey))]
+    if (predType=="response") {
+      # - Derive survival probability S(t) = \prod ( 1- hazard), based on output of predict()
+      datGiven[, Survival := cumprod(1-Hazard), by=list(get(fldKey))]
+      
+    } else if (predType=="exp") {
+      # - Calculate survival probability S(t,x)=exp(-H(t,x)), based on output of predict()
+      # NOTE: Hazard is actually the cumulative hazard in this context
+      datGiven[, Survival := exp(-Hazard), by=list(get(fldKey))] 
+    }
+    
+    # - Estimate the event rate if specified
+    if (brierType=="EventRate"){
+      datGiven[, EventRate:=shift(Survival,fill=1,n=1,type="lag")-Survival, by=list(get(fldKey))]
+    }
+    
+  } else if (brierType=="Given-Survival"){
+    # - Rename given fields if fields for evaluation are specified | Survival probabilities
+    datGiven[, Survival := get(fldSurvival)]
+    datGiven[, Hazard := get(fldHazard)]
+    
+  } else if (brierType=="Given-EventRate"){
+    # - Rename given fields if fields for evaluation are specified | Event rates
+    datGiven[, EventRate := get(fldEventRate)]
   }
   
   # - Remove additional observations created for left-truncated spells
@@ -115,7 +129,7 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
              0)), by=list(get(fldKey))]  
   
   # -- Compute squared error loss per row ---
-  if (brierType=="EventRate"){
+  if (brierType %in% c("EventRate","Given-EventRate")){
     if (is.na(threshold)){
       datGiven[, SquaredError := (y_t - EventRate)^2]
       datGiven[, SquaredError_0 := (y_t - 0)^2]
@@ -123,7 +137,7 @@ tBrierScore <- function(datGiven, modGiven, predType="response", spellPeriodMax=
       datGiven[, SquaredError := (y_t - Dichotomised_Ind)^2]
       datGiven[, SquaredError_0 := (y_t - 0)^2]
     }
-  } else if (brierType=="Survival") {
+  } else if (brierType %in% c("Survival","Given-Survival")) {
     datGiven[, SquaredError := (y_t - Survival)^2]
     datGiven[, SquaredError_0 := (y_t - Survival_0)^2]
   }

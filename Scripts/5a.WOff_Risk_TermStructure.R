@@ -166,9 +166,8 @@ datCredit[,Youden_classic:=ifelse(EventRate_classic>thres_classic,1,0)]
 
 
 # --- 3.5 Predict survival quantities using survival tree
-
-# - Create a cross-sectional dataset for graphing purposes
-datCredit_train_smp_cross <- subset(datCredit_train_smp, DefSpell_Counter==1)
+# - Get training data from survival tree
+datCredit_train_smp_cross <- SurvTree_CTree$datTrain
 
 # - Get node predictions from tree
 datCredit[,Node:=predict(SurvTree_CTree$survTree, datCredit, type="node")]
@@ -176,8 +175,7 @@ datCredit_train_smp_cross[,Node:=predict(SurvTree_CTree$survTree, datCredit_trai
 
 # - Fit a survival object for each node | Using the training data only to align with how the tree was fitted
 datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_smp_cross,
-                   fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event",
-                   max_DefSpell_Age=240)
+                   fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event")
 
 # - Join hazards back to main dataset
 datCredit <- merge(datCredit, datHaz[, list(Node, Time, EventRate_SurvTree=EventRate)],
@@ -353,7 +351,7 @@ datGraph_main <- subset(datGraph, Type %in% c("a_Actual", "b_Actual_spline",
                                               "o_Expected_SurvTree", "p_Expected_spline_SurvTree"))
 
 # - Graphing parameters
-vCol <- brewer.pal(12, "Paired")[c(3,4, 5,6, 1,2, 7,8, 9,10, 11,12)]
+vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,2,7,8,9,10,11,12)]
 length(vCol)
 vLabel2 <- c("b_Actual_spline"=paste0("Spline: Empirical"), 
              "d_Expected_spline_bas"=paste0("Spline: DtH-Basic A"),
@@ -422,7 +420,7 @@ datGraph_OOB <- datGraph %>% subset(Type %in% c("a_Actual", "b_Actual_spline",
 datGraph_OOB[, FacetLabel:="Term-structure of write-off risk"]
 
 
-# --- 5.2 Graph of worst fitting models
+# --- 6.2 Graph of worst fitting models
 # - Graphing parameters
 vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,7)]
 vLabel2 <- c("b_Actual_spline"=paste0("Spline: Empirical"), 
@@ -479,7 +477,7 @@ mainEventName <- "Write-off"
           panel.grid.major=element_blank(), panel.grid.minor = element_blank(),
           panel.background=element_rect(color="black", fill="white"),
           plot.background=element_rect(color="white"), plot.margin = unit(c(0,0,0,0),"mm"),
-          plot.title=element_text(hjust=0.55,vjust=-10,margin=margin(t=-12))) +
+          plot.title=element_text(hjust=0.55,vjust=-10)) +
     labs(x=NULL, y=NULL) +
     # Main graph
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
@@ -508,7 +506,7 @@ ggsave(plot.full, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp
 suppressWarnings(rm(gsurv_ft, km_Censoring, km_Default, datSurv_censoring, datSurv_exp, datSurv_act,
    datGraph, datMAE, smthEventRate_Act, smthEventRate_Exp_bas, smthEventRate_Exp_adv,
    vPredSmth_Act, vPredSmth_Exp_bas, vPredSmth_Exp_adv,
-   modLR_Classic, modLR_Bas, modLR_Adv, datAdd))
+   modLR_Classic, modLR_Bas, modLR_Adv, SurvTree_CTree, datAdd))
 gc()
 
 

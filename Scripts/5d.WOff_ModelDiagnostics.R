@@ -44,9 +44,17 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 datCredit_train[, Start:=TimeInDefSpell-1]
 datCredit_valid[, Start:=TimeInDefSpell-1]
 
-# - Weigh default cases heavier. as determined interactively based on calibration success (script 6e)
+# - Weigh default cases, as determined interactively based on calibration success (script 6e)
 datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 datCredit_valid[, Weight:=ifelse(DefSpell_Event==1,1,1)]
+
+# - Transform categorical variables to factor
+# Payment method
+datCredit_train[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+datCredit_valid[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+# Previous defaults
+datCredit_train[,PrevDefaults_fac:=as.factor(PrevDefaults)]
+datCredit_valid[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 
 # - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
 datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
@@ -68,6 +76,9 @@ modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
 # - Classical logit model
 modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
+
+# - Tree model
+SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 
 
 # --- 1.3 Additional parameters
@@ -106,6 +117,23 @@ datCredit <- subset(datCredit, Counter>0)
 datCredit[, DefSpell_Event_Adv_Youden:=ifelse(EventRate_adv>thresh_dth_adv,1,0)]
 datCredit[, DefSpell_Event_Bas_Youden:=ifelse(EventRate_bas>thresh_dth_bas,1,0)]
 datCredit[, DefSpell_Event_Classic_Youden:=ifelse(EventRate_classic>thresh_classic,1,0)]
+
+
+# --- 1.6 Predict survival quantities using survival tree
+# - Get training data from survival tree
+datCredit_train_smp_cross <- SurvTree_CTree$datTrain
+
+# - Get node predictions from tree
+datCredit[,Node:=predict(SurvTree_CTree$survTree, datCredit, type="node")]
+datCredit_train_smp_cross[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_smp_cross, type="node")]
+
+# - Fit a survival object for each node | Using the training data only to align with how the tree was fitted
+datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_smp_cross,
+                   fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event")
+
+# - Join hazards back to main dataset
+datCredit <- merge(datCredit, datHaz[, list(Node, Time, Hazard_SurvTree=Hazard)],
+                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T)
 
 
 
@@ -168,6 +196,9 @@ AdvAUC_B <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","DefSpel
 LRAUC <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","Hazard_classic")
 LRAUC_B <- AUC_overTime(datCredit,"DefSpell_Max_Date","DefSpell_Event","DefSpell_Event_Classic_Youden")
 
+# - Survival tree
+STAUC <- AUC_overTime(datCredit,"DefSpell_Max_Date", "DefSpell_Event", "Hazard_SurvTree")
+
 
 # --- 3.2 Prepare datasets for graphing
 # - Filter AUCs to ensure a sensible y-axis scale
@@ -184,52 +215,59 @@ AdvAUC_B[,AUC_Val:=AUC_Val/100]; AdvAUC_B[,AUC_LowerCI:=AUC_LowerCI/100]; AdvAUC
 # Classical model
 LRAUC[,AUC_Val:=AUC_Val/100]; LRAUC[,AUC_LowerCI:=AUC_LowerCI/100]; LRAUC[,AUC_UpperCI:=AUC_UpperCI/100]
 LRAUC_B[,AUC_Val:=AUC_Val/100]; LRAUC_B[,AUC_LowerCI:=AUC_LowerCI/100]; LRAUC_B[,AUC_UpperCI:=AUC_UpperCI/100]
+# Survival tree
+STAUC[,AUC_Val:=AUC_Val/100]; STAUC[,AUC_LowerCI:=AUC_LowerCI/100]; STAUC[,AUC_UpperCI:=AUC_UpperCI/100]
 
 # - Differentiation for plotting
 BasAUC[,Dataset:="A"]; BasAUC_B[,Dataset:="A"]
-LRAUC[,Dataset:="C"]; LRAUC_B[,Dataset:="B"]
 AdvAUC[,Dataset:="B"]; AdvAUC_B[,Dataset:="C"]
+LRAUC[,Dataset:="C"]; LRAUC_B[,Dataset:="B"]
+STAUC[,Dataset:="D"]
 
 
 # --- 3.3 Create AUC over-time graph | A-series (non-dichotomised)
 # - Create final dataset for ggplot
-datPlot <- rbind(BasAUC, LRAUC, AdvAUC)
+datPlot <- rbind(BasAUC, LRAUC, AdvAUC, STAUC)
 
 # - Annotation parameters
 # Location of annotations
 start_y <- 0.425; space <- 0.025
-y_vals <- c(start_y,start_y-space,start_y-space*2)
+y_vals <- c(start_y,start_y-space,start_y-space*2,start_y-space*3)
 # Creating an annotation dataset for easier annotations
-datAnnotate <- data.table(MeanAUC = NULL, Dataset = c("A-B","A-C","A-D"),
-                          x = rep(as.Date("2013-05-31"),3), # Text x coordinates
-                          y = y_vals )
+datAnnotate <- data.table(MeanAUC=NULL, Dataset=c("A-B","A-C","A-D", "A-E"),
+                          x=rep(as.Date("2013-05-31"),4), # Text x coordinates
+                          y=y_vals)
 
 # - TTC-mean & confidence interval calculations
 confLevel <- 0.95
-vEventRates_Mean <- c(mean(BasAUC$AUC_Val, na.rm = T), mean(LRAUC$AUC_Val, na.rm = T), mean(AdvAUC$AUC_Val, na.rm = T))
+vEventRates_Mean <- c(mean(BasAUC$AUC_Val, na.rm=T), mean(LRAUC$AUC_Val, na.rm=T),
+                      mean(AdvAUC$AUC_Val, na.rm=T), mean(STAUC$AUC_Val, na.rm=T))
 vEventRates_stErr <- c(sd(BasAUC$AUC_Val, na.rm=T) / sqrt(BasAUC[, .N]),
                        sd(LRAUC$AUC_Val, na.rm=T) / sqrt(LRAUC[, .N]),
-                       sd(AdvAUC$AUC_Val, na.rm=T) / sqrt(AdvAUC[, .N]) )
+                       sd(AdvAUC$AUC_Val, na.rm=T) / sqrt(AdvAUC[, .N]),
+                       sd(STAUC$AUC_Val, na.rm=T) / sqrt(STAUC[, .N]))
 vMargin <- qnorm(1-(1-confLevel)/2) * vEventRates_stErr
 vLabel <- c(paste0("'TTC-mean over '*italic(t)*' for '*italic(A[t])*' : ", sprintf("%.2f",vEventRates_Mean[1]*100),
                    "% ± ", sprintf("%1.3f", vMargin[1]*100),"%'"),
             paste0("'TTC-mean over '*italic(t)*' for '*italic(B[t])*' : ", sprintf("%.2f",vEventRates_Mean[3]*100),
                    "% ± ", sprintf("%1.3f", vMargin[3]*100),"%'"),
             paste0("'TTC-mean over '*italic(t)*' for '*italic(C[t])*' : ", sprintf("%.2f",vEventRates_Mean[2]*100),
-                   "% ± ", sprintf("%1.3f", vMargin[2]*100),"%'") )
+                   "% ± ", sprintf("%1.3f", vMargin[2]*100),"%'"),
+            paste0("'TTC-mean over '*italic(t)*' for '*italic(D[t])*' : ", sprintf("%.2f",vEventRates_Mean[4]*100),
+                   "% ± ", sprintf("%1.3f", vMargin[2]*100),"%'"))
 datAnnotate[, Label:=vLabel]
 
 # - Graphing parameters
 chosenFont <- "Cambria"; dpi <- 180
-vCol <- brewer.pal(8, "Dark2")[c(2,1,3)]
+vCol <- brewer.pal(8, "Dark2")[c(2,1,3,5)]
 vLabel <- c("A"=bquote(italic(A[t])~": DtH-Basic A"), "C"=bquote(italic(C[t])~": Logistic Regression A"), 
-            "B"=bquote(italic(B[t])~": DtH-Advanced A"))
-vShape <- c(17,20,4) 
+            "B"=bquote(italic(B[t])~": DtH-Advanced A"), "D"=bquote(italic(D[t])~": ST"))
+vShape <- c(17,20,4,7) 
 
 # - Create graph
 (g3 <- ggplot(datPlot, aes(x=Date, y=AUC_Val)) + theme_minimal() + 
     labs(y=bquote("Prediction Accuracy: AUC (%) "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
-    theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
+    theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=11, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
@@ -237,8 +275,8 @@ vShape <- c(17,20,4)
     geom_ribbon(aes(fill=Dataset, ymin=AUC_LowerCI, ymax=AUC_UpperCI), alpha=0.2,show.legend = FALSE) + 
     geom_line(aes(colour=Dataset, linetype=Dataset), linewidth=0.3) +    
     geom_point(aes(colour=Dataset, shape=Dataset), size=1.8) + 
-    geom_hline(yintercept = 0.7, linewidth=0.75) +
-    geom_text(data=datAnnotate, aes(x=x, y=y, label = Label), family=chosenFont, size=3.5, hjust=0, parse=TRUE) +
+    geom_hline(yintercept=0.7, linewidth=0.75) +
+    geom_text(data=datAnnotate, aes(x=x, y=y, label=Label), family=chosenFont, size=3.5, hjust=0, parse=TRUE) +
     # Facets & scale options
     scale_colour_manual(name="Model", values=vCol, labels=vLabel) + 
     scale_fill_manual(name="Model", values=vCol, labels=vLabel) +
@@ -252,7 +290,7 @@ vShape <- c(17,20,4)
 ggsave(g3, file=paste0(genFigPath, "AUC-time.png"), width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 # - Cleanup
-suppressWarnings(rm(datAnnotate, g3, datPlot, BasAUC, LRAUC, AdvAUC)); gc()
+suppressWarnings(rm(datAnnotate, g3, datPlot, BasAUC, LRAUC, AdvAUC, STAUC)); gc()
 
 
 # --- 3.4 Create AUC over-time graph | B-series (dichotomised)
@@ -264,13 +302,13 @@ datPlot <- rbind(BasAUC_B, LRAUC_B, AdvAUC_B)
 start_y <- 0.4; space <- 0.025
 y_vals <- c(start_y,start_y-space,start_y-space*2)
 # Creating an annotation dataset for easier annotations
-datAnnotate <- data.table(MeanAUC=NULL, Dataset=c("A-B","A-C","A-B"),
+datAnnotate <- data.table(MeanAUC=NULL, Dataset=c("A-B","A-C","A-D"),
                           x=rep(as.Date("2013-05-31"),3), # Text x coordinates
                           y=y_vals)
 
 # - TTC-mean & confidence interval calculations
 confLevel <- 0.95
-vEventRates_Mean <- c(mean(BasAUC_B$AUC_Val, na.rm = T), mean(LRAUC_B$AUC_Val, na.rm = T), mean(AdvAUC_B$AUC_Val, na.rm = T))
+vEventRates_Mean <- c(mean(BasAUC_B$AUC_Val, na.rm=T), mean(LRAUC_B$AUC_Val, na.rm=T), mean(AdvAUC_B$AUC_Val, na.rm=T))
 vEventRates_stErr <- c(sd(BasAUC_B$AUC_Val, na.rm=T) / sqrt(BasAUC_B[, .N]),
                        sd(LRAUC_B$AUC_Val, na.rm=T) / sqrt(LRAUC_B[, .N]),
                        sd(AdvAUC_B$AUC_Val, na.rm=T) / sqrt(AdvAUC_B[, .N]) )
@@ -293,7 +331,7 @@ vShape <- c(17,20,4)
 # - Create graph
 (g3 <- ggplot(datPlot, aes(x=Date, y=AUC_Val)) + theme_minimal() + 
     labs(y=bquote("Prediction Accuracy: AUC (%) "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
-    theme(text=element_text(family=chosenFont),legend.position = "bottom",legend.margin=margin(-10, 0, 0, 0),
+    theme(text=element_text(family=chosenFont),legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=11, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
@@ -308,7 +346,7 @@ vShape <- c(17,20,4)
     scale_fill_manual(name="Model", values=vCol, labels=vLabel) +
     scale_shape_manual(name=bquote("Model"), values=vShape, labels=vLabel) + 
     scale_linetype_discrete(name=bquote("Model"), labels=vLabel) + 
-    scale_x_date(date_breaks=paste0(6, " month"), date_labels = "%b %Y") +
+    scale_x_date(date_breaks=paste0(6, " month"), date_labels="%b %Y") +
     scale_y_continuous(breaks=pretty_breaks(), label=percent)
 )
 
@@ -316,7 +354,7 @@ vShape <- c(17,20,4)
 ggsave(g3, file=paste0(genFigPath, "AUC-time_B.png"), width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 # - Cleanup
-suppressWarnings(rm(datAnnotate, g3, datPlot, BasAUC_B, LRAUC_B, AdvAUC_B)); gc()
+suppressWarnings(rm(datAnnotate, g3, datPlot, BasAUC_B, LRAUC_B, AdvAUC_B, SurvTree_CTree)); gc()
 
 
 
