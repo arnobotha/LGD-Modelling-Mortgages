@@ -63,7 +63,8 @@ datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=
 datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
 
 # - Combine training and validation dataset to enable more smooth graphs
-datCredit <- rbind(datCredit_train, datCredit_valid)
+datCredit <- rbind(data.table(datCredit_train, Sample="Training"),
+                   data.table(datCredit_valid, Sample="Validation"))
 
 
 # --- 1.2 Load models
@@ -335,7 +336,7 @@ objROC48_CDH_st <- tROC.multi(datGiven=datCredit, modGiven=NA, month_End=predict
                               predType="response", MarkerGiven="Hazard_survtree")
 proc.time() - ptm
 objROC48_CDH_st$AUC; objROC48_CDH_st$ROC_graph
-### RESULTS: AUC up to t: 97.18%, achieved in 1940 secs
+### RESULTS: AUC up to t: 55.63%, achieved in 1940 secs
 
 
 # --- 4.5 Store experimental objects | Memory optimisation

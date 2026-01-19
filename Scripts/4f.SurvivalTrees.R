@@ -18,7 +18,8 @@
 #   - datCredit_valid_CDH | Prepared from script 2g
 #
 # -- Outputs:
-#   - ... | ...
+#   - SurvTree_CTree | A list containing both the survival tree object and its
+#                      associated training dataset
 # ---------------------------------------------------------------------------------------
 # =======================================================================================
 
@@ -120,7 +121,7 @@ SurvTree_PartyKit <- ctree(Surv(DefSpell_Age,DefSpell_Event)~
                              M_Repo_Rate_2 + M_Inflation_Growth_3,
                            data=datCredit_train_smp_cross,
                            control=ctree_control(mincriterion=0.99, # 1 - p-value threshold (default ≈ 5% significance)
-                                                 minsplit=100, # minimum number of observations to attempt a split
+                                                 minsplit=1000, # minimum number of observations to attempt a split
                                                  minbucket=50, # minimum number in terminal node (common default)
                                                  testtype="Bonferroni", # most conservative → classical feeling
                                                  maxdepth=max_depth))
@@ -129,6 +130,8 @@ proc.time() - start_time
 
 # - Visualise tree
 plot(SurvTree_PartyKit)
+### NOTE: Variable included in fitted model:
+###       
 
 
 # --- 2.2 Generate survival quantity predictions given the fitted tree

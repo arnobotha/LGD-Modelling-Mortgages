@@ -108,6 +108,9 @@ datCredit_train_classic[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist!="WOFF"
 
 
 # ------ 3. Determining the thresholds for dichotomisation
+### NOTE: Dichotomisation tested on hazard rates, bu no notable difference observed
+###       in model diagnogtics; see deprecated script de(ii)Dichotomisation_Hazards
+
 # --- 3.1 Determine thresholds | Discrete time models
 # - Create stripped-down version of required dataset or optimisation to minimise input/output run-time
 datGiven <- datCredit[Sample=="Train",list(DefSpell_Event, EventRate_bas, EventRate_adv)]

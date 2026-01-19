@@ -595,7 +595,8 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 
 # --- 6.2 Compare expected write-off LGDs with actuals
 # - Filter for non-sensical loss rates
-datCredit_WOFFs[, LossRate_est_survtree:=ifelse(LossRate_est_survtree<=1 & LossRate_est_survtree>=0, LossRate_est_survtree, NA)]
+datCredit_WOFFs[, LossRate_est_survtree:=ifelse(LossRate_est_survtree<=1 & LossRate_est_survtree>=0,
+                                                LossRate_est_survtree, NA)]
 
 # Mean expected loss
 (MeanLoss_exp_W <- mean(datCredit_WOFFs$LossRate_est_survtree, na.rm=T))

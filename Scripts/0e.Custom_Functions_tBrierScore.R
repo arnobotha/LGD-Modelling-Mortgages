@@ -27,7 +27,7 @@ tBrierScore <- function(datGiven, modGiven=NA, predType="response", spellPeriodM
                         fldKey="DefSpell_Key", fldStart = "Start", fldStop="TimeInDefSpell", fldCounter="Counter",
                         fldEvent="DefSpell_Event", fldCensored="DefSpell_Censored", fldSpellAge="DefSpell_Age",
                         fldSpellOutcome="DefSpellResol_Type_Hist", threshold=NA, brierType="Survival",
-                        fldSurvival=NA, fldHazard=NA, flfEventRate=NA) {
+                        fldSurvival=NA, fldHazard=NA) {
   # Testing conditions
   # datGiven <- datCredit; modGiven <- cox_PWPST_basic ; predType <- "exp"; spellPeriodMax <- 300
   # fldKey <- "PerfSpell_Key"; fldStart <- "Start"; fldStop<-"TimeInPerfSpell";
@@ -88,9 +88,6 @@ tBrierScore <- function(datGiven, modGiven=NA, predType="response", spellPeriodM
     datGiven[, Survival := get(fldSurvival)]
     datGiven[, Hazard := get(fldHazard)]
     
-  } else if (brierType=="Given-EventRate"){
-    # - Rename given fields if fields for evaluation are specified | Event rates
-    datGiven[, EventRate := get(fldEventRate)]
   }
   
   # - Remove additional observations created for left-truncated spells
