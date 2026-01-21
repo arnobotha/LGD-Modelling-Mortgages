@@ -140,7 +140,7 @@ datCredit <- merge(datCredit, datHaz[, list(Node, Time, Hazard_SurvTree=Hazard, 
                                  fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                  fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                  threshold=thresh_dth_bas, brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 13.28274
+### RESULTS: Integrated Brier Score = 13.53912
 
 
 # --- 2.2 Advanced discrete-time hazard model
@@ -148,14 +148,14 @@ datCredit <- merge(datCredit, datHaz[, list(Node, Time, Hazard_SurvTree=Hazard, 
 (objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="Survival"))
-### RESULTS: Integrated Brier Score = 1.98911
+### RESULTS: Integrated Brier Score = 1.750661
 
 # - B-series (dichotomised)
 (objCoxDisc_adv_B <- tBrierScore(datCredit, modGiven=modLR_Adv, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                  fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                  fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                  threshold=thresh_dth_adv, brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 16.38572
+### RESULTS: Integrated Brier Score = 16.3858
 
 
 # --- 2.3 Classical logistic regression model
@@ -163,14 +163,14 @@ datCredit <- merge(datCredit, datHaz[, list(Node, Time, Hazard_SurvTree=Hazard, 
 (objCoxDisc_classic <- tBrierScore(datCredit, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                    fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                    fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="Survival"))
-### RESULTS: Integrated Brier Score = 14.19076
+### RESULTS: Integrated Brier Score = 14.05533
 
 # - B-series (dichotomised)
 (objCoxDisc_classic_B <- tBrierScore(datCredit, modGiven=modLR_Classic, predType="response", spellPeriodMax=120, fldKey="DefSpell_Key", 
                                      fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                      fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist",
                                      threshold=thresh_classic, brierType="EventRate"))
-### RESULTS: Integrated Brier Score = 15.77156
+### RESULTS: Integrated Brier Score = 15.91328
 
 
 # --- 2.4 Survival tree
@@ -178,7 +178,7 @@ datCredit <- merge(datCredit, datHaz[, list(Node, Time, Hazard_SurvTree=Hazard, 
                                     fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                     fldSpellAge="DefSpell_Age2", fldSpellOutcome="DefSpellResol_Type_Hist", brierType="Given-Survival",
                                     fldSurvival="Surv_SurvTree", fldHazard="Hazard_SurvTree"))
-### RESULTS: Integrated Brier Score = 7.945001
+### RESULTS: Integrated Brier Score = 7.869841
 
 
 

@@ -110,7 +110,6 @@ datSurv_act[,AtRisk_perc:=AtRisk_n/max(AtRisk_n, na.rm=T)]
 
 # - Create an additional record for each default spell
 datAdd <- subset(datCredit, Counter == 1 & TimeInDefSpell > 1)
-datAdd[, Start:=Start-1]
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
 datAdd[, Counter:=0]
 
@@ -150,6 +149,14 @@ datCredit_train_classic <- subset(datCredit, !is.na(DefSpell_Key) & OOB_Ind==0 &
 datCredit_train_classic[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist!="WOFF",0,1)]
 
 
+# --- 3.4 Distributional analyses: event rates
+describe(datCredit$EventRate_bas); hist(datCredit$EventRate_bas, breaks="FD")
+### RESULTS: Bi-modal right-skewed distribution
+describe(datCredit$EventRate_adv); hist(datCredit$EventRate_adv, breaks="FD")
+### RESULTS: Right-skewed distribution with extreme outliers
+describe(datCredit$EventRate_classic); hist(datCredit$EventRate_classic, breaks="FD")
+### RESULTS: Right-skewed distribution with extreme outliers
+
 
 
 # ------ 4. Iteration over a-vector (cost multiples) for Generalised Youden Index
@@ -162,6 +169,10 @@ datCredit_train_classic[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist!="WOFF"
 ### NOTE: Regarding replication within GenYoudenIndex, analysis has shown that the advanced DtH-model exhibits 
 # far less variability in its results, hence the lower replication value compared to that of the basic DtH-model.
 
+# - Create stripped-down version of required dataset or optimisation to minimise input/output run-time
+datGiven <- datCredit[Sample=="Train",list(DefSpell_Event, EventRate_bas, EventRate_adv)]
+datGiven_classic <- datCredit_train_classic[,list(DefSpell_Event, EventRate_classic)]
+
 ptm <- proc.time() #IGNORE: for computation time calculation
 for (i in 1:length(vCostMultiples)) {
   # - Testing conditions
@@ -169,17 +180,22 @@ for (i in 1:length(vCostMultiples)) {
   
   # -- Run subroutine for the Generalised Youden Index given a specific cost multiple (a)
   # - Basic DtH-model
-  thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit[Sample=="Train",],
+  # Upper constraint chosen based on distributional analysis of event rates
+  thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven,
                                    Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
-                                   a=vCostMultiples[i], replicate=150, numThreads=8)
+                                   a=vCostMultiples[i], replicate=48, numThreads=8, limits=c(0,0.025),
+                                   replicateName="DtH-Basic")
   # - Advanced DtH-model
-  thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit[Sample=="Train",], 
+  thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven, 
                                    Target="DefSpell_Event", prob_vals_given="EventRate_adv", 
-                                   a=vCostMultiples[i], replicate=3, numThreads=3)
+                                   a=vCostMultiples[i], replicate=4, numThreads=4, limits=c(0,0.3),
+                                   replicateName="DtH-Advanced")
   # - Classical model
-  thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit_train_classic,
+  # Upper constraint chosen based on distributional analysis of event rates
+  thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven_classic,
                                       Target="DefSpell_Event", prob_vals_given="EventRate_classic",
-                                      a=vCostMultiples[i])
+                                      a=vCostMultiples[i], replicate=8, numThreads=8, limits=c(0,0.4),
+                                      replicateName="LR")
   
   
   # -- Dichotomise probabilistic models
@@ -229,23 +245,22 @@ pack.ffdf(paste0(genObjPath,"CostMultipleResults"), datResults)
 
 # ------ 5. General analysis of results
 
+# - Confirm prepared datasets are loaded into memory
+if (!exists('datResults')) unpack.ffdf(paste0(genObjPath,"CostMultipleResults"), tempPath);gc()
+
 # quick plots: MAE over a
 plot(x=datResults[Type=="DtH-Basic",a], y=datResults[Type=="DtH-Basic",MAE],
      xlab="Cost multiple a", ylab="MAE",col="red", type="b")
+plot(x=datResults[Type=="DtH-Basic" & a<=40,a], y=datResults[Type=="DtH-Basic" & a<=40,MAE],
+     xlab="Cost multiple a", ylab="MAE",col="red", type="b")
 plot(x=datResults[Type=="DtH-Advanced",a], y=datResults[Type=="DtH-Advanced",MAE],
+     xlab="Cost multiple a", ylab="MAE",col="blue", type="b")
+plot(x=datResults[Type=="DtH-Advanced" & a<=5,a], y=datResults[Type=="DtH-Advanced" & a<=5,MAE],
      xlab="Cost multiple a", ylab="MAE",col="blue", type="b")
 plot(x=datResults[Type=="LR",a], y=datResults[Type=="LR",MAE],
      xlab="Cost multiple a", ylab="MAE",col="orange", type="b")
-plot(x=datResults[Type=="LR" & a < 21,a], y=datResults[Type=="LR" & a < 21,MAE],
+plot(x=datResults[Type=="LR" & a<=20,a], y=datResults[Type=="LR" & a<=20,MAE],
      xlab="Cost multiple a", ylab="MAE",col="orange", type="b")
-
-# Distributional analyses: event rates
-describe(datCredit$EventRate_bas); hist(datCredit$EventRate_bas, breaks="FD")
-### RESULTS: Bi-modal right-skewed distribution
-describe(datCredit$EventRate_adv); hist(datCredit$EventRate_adv, breaks="FD")
-### RESULTS: Right-skewed distribution with extreme outliers
-describe(datCredit$EventRate_classic); hist(datCredit$EventRate_classic, breaks="FD")
-### RESULTS: Right-skewed distribution with extreme outliers
 
 # quick plots: Threshold over a
 plot(x=datResults[Type=="DtH-Basic",a], y=datResults[Type=="DtH-Basic",Threshold],
@@ -257,16 +272,12 @@ plot(x=datResults[Type=="LR",a], y=datResults[Type=="LR",Threshold],
 
 # --- Investigate specific thresholds' impact on the expected term-structure
 # just for inspection purposes
-datTest <- datResults[Type=="DtH-Basic",list(Type, a, Threshold, MAE)]
-datTest <- datResults[Type=="DtH-Advanced",list(Type, a, Threshold, MAE)]
-datTest <- datResults[Type=="LR",list(Type, a, Threshold, MAE)]
 
 # -- Assign cut-offs based on optimisation results
-cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==40, Threshold]
-#cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==82, Threshold]
-cutoff_dtH_adv <- datResults[Type=="DtH-Advanced" & a==1, Threshold]
-cutoff_dtH_adv <- 0.3894059 # found previousliy at a=1 with many more replications
-cutoff_LR <- datResults[Type=="LR" & a==80, Threshold]
+cost_DtH_bas <- 38; cost_DtH_adv <- 1; cost_LR <- 12
+cutoff_dth_bas <- datResults[Type=="DtH-Basic" & a==cost_DtH_bas, Threshold]
+cutoff_dtH_adv <- datResults[Type=="DtH-Advanced" & a==cost_DtH_adv, Threshold]
+cutoff_LR <- datResults[Type=="LR" & a==cost_LR, Threshold]
 
 # -- Dichotomise probabilistic models
 datCredit[, Youden_bas := ifelse(EventRate_bas > cutoff_dth_bas,1,0)]
@@ -312,40 +323,68 @@ lines(datSurv_act[Time<=120, EventRate], type="b")
 # is a flat zero-valued construct, which is less desirable from a risk prudence point of view. At greater a-values,
 # we took the a-value that produced the second lowest MAE, though which produced a much more credible term-structure
 # at a=40: Threshold =  0.01378371
-# -- DtH-Advanced: Procedured succeeded in identifying the optimal cost multiple that achieved the lowest MAE
+# -- DtH-Advanced: Procedure succeeded in identifying the optimal cost multiple that achieved the lowest MAE
 # at a=1: Threshold = 0.3894059
 # -- LR: The procedure's output (a=0.1) produced a flat zero-valued term-structure, which did achieve the lowest MAE,
-# however is not desirable from a risk prduence point of view. At greater a-values, there was a local 
-# minimum observed, which prdouced a more credible term-structure, albeit at the cost of a slightly higher MAE,
+# however is not desirable from a risk prudence point of view. At greater a-values, there was a local 
+# minimum observed, which produced a more credible term-structure, albeit at the cost of a slightly higher MAE,
 # at a=80: Threshold = 0.158223
 
 
 
+
 # ------ 6. Production-grade graph of results
-# TBD
+# Graphing data object, specifically ordered for aesthetic purposes
+datGraph <- rbind(data.table(datResults[Type == "DtH-Basic",], Type2="a_DtH-Basic"),
+                  data.table(datResults[Type == "DtH-Advanced",], Type2="b_DtH-Advanced"),
+                  data.table(datResults[Type == "LR",], Type2="c_LR"))
 
-# ------ 7. Imposing limits on optimisation process's search space
+# annotation table
+plot.data.min <- rbind(data.table(Type2="a_DtH-Basic", a=cost_DtH_bas, MAE=datResults[Type=="DtH-Basic" & a==cost_DtH_bas, MAE]),
+                       data.table(Type2="b_DtH-Advanced", a=cost_DtH_adv, MAE=datResults[Type=="DtH-Advanced" & a==cost_DtH_adv, MAE]),
+                       data.table(Type2="c_LR", a=cost_LR, MAE=datResults[Type=="LR" & a==cost_LR, MAE]))
 
-# -- Run subroutine for the Generalised Youden Index given a specific cost multiple (a)
-# - Basic DtH-model
-thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datCredit[Sample=="Train",],
-                                 Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
-                                 a=1, replicate=150, numThreads=8, limits=c(0,0.02))
+# Aesthetic parameters
+chosenFont <- "Cambria"
+vCol <- brewer.pal(12, "Paired")[c(6,2,10)]
+vLabel <- c("a_DtH-Basic"="DtH-Basic", "b_DtH-Advanced"="DtH-Advanced", "c_LR"="LR")
 
-# -- Dichotomise probabilistic models
-datCredit[, Youden_bas := ifelse(EventRate_bas > thresh_dth_bas$cutoff,1,0)]
+# Main graphing logic
+(g1 <- ggplot(datGraph[a<=80,]) + theme_minimal() +
+    theme(legend.position = "bottom", text = element_text(family=chosenFont)) + 
+    labs(x=bquote("Cost multiple "*italic(a)), y="MAE between empirical and expected term-structures") + 
+    #geom_point(aes(x=a,y=MAE, colour=Type2, shape=Type2)) + 
+    geom_line(aes(x=a,y=MAE, colour=Type2, linetype=Type2)) +
+    # Annotate optima
+    geom_point(data=plot.data.min, aes(x=a, y=MAE, color=Type2), size=7, shape=1, show.legend = F) + 
+    geom_point(data=plot.data.min, aes(x=a, y=MAE, color=Type2, shape=Type2)) + 
+    scale_color_manual(name="Model", values=vCol, labels=vLabel) +
+    scale_shape_discrete(name="Model", labels=vLabel) + 
+    scale_linetype_discrete(name="Model", labels=vLabel) + 
+    scale_y_continuous(breaks=breaks_pretty(), label=comma) +
+    scale_x_continuous(breaks=breaks_pretty(n=8), label=comma))
 
-# -- Aggregate event rates and calculate MAEs
-# - Aggregate event rates to period-level
-datSurv_exp <- datCredit[,.(EventRate_bas_Youden = mean(Youden_bas, na.rm=T)),
-                         by=list(TimeInDefSpell)]
+# zoomed plot
+# zoom bounding box
+xlim <- c(0,5); ylim <- c(0,0.05)
+(plot.zoom <- g1 + coord_cartesian(xlim=xlim, ylim=ylim) +
+    theme(legend.position="none", axis.line=element_blank(),axis.text.x = element_text(margin=unit(c(0,0,1,0),"mm"),size=9),
+          axis.text.y=element_text(margin=unit(c(0,0,0,0),"mm"),size=9),axis.ticks=element_blank(),
+          axis.title.x=element_blank(),axis.title.y=element_blank(),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+          panel.background = element_rect(color='black', fill="white"),
+          plot.margin = unit(c(0,0,0,0),"mm")))
 
-# - Calculate MAE between event rates
-# Basic model
-(MAE_eventProb_bas_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                        datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_bas_Youden]), na.rm=T))
+(g.full <- g1 + annotation_custom(grob = ggplotGrob(plot.zoom), xmin = 0.5, xmax=50,
+                                  ymin = 0.15, ymax =0.35))
 
-# - Plotting event rates for actuals and all expecteds
-plot(datSurv_act[Time<=120, EventRate], type="b")
-lines(datSurv_exp[TimeInDefSpell<=120, EventRate_adv_Youden], type="b", col="red")
+# Save graph object
+dpi <- 220
+ggsave(plot=g.full, filename=paste0(genFigPath, "CostMultiple_Optimisation_MAE.png"), 
+       width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
+
+# - Cleanup
+suppressWarnings(rm(datGiven, datGiven_classic, datCredit, datCredit_train, datCredit_train_classic, datCredit_valid,
+                    datGraph, datSurv_act, datSurv_exp, datResults, datResults_prep, datTest, 
+                    modLR_Adv, modLR_Bas, modLR_Classic, km_Default, g.full, g1, plot.zoom, plot.data.min))
