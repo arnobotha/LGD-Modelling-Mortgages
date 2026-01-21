@@ -130,8 +130,10 @@ proc.time() - start_time
 
 # - Visualise tree
 plot(SurvTree_PartyKit)
-### NOTE: Variable included in fitted model:
-###       
+### NOTE: Variables included in fitted model:
+###       [PrevDefaults_fac]; [M_DTI_Growth_6]; [DefaultStatus1_Aggr_Prop_Lag_12];
+###       [Balance_Real_1]; [pmnt_method_grp_fct]; [DefSpell_Num_binned];
+###       [g0_Delinq_Ave]; [IntereestRate_Margin_Aggr_Med_2]
 
 
 # --- 2.2 Generate survival quantity predictions given the fitted tree

@@ -119,8 +119,7 @@ datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_sm
                    fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event")
 
 # - Join hazards back to main dataset
-datCredit <- merge(datCredit, datHaz[, list(Node, Time, Hazard_SurvTree=Hazard,
-                                            Surv_SurvTree=Surv)],
+datCredit <- merge(datCredit, datHaz[, list(Node, Time, Hazard_SurvTree=Hazard, Surv_SurvTree=Surv)],
                    by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T) %>%
   setkey(DefSpell_Key, TimeInDefSpell)
 

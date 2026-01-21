@@ -496,10 +496,10 @@ tROC.multi <- function(datGiven, modGiven=NA, month_Start=0, month_End, sLambda=
   if (!is.data.table(datGiven)) {
     stop("[datGiven] must be a data table.\n")
   }# Test whether datGiven is a data table
-  if (!is.na(modGiven) & !any(class(modGiven) %in% c("coxph","lm","glm"))) {
+  if (!all(is.na(modGiven)) & !any(class(modGiven) %in% c("coxph","lm","glm"))) {
     stop("[modGiven] must be a valid 'coxph' or 'glm' model object.\n")
   }# Test whether [cox] is a coxph model
-  if (!is.na(modGiven)){
+  if (!all(is.na(modGiven))){
     if (!all(all.vars(formula(modGiven)) %in% colnames(datGiven))){
       stop("[datGiven] does not contain the variables required within the [modGiven] object.\n")
     }
@@ -761,7 +761,7 @@ tROC.multi <- function(datGiven, modGiven=NA, month_Start=0, month_End, sLambda=
       datSegment <- data.frame(x = 0, y = 0, xend = 1, yend = 1)
       
       # - Annotate with concordance (Harrell's C)
-      if (!is.na(modGiven)) { conc=percent(as.numeric(concordance(modGiven,newdata=datGiven)[1]),accuracy=0.001)
+      if (!all(is.na(modGiven))) { conc=percent(as.numeric(concordance(modGiven,newdata=datGiven)[1]),accuracy=0.001)
       } else conc=NA
       
       # - Aesthetic parameters

@@ -57,14 +57,17 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
 
 # --- 1.3 Other parameters
-# Cost multiple (a) vector
+# - Cost multiple (a) vector
 vCostMultiples <- c(seq(from=0.1, to=1, by=0.1), 
                     seq(from=2, to=10, by=0.5),
                     seq(from=11,to=100, by=1))
 
+# - Setting the maximum spell age which to constrain the MAEs in the optimisation procedure
+sMaxSpellAge <- 120
 
 
 
+  
 # ------ 2. Constructing the empirical term-structure of write-off using a Kaplan-Meier estimator
 
 # --- 2.1 Preliminaries
@@ -149,20 +152,21 @@ datCredit_train_classic <- subset(datCredit, !is.na(DefSpell_Key) & OOB_Ind==0 &
 datCredit_train_classic[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist!="WOFF",0,1)]
 
 
-# --- 3.4 Distributional analyses: event rates
-describe(datCredit$EventRate_bas); hist(datCredit$EventRate_bas, breaks="FD")
+# --- 3.4 Distributional analyses: hazard rates
+describe(datCredit$Hazard_bas); hist(datCredit$Hazard_bas, breaks="FD")
 ### RESULTS: Bi-modal right-skewed distribution
-describe(datCredit$EventRate_adv); hist(datCredit$EventRate_adv, breaks="FD")
+describe(datCredit$Hazard_adv); hist(datCredit$Hazard_adv, breaks="FD")
 ### RESULTS: Right-skewed distribution with extreme outliers
-describe(datCredit$EventRate_classic); hist(datCredit$EventRate_classic, breaks="FD")
+describe(datCredit$Hazard_classic); hist(datCredit$Hazard_classic, breaks="FD")
 ### RESULTS: Right-skewed distribution with extreme outliers
+
 
 
 
 # ------ 4. Iteration over a-vector (cost multiples) for Generalised Youden Index
 # For a given cost multiple, we calculate the corresponding Generalised Youden Index towards
 # finding an appropriate probability/marker cut-off that penalises false negatives by (a) times more than
-# false positives. Then, impose this cut-off and aggregate the dichotomised event rates to the spell period level.
+# false positives. Then, impose this cut-off and aggregate the dichotomised hazard rates to the spell period level.
 # Calculate the MAE between the resulting expected term-structure and its empirical counterpart.
 # Repeat this process for each cost multiple and collate results.
 # The 'best' cost multiple is then the one that minimises the MAE between the empirical and expected term-structures
@@ -170,8 +174,8 @@ describe(datCredit$EventRate_classic); hist(datCredit$EventRate_classic, breaks=
 # far less variability in its results, hence the lower replication value compared to that of the basic DtH-model.
 
 # - Create stripped-down version of required dataset or optimisation to minimise input/output run-time
-datGiven <- datCredit[Sample=="Train",list(DefSpell_Event, EventRate_bas, EventRate_adv)]
-datGiven_classic <- datCredit_train_classic[,list(DefSpell_Event, EventRate_classic)]
+datGiven <- datCredit[Sample=="Train",list(DefSpell_Event, Hazard_bas, Hazard_adv)]
+datGiven_classic <- datCredit_train_classic[,list(DefSpell_Event, Hazard_classic)]
 
 ptm <- proc.time() #IGNORE: for computation time calculation
 for (i in 1:length(vCostMultiples)) {
@@ -180,47 +184,47 @@ for (i in 1:length(vCostMultiples)) {
   
   # -- Run subroutine for the Generalised Youden Index given a specific cost multiple (a)
   # - Basic DtH-model
-  # Upper constraint chosen based on distributional analysis of event rates
+  # Upper constraint chosen based on distributional analysis of hazard rates
   thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven,
-                                   Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
+                                   Target="DefSpell_Event",prob_vals_given="Hazard_bas", 
                                    a=vCostMultiples[i], replicate=48, numThreads=8, limits=c(0,0.025),
                                    replicateName="DtH-Basic")
   # - Advanced DtH-model
   thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven, 
-                                   Target="DefSpell_Event", prob_vals_given="EventRate_adv", 
+                                   Target="DefSpell_Event", prob_vals_given="Hazard_adv", 
                                    a=vCostMultiples[i], replicate=4, numThreads=4, limits=c(0,0.3),
                                    replicateName="DtH-Advanced")
   # - Classical model
-  # Upper constraint chosen based on distributional analysis of event rates
+  # Upper constraint chosen based on distributional analysis of hazard rates
   thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven_classic,
-                                      Target="DefSpell_Event", prob_vals_given="EventRate_classic",
+                                      Target="DefSpell_Event", prob_vals_given="Hazard_classic",
                                       a=vCostMultiples[i], replicate=8, numThreads=8, limits=c(0,0.4),
                                       replicateName="LR")
   
   
   # -- Dichotomise probabilistic models
-  datCredit[, Youden_bas := ifelse(EventRate_bas > thresh_dth_bas$cutoff,1,0)]
-  datCredit[, Youden_adv := ifelse(EventRate_adv > thresh_dth_adv$cutoff,1,0)]
-  datCredit[, Youden_classic := ifelse(EventRate_classic > thresh_lr_classic$cutoff,1,0)]
+  datCredit[, Youden_bas := ifelse(Hazard_bas > thresh_dth_bas$cutoff,1,0)]
+  datCredit[, Youden_adv := ifelse(Hazard_adv > thresh_dth_adv$cutoff,1,0)]
+  datCredit[, Youden_classic := ifelse(Hazard_classic > thresh_lr_classic$cutoff,1,0)]
   
-  # -- Aggregate event rates and calculate MAEs
-  # - Aggregate event rates to period-level
+  # -- Aggregate hazard rates and calculate MAEs
+  # - Aggregate hazard rates to period-level
   datSurv_exp <- datCredit[,.(
-    EventRate_bas_Youden = mean(Youden_bas, na.rm=T),
-    EventRate_adv_Youden = mean(Youden_adv, na.rm=T),
-    EventRate_classic_Youden = mean(Youden_classic, na.rm=T)),
+    Hazard_bas_Youden = mean(Youden_bas, na.rm=T),
+    Hazard_adv_Youden = mean(Youden_adv, na.rm=T),
+    Hazard_classic_Youden = mean(Youden_classic, na.rm=T)),
     by=list(TimeInDefSpell)]
   
-  # - Calculate MAE between event rates
+  # - Calculate MAE between hazard rates
   # Basic model
-  (MAE_eventProb_bas_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_bas_Youden]), na.rm=T))
+  (MAE_eventProb_bas_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, Hazard_Actual] - 
+                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, Hazard_bas_Youden]), na.rm=T))
   # Advanced model
-  (MAE_eventProb_adv_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_adv_Youden]), na.rm=T))
+  (MAE_eventProb_adv_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, Hazard_Actual] - 
+                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, Hazard_adv_Youden]), na.rm=T))
   # Classical model
-  (MAE_eventProb_classic_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_classic_Youden]), na.rm=T))
+  (MAE_eventProb_classic_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, Hazard_Actual] - 
+                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, Hazard_classic_Youden]), na.rm=T))
   
   
   # - Compile results
@@ -235,7 +239,7 @@ for (i in 1:length(vCostMultiples)) {
   if (i==1) datResults <- datResults_prep else datResults <- rbind(datResults, datResults_prep)
   cat(paste0("Iteration ", i, " of ",length(vCostMultiples), " done.\n"))
 }
-proc.time() - ptm
+proc.time() - ptm # run time = 112 941 secs (31.37 h)
 
 # - Save optimisation results to disk
 pack.ffdf(paste0(genObjPath,"CostMultipleResults"), datResults)
@@ -283,43 +287,43 @@ cutoff_dtH_adv <- datResults[Type=="DtH-Advanced" & a==cost_DtH_adv, Threshold]
 cutoff_LR <- datResults[Type=="LR" & a==cost_LR, Threshold]
 
 # -- Dichotomise probabilistic models
-datCredit[, Youden_bas := ifelse(EventRate_bas > cutoff_dth_bas,1,0)]
-datCredit[, Youden_adv := ifelse(EventRate_adv > cutoff_dtH_adv,1,0)]
-datCredit[, Youden_classic := ifelse(EventRate_classic > cutoff_LR,1,0)]
+datCredit[, Youden_bas := ifelse(Hazard_bas > cutoff_dth_bas,1,0)]
+datCredit[, Youden_adv := ifelse(Hazard_adv > cutoff_dtH_adv,1,0)]
+datCredit[, Youden_classic := ifelse(Hazard_classic > cutoff_LR,1,0)]
 
-# -- Aggregate event rates and calculate MAEs
-# - Aggregate event rates to period-level
+# -- Aggregate hazard rates and calculate MAEs
+# - Aggregate hazard rates to period-level
 datSurv_exp <- datCredit[,.(
-  EventRate_bas_Youden = mean(Youden_bas, na.rm=T),
-  EventRate_adv_Youden = mean(Youden_adv, na.rm=T),
-  EventRate_classic_Youden = mean(Youden_classic, na.rm=T)),
+  Hazard_bas_Youden = mean(Youden_bas, na.rm=T),
+  Hazard_adv_Youden = mean(Youden_adv, na.rm=T),
+  Hazard_classic_Youden = mean(Youden_classic, na.rm=T)),
   by=list(TimeInDefSpell)]
 
-# - Calculate MAE between event rates
+# - Calculate MAE between hazard rates
 # Basic model
-(MAE_eventProb_bas_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                        datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_bas_Youden]), na.rm=T))
+(MAE_eventProb_bas_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, Hazard] - 
+                                        datSurv_exp[TimeInDefSpell<=sMaxSpellAge, Hazard_bas_Youden]), na.rm=T))
 # Advanced model
-(MAE_eventProb_adv_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                        datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_adv_Youden]), na.rm=T))
+(MAE_eventProb_adv_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, Hazard] - 
+                                        datSurv_exp[TimeInDefSpell<=sMaxSpellAge, Hazard_adv_Youden]), na.rm=T))
 # Classical model
-(MAE_eventProb_classic_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, EventRate] - 
-                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_classic_Youden]), na.rm=T))
+(MAE_eventProb_classic_Youden <- mean(abs(datSurv_act[Time<=sMaxSpellAge, Hazard] - 
+                                            datSurv_exp[TimeInDefSpell<=sMaxSpellAge, Hazard_classic_Youden]), na.rm=T))
 
 
-# - Plotting event rates for actuals and all expecteds
-plot(datSurv_act[Time<=120, EventRate], type="b")
-lines(datSurv_exp[TimeInDefSpell<=120, EventRate_bas_Youden], type="b", col="red")
-lines(datSurv_exp[TimeInDefSpell<=120, EventRate_adv_Youden], type="b", col="blue")
-lines(datSurv_exp[TimeInDefSpell<=120, EventRate_classic_Youden], type="b", col="orange")
+# - Plotting hazard rates for actuals and all expecteds
+plot(datSurv_act[Time<=120, Hazard], type="b")
+lines(datSurv_exp[TimeInDefSpell<=120, Hazard_bas_Youden], type="b", col="red")
+lines(datSurv_exp[TimeInDefSpell<=120, Hazard_adv_Youden], type="b", col="blue")
+lines(datSurv_exp[TimeInDefSpell<=120, Hazard_classic_Youden], type="b", col="orange")
 
 # Specific plot for DtH-basic model
-plot(datSurv_exp[TimeInDefSpell<=120, EventRate_bas_Youden], type="b", col="red")
-lines(datSurv_act[Time<=120, EventRate], type="b")
+plot(datSurv_exp[TimeInDefSpell<=120, Hazard_bas_Youden], type="b", col="red")
+lines(datSurv_act[Time<=120, Hazard], type="b")
 
 # Specific plot for classic LR-model
-plot(datSurv_exp[TimeInDefSpell<=120, EventRate_classic_Youden], type="b", col="orange")
-lines(datSurv_act[Time<=120, EventRate], type="b")
+plot(datSurv_exp[TimeInDefSpell<=120, Hazard_classic_Youden], type="b", col="orange")
+lines(datSurv_act[Time<=120, Hazard], type="b")
 
 ### Conclusion:
 # -- DtH-Basic: The procedure yielded the lowest MAE across a \in [0,39]], though the resulting term-structure

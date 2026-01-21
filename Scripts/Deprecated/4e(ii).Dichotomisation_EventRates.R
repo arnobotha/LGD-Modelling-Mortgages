@@ -1,5 +1,5 @@
 # ======================================= INPUT SPACE: LOSS SEVERITY-TWO STAGE============================
-# Dichotomise probabilistic models into 0/1-decisions using hazard rates.
+# Dichotomise probabilistic models into 0/1-decisions using event rates
 # --------------------------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Marcel Muller (MM), Mohammed Gabru (MG)
@@ -110,8 +110,8 @@ datCredit_train_classic[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist!="WOFF"
 # ------ 3. Determining the thresholds for dichotomisation
 # --- 3.1 Determine thresholds | Discrete time models
 # - Create stripped-down version of required dataset or optimisation to minimise input/output run-time
-datGiven <- datCredit[Sample=="Train",list(DefSpell_Event, Hazard_bas, Hazard_adv)]
-datGiven_classic <- datCredit_train_classic[,list(DefSpell_Event, Hazard_classic)]
+datGiven <- datCredit[Sample=="Train",list(DefSpell_Event, EventRate_bas, EventRate_adv)]
+datGiven_classic <- datCredit_train_classic[,list(DefSpell_Event, EventRate_classic)]
 
 # - Calculate the cost multiple
 # (q1 <- mean(datCredit_train$DefSpell_Event,na.rm=TRUE))
@@ -121,7 +121,7 @@ datGiven_classic <- datCredit_train_classic[,list(DefSpell_Event, Hazard_classic
 
 # - Basic model
 (thresh_dth_bas <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven,
-                                  Target="DefSpell_Event",prob_vals_given="Hazard_bas", 
+                                  Target="DefSpell_Event",prob_vals_given="EventRate_bas", 
                                   a=38, replicate=48, numThreads=8, limits=c(0,0.025),
                                   replicateName="DtH-Basic"))
 ### RESULTS: Threshold at a=38: 0.02345153
@@ -130,7 +130,7 @@ datGiven_classic <- datCredit_train_classic[,list(DefSpell_Event, Hazard_classic
 
 # - Advanced model
 (thresh_dth_adv <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven, 
-                                  Target="DefSpell_Event", prob_vals_given="Hazard_adv", 
+                                  Target="DefSpell_Event", prob_vals_given="EventRate_adv", 
                                   a=1, replicate=8, numThreads=8, limits=c(0,0.3),
                                   replicateName="DtH-Advanced"))
 ### RESULTS: Threshold at a=1: 0.2933144
@@ -146,7 +146,7 @@ datGiven_classic <- datCredit_train_classic[,list(DefSpell_Event, Hazard_classic
 
 # - Classical model
 (thresh_lr_classic <- GenYoudenIndex(optimise_type="Pre-determined", Train_DataSet=datGiven_classic,
-                                     Target="DefSpell_Event", prob_vals_given="Hazard_classic",
+                                     Target="DefSpell_Event", prob_vals_given="EventRate_classic",
                                      a=12, replicate=48, numThreads=8, limits=c(0,0.4),
                                      replicateName="LR"))
 ### RESULTS: Threshold at a=12: 0.07077651
@@ -170,9 +170,9 @@ thres_lst <- list("Basic"=thresh_dth_bas$cutoff,
 
 # --- 4.1 Dichotomise model predictions
 # - Dichotomise predictions
-datCredit[,Youden_bas:=ifelse(Hazard_bas>thres_lst$Basic,1,0)]
-datCredit[,Youden_adv:=ifelse(Hazard_adv>thres_lst$Advanced,1,0)]
-datCredit[,Youden_classic:=ifelse(Hazard_classic>thres_lst$Classical,1,0)]
+datCredit[,Youden_bas:=ifelse(EventRate_bas>thres_lst$Basic,1,0)]
+datCredit[,Youden_adv:=ifelse(EventRate_adv>thres_lst$Advanced,1,0)]
+datCredit[,Youden_classic:=ifelse(EventRate_classic>thres_lst$Classical,1,0)]
 
 
 # --- 4.2 ROC analyses at time 44
@@ -183,7 +183,7 @@ objROC44_CDH_CoxDisc_bas_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Bas,
                                          fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                          graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                          caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
-                                         predType="response", MarkerGiven="Hazard_bas", threshold=thres_lst$Basic)
+                                         predType="response", MarkerGiven="EventRate_bas", threshold=thres_lst$Basic)
 proc.time() - ptm
 objROC44_CDH_CoxDisc_bas_B$AUC; objROC44_CDH_CoxDisc_bas_B$ROC_graph
 ### RESULTS: AUC up to t: 48.79%, achieved in 123 secs
@@ -195,7 +195,7 @@ objROC44_CDH_CoxDisc_adv_B <- tROC.multi(datGiven=datCredit, modGiven=modLR_Adv,
                                          fld_ID="DefSpell_Key", fld_Event="DefSpell_Event", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
                                          graphName="WOffSurvModel-ROC_CoxDisc_Advanced_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
                                          caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=12, logPath=genPath, 
-                                         predType="response", MarkerGiven="Hazard_adv", threshold=thres_lst$Advanced)
+                                         predType="response", MarkerGiven="EventRate_adv", threshold=thres_lst$Advanced)
 proc.time() - ptm
 objROC44_CDH_CoxDisc_adv_B$AUC; objROC44_CDH_CoxDisc_adv_B$ROC_graph
 ### RESULTS: AUC up to t: 51.57%, achieved in 120 secs

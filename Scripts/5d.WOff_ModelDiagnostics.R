@@ -133,7 +133,8 @@ datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_sm
 
 # - Join hazards back to main dataset
 datCredit <- merge(datCredit, datHaz[, list(Node, Time, Hazard_SurvTree=Hazard)],
-                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T)
+                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T) %>%
+  setkey(DefSpell_Key, TimeInDefSpell)
 
 
 
@@ -272,7 +273,7 @@ vShape <- c(17,20,4,7)
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=11, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
     # Main graph
-    geom_ribbon(aes(fill=Dataset, ymin=AUC_LowerCI, ymax=AUC_UpperCI), alpha=0.2,show.legend = FALSE) + 
+    # geom_ribbon(aes(fill=Dataset, ymin=AUC_LowerCI, ymax=AUC_UpperCI), alpha=0.2,show.legend = FALSE) + 
     geom_line(aes(colour=Dataset, linetype=Dataset), linewidth=0.3) +    
     geom_point(aes(colour=Dataset, shape=Dataset), size=1.8) + 
     geom_hline(yintercept=0.7, linewidth=0.75) +
@@ -336,7 +337,7 @@ vShape <- c(17,20,4)
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=11, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
     # Main graph
-    geom_ribbon(aes(fill=Dataset, ymin=AUC_LowerCI, ymax=AUC_UpperCI), alpha=0.2,show.legend = FALSE) + 
+    # geom_ribbon(aes(fill=Dataset, ymin=AUC_LowerCI, ymax=AUC_UpperCI), alpha=0.2,show.legend = FALSE) + 
     geom_line(aes(colour=Dataset, linetype=Dataset), linewidth=0.3) +    
     geom_point(aes(colour=Dataset, shape=Dataset), size=1.8) + 
     geom_hline(yintercept = 0.7, linewidth=0.75) +
@@ -355,9 +356,4 @@ ggsave(g3, file=paste0(genFigPath, "AUC-time_B.png"), width=1200/dpi, height=100
 
 # - Cleanup
 suppressWarnings(rm(datAnnotate, g3, datPlot, BasAUC_B, LRAUC_B, AdvAUC_B, SurvTree_CTree)); gc()
-
-
-
-
-
 

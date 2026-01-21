@@ -179,7 +179,8 @@ datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_sm
 
 # - Join hazards back to main dataset
 datCredit <- merge(datCredit, datHaz[, list(Node, Time, EventRate_SurvTree=EventRate)],
-                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T)
+                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T) %>%
+  setkey(DefSpell_Key, TimeInDefSpell)
 
 
 # --- 3.6 Aggregate event rates to period-level

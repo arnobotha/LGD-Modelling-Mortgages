@@ -60,8 +60,6 @@ datCredit_real[ExclusionID==0, Account_Censored := ifelse(Date >= maxDate_observ
                by=list(LoanID)]
 
 
-
-
 # --- 1.2. Data abstractions into simpler more manageable objects for delinquency measurement
 
 # - Scalars
@@ -82,7 +80,6 @@ names(advance_adjterm_v_real) <- LoanIDs_real
 matg0 <- rbind(rep(0, n_observed),
   as.matrix(pivot_wider(data=datCredit_real[ExclusionID == 0 & order(LoanID),list(LoanID, Counter,g0_Delinq)], 
                                         id_cols=Counter:Counter, names_from=LoanID, values_from=g0_Delinq))[,-1] )
-
 
 
 # --- 1.3. Create Default Status field, given (d,k)-thresholds
