@@ -1,7 +1,7 @@
 # ============================== TERM-STUCTURE: Cox Discrete-time Hazard ===============================
 # Construct and compare empirical and expected term-structures of default risk
 # ------------------------------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for FNB Mortgages
+# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:

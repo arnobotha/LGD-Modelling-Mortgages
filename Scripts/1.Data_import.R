@@ -8,10 +8,10 @@
 #   - 0.Setup.R
 
 # -- Inputs:
-#   - creditdata_final.sas7bdat | monthly loan performance credit data (FNB Mortgages) (subject-period format)
+#   - creditdata_final.sas7bdat | monthly loan performance credit data (Mortgages) (subject-period format)
 #   - macro_data_monthly.sas7bdat | monthly macroeconomic data
 #   - macro_data_quarterly.sas7bdat | quarterly macroeconomic data
-#   - creditdata_input.sas7bdat | input fields associated with credit data (FNB Mortgages)
+#   - creditdata_input.sas7bdat | input fields associated with credit data (Mortgages)
 
 # -- Outputs:
 #   - dat.raw
@@ -39,14 +39,14 @@ proc.time() - ptm # IGNORE: elapsed runtime
 pack.ffdf(paste0(genPath, "creditdata_final1"), dat.raw); gc()
 
 
-# --- 2. Macroeconomic history + forecasts from FNB Group Economics | monthly data
+# --- 2. Macroeconomic history + forecasts from Group Economics | monthly data
 # Import, then recast data into a more pliable data.table object for greater memory efficiency, during which the
 # key is set based on preliminary analysis on the data grain (itself tested later again)
 macro_data_m <- as.data.table(read_sas(paste0(genRawPath,"macro_data_monthly.sas7bdat")), stringsAsFactors=T,
                               key=c("EffectiveDate", "Scenario"))
 
 
-# --- 3. Macroeconomic history + forecasts from FNB Group Economics | quarterly data
+# --- 3. Macroeconomic history + forecasts from Group Economics | quarterly data
 # Import, then recast data into a more pliable data.table object for greater memory efficiency, during which the
 # key is set based on preliminary analysis on the data grain (itself tested later again)
 macro_data_q <- as.data.table(read_sas(paste0(genRawPath,"macro_data_quarterly.sas7bdat")), stringsAsFactors=T,
