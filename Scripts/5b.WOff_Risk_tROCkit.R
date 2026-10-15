@@ -1082,7 +1082,7 @@ ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffModel-Combined-
 suppressWarnings(rm(datAdd, datCredit, datCredit_train_CDH, datCredit_train,
    datCredit_valid_CDH, datCredit_valid, datGraph, gg,
    modLR_Bas, modLR_Adv, modLR_Classic, objROC44_CDH_CoxDisc_bas, objROC44_CDH_CoxDisc_adv,
-   objROC44_LR, objROC44_CDH_CoxDisc_bas_B, objROC44_CDH_CoxDisc_adv_B, objROC44_LR_B, objROC44_CDH_st
+   objROC44_LR, objROC44_CDH_CoxDisc_bas_B, objROC44_CDH_CoxDisc_adv_B, objROC44_LR_B, objROC44_CDH_st,
    thresh_lst, vecTROC, vLabels, vLabels_F))
 gc()
 
