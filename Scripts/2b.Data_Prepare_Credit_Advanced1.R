@@ -35,10 +35,10 @@
 
 
 
-# ------ 6. Advanced Data Treatments
+
 ptm2 <- proc.time() # for runtime calculations (ignore)
 
-# --- 0. Preliminaries
+# ============ 1. Preliminaries ============
 
 # - Confirm raw data is loaded into memory
 if (!exists('datCredit_real')) unpack.ffdf(paste0(genPath,"creditdata_final1b"), tempPath)
@@ -55,13 +55,15 @@ suppressWarnings( datCredit_real[, `:=`(TreatmentID = NULL, HasZeroBalance_Start
 datCredit_real[, TreatmentID := ""]; gc()
 
 
-# --- 1. Advanced Data Treatment 1: Starting zero-balances | See Data Experiment 3
+
+
+# ============ 2. Advanced Data Treatment 1: Starting zero-balances | See Data Experiment 3 ============
 
 # - Preliminaries
 datCredit_real[, HasZeroBalance_Start := max(ifelse(Counter == 1 & Balance == 0, 1, 0)), 
                by=list(LoanID)]
 
-# [DIAGNOSTIC] Prevalence of accounts that start with a zero-valued balance?
+# - [DIAGNOSTIC] Prevalence of accounts that start with a zero-valued balance?
 diag.real3_1a <- datCredit_real[ExclusionID==0 & Counter==1 & HasZeroBalance_Start==1, .N] / 
   datCredit_real[ExclusionID==0 & Counter==1, .N] * 100 
 
@@ -128,9 +130,10 @@ suppressWarnings(datCredit_real[, `:=`(HasZeroBalance_Start = NULL, Counter_TruS
 
 
 
-# --- 2. Advanced Data Treatment 2: Unflagged account closures | See Data Experiment 2
 
-# [DIAGNOSTIC] Account-level prevalence of closures missed by [EarlySettle_Ind] or [WOff_Ind] or [Repaid_Ind] flags?
+# ============ 3. Advanced Data Treatment 2: Unflagged account closures | See Data Experiment 2 ============
+
+# - [DIAGNOSTIC] Account-level prevalence of closures missed by [EarlySettle_Ind] or [WOff_Ind] or [Repaid_Ind] flags?
 diag.real2_2h <- datCredit_real[ExclusionID==0 & Counter==1 & HasClosure==1 & HasSettle==0 & HasWOff==0 & HasRepaid==0, .N] / 
   datCredit_real[ExclusionID==0 & Counter==1, .N] *100 
 diag.real2_2h_closures <- datCredit_real[ExclusionID==0 & Counter==1 & HasClosure==1 & HasSettle==0 & HasWOff==0 & HasRepaid==0, .N] / 
@@ -172,7 +175,8 @@ if (diag.real2_2h > 0) {
 
 
 
-# --- 3. Advanced Data Treatment 3: Partially zero-valued [Principal] and missing [InterestRate_Nom]-cases
+
+# ============ 3. Advanced Data Treatment 3: Partially zero-valued [Principal] and missing [InterestRate_Nom]-cases
 # See Data Experiment 5
 
 # - Preliminaries
@@ -280,7 +284,8 @@ suppressWarnings( datCredit_real[, `:=`(Principal_LastNonzeroPos = NULL, Princip
 
 
 
-# --- 4. Advanced Data Treatment 4: Identifying truly 'new' accounts | See Data Experiment 7
+
+# ============ 4. Advanced Data Treatment 4: Identifying truly 'new' accounts | See Data Experiment 7 ============
 
 # - Set parameters for New-indicator based on Balance-to-Principal and Age-to-Term
 thresh_TermRatio <- 0.15
@@ -296,8 +301,7 @@ treat_samp1[Principal > 0, Principal_Ratio := Balance / Principal]
 treat_samp1[, Term_Ratio := Age / Term]
 treat_samp1[, First_Age := Age[1], by=list(LoanID)]
 
-# [DIAGNOSTIC] Prevalence of older ages for seemingly new accounts that were
-# disbursed during the sampling period?
+# - [DIAGNOSTIC] Prevalence of older ages for seemingly new accounts that were disbursed during the sampling period?
 diag.real7e <- treat_samp1[ExclusionID==0 & Counter==1 & Date_Origination >= minDate_observed & Age>0,.N] / 
   treat_samp1[ExclusionID==0 & Counter==1 & Date_Origination >= minDate_observed, .N] * 100 
 diag.real7e_rec <- treat_samp1[ExclusionID==0 & Date_Origination >= minDate_observed & First_Age>0,.N] / 
@@ -307,18 +311,18 @@ cat( paste0("Creating [New_Ind] to isolate truly 'new' accounts from data errors
             Thresholds selected: Age-to-Term <= ", round(thresh_TermRatio*100,digits=0), 
             "%; Balance-to-Principal >=", round(thresh_PrincipalRatio*100,digits=0), "%.\n"))
 
-# [TREATMENT] Create an account-level new/old indicator based on derived decision rule
+# - [TREATMENT] Create an account-level new/old indicator based on derived decision rule
 treat_samp2 <- treat_samp1 %>% filter(Counter==1) %>%
   mutate(New_Ind = ifelse(Date_Origination >= minDate_observed & 
                             (Age == 0 | (Term_Ratio <= thresh_TermRatio & Principal_Ratio >= thresh_PrincipalRatio)),
                           1, 0))
 
-# [DIAGNOSTIC] Prevalence rate of new loans: a logic comparison of 'new'
+# - [DIAGNOSTIC] Prevalence rate of new loans: a logic comparison of 'new'
 diag.real7f_a <- treat_samp2[New_Ind == 1, .N] / treat_samp2[,.N] * 100 
 diag.real7f_b <- treat_samp1[ExclusionID==0 & Counter==1 & Age==0,.N] / 
   treat_samp1[ExclusionID==0 & Counter==1, .N] * 100 
 
-# [DIAGNOSTIC] Prevalence rate of new loans disbursed during sampling period?
+# - [DIAGNOSTIC] Prevalence rate of new loans disbursed during sampling period?
 diag.real7g <- treat_samp2[New_Ind == 1 & Date_Origination >= minDate_observed, .N] / 
   treat_samp2[Date_Origination >= minDate_observed,.N] * 100
 
@@ -371,9 +375,16 @@ if (diag.real7e > 0 | diag.real7f_a != diag.real7f_b) {
 # - Cleanup
 rm(treat_samp1, treat_samp2)
 
+
+
+# ============ 5. Housekeeping ============
+
 # - Save to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final1c"), datCredit_real)
 
 # - Logging
 cat('Data prepared (Advanced). Pending application (or not) of the TruEnd-procedure next ..\n')
 proc.time() - ptm2 # IGNORE: elapsed runtime
+
+
+

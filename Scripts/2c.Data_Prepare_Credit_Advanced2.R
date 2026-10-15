@@ -43,17 +43,19 @@
 
 
 
-# ------ 6. Advanced Data Treatments
+
 ptm3 <- proc.time() # for runtime calculations (ignore)
 
-# --- 0. Preliminaries
+
+# ============ 1. Preliminaries ============
 
 # - Confirm raw data is loaded into memory
 if (!exists('datCredit_real')) unpack.ffdf(paste0(genPath,"creditdata_final1c"), tempPath)
 
 
 
-# --- 5. Advanced Data Treatment 5: Treating trailing zero-valued (TZB) balances | See Data Experiment 1
+
+# ============ 2. Advanced Data Treatment 5: Treating trailing zero-valued (TZB) balances | See Data Experiment 1 ============
 
 # - Initializing parameters of TruEnd-procedure
 currThresh <- 300 # ZAR-valued threshold for [Balance]
@@ -146,7 +148,7 @@ if (diag.real1a > 0) {
                  WriteOff_Amt := ifelse(Counter < (ZeroBal_Start-1), WriteOff_Amt, WriteOff_Amt[.N]), 
                  by=list(LoanID)]
   
-  # [TREATMENT] Move terminal event incidence earlier | Early Settlement / Closure
+  # - [TREATMENT] Move terminal event incidence earlier | Early Settlement / Closure
   datCredit_real[ExclusionID==0 & HasTrailingZeroBalances==T & HasSettle==1, 
                  EarlySettle_Ind := ifelse(Counter < (ZeroBal_Start-1), EarlySettle_Ind, EarlySettle_Ind[.N]),
                  by=list(LoanID)]
@@ -154,7 +156,7 @@ if (diag.real1a > 0) {
                  EarlySettle_Amt := ifelse(Counter < (ZeroBal_Start-1), EarlySettle_Amt, EarlySettle_Amt[.N]), 
                  by=list(LoanID)]
   
-  # [TREATMENT] Re-calculate affected aggregates
+  # - [TREATMENT] Re-calculate affected aggregates
   datCredit_real[ExclusionID==0 & HasTrailingZeroBalances==T & (HasWOff==1 | HasSettle==1) & 
                    Counter < ZeroBal_Start, Max_Counter := .N, by=list(LoanID)]
   
@@ -162,7 +164,7 @@ if (diag.real1a > 0) {
   datCredit_real[ExclusionID==0 & HasTrailingZeroBalances==T & (HasWOff==1 | HasSettle==1), 
                  TreatmentID := paste0(TreatmentID, ";5")]
   
-  # [TREATMENT] Mark the affected histories as an Exclusion
+  # - [TREATMENT] Mark the affected histories as an Exclusion
   datCredit_real[ExclusionID==0 & HasTrailingZeroBalances==T & (HasWOff==1 | HasSettle==1) & 
                    Counter>=ZeroBal_Start, ExclusionID := 6]
   
@@ -186,13 +188,13 @@ rm(test, test_samp)
 
 
 
-# --- 6. Advanced Data Treatment 6: Treating varying [Term]-values | See Data Experiment 5
+
+# ============ 3. Advanced Data Treatment 6: Treating varying [Term]-values | See Data Experiment 5 ============
 
 # - Preliminaries
 datCredit_real[ExclusionID==0, Var_Term := var(Term, na.rm=T), by=list(LoanID)]
 
-# [DIAGNOSTIC] How often is the variance non-zero for [Term] where the account 
-#   has neither redraw nor further loan across its history?
+# - [DIAGNOSTIC] How often is the variance non-zero for [Term] where the account has neither redraw nor further loan across its history?
 diag.real5_2a <- datCredit_real[ExclusionID==0 & Counter==1 & Var_Term > 0 & HasRedraw == 0 & HasFurtherLoan == 0, .N] / 
   datCredit_real[ExclusionID==0 & Counter==1, .N] * 100  # account-level
 diag.real5_2a_rec <- datCredit_real[ExclusionID==0 & Var_Term > 0 & HasRedraw == 0 & HasFurtherLoan == 0, .N] /
@@ -208,7 +210,7 @@ if (diag.real5_2a > 0) {
   datCredit_real[ExclusionID==0 & Var_Term>0 & HasRedraw==0 & HasFurtherLoan==0,
                  Term_Mode := getmode(Term), by=list(LoanID)]
   
-  # [TREATMENT] Assign the account-level mode to the non-equal parts
+  # - [TREATMENT] Assign the account-level mode to the non-equal parts
   datCredit_real[ExclusionID==0 & Term!=Term_Mode & HasRedraw==0 & HasFurtherLoan==0,
                  Term := Term_Mode[1], by=list(LoanID)]
   
@@ -219,7 +221,7 @@ if (diag.real5_2a > 0) {
   # - Recalculate affected aggregates
   datCredit_real[ExclusionID==0, Var_Term := var(Term, na.rm=T), by=list(LoanID)]
   
-  # [SANITY CHECK] Account-level prevalence of accounts that varying [Term]-values?
+  # - [SANITY CHECK] Account-level prevalence of accounts that varying [Term]-values?
   check_advTreat6 <- datCredit_real[ExclusionID==0 & Counter==1 & Var_Term > 0 & HasRedraw == 0 & 
                                       HasFurtherLoan == 0, .N] / 
     datCredit_real[ExclusionID==0 & Counter==1, .N] * 100 == 0 # Should be true
@@ -233,8 +235,9 @@ suppressWarnings( datCredit_real[, `:=`(Var_Term = NULL, Term_Mode = NULL)] )
 
 
 
-# --- 7. Advanced Data Treatment 7: Inferring net cash inflow (Receipts) | See Data Experiment 9
+# ============ 4. Advanced Data Treatment 7: Inferring net cash inflow (Receipts) | See Data Experiment 9 ============
 
+# - Create log
 cat("Inferring [Receipt_Inf] field from first principles, using balance-differences\n\t",
     "between two consecutive points in time ..\n")
 
@@ -285,8 +288,8 @@ suppressWarnings( datCredit_real[, `:=`(Balance_prev = NULL, IntRate_prev = NULL
 
 
 
-# --- 8. Advanced Data Treatment 8: Conforming event amounts to zero-valued balance at termination 
-# See Data Experiment 2
+# ============ 5. Advanced Data Treatment 8: Conforming event amounts to zero-valued balance at termination ============
+### NOTE: See Data Experiment 2
 
 # - Isolate affected cases
 treat_samp1 <- subset(datCredit_real, ExclusionID==0 & Counter==Max_Counter & 
@@ -301,21 +304,21 @@ treat_samp1[HasSettle==1 | HasRepaid==1, Receipt_Adj := Receipt_Inf + Balance]
 # - For write-offs, redistribute any remaining balance to the Write-off Amount
 treat_samp1[HasWOff==1, WriteOff_Amt_Adj := WriteOff_Amt + Balance]
 
-# [DIAGNOSTIC] Prevalence of mismatched early settlement amounts observed
+# - [DIAGNOSTIC] Prevalence of mismatched early settlement amounts observed
 treat_samp1[HasSettle==1 & Counter==Max_Counter, Settle_Diff := EarlySettle_Amt - Receipt_Adj]
 diag.real2_3a <- treat_samp1[ExclusionID==0 & HasSettle==1 & Counter==Max_Counter & EarlySettle_Amt != Receipt_Adj, .N] / 
   treat_samp1[ExclusionID==0 & HasSettle==1 & Counter==Max_Counter, .N] * 100 
 diag.real2_3b <- mean(treat_samp1[HasSettle==1, Settle_Diff], na.rm=T)
 diag.real2_3c <- median(treat_samp1[HasSettle==1, Settle_Diff], na.rm=T)
 
-# [DIAGNOSTIC] Prevalence of mismatched write-off amounts observed
+# - [DIAGNOSTIC] Prevalence of mismatched write-off amounts observed
 treat_samp1[HasWOff==1 & Counter==Max_Counter, WOff_Diff := WriteOff_Amt - WriteOff_Amt_Adj]
 diag.real2_3d <- treat_samp1[ExclusionID==0 & HasWOff==1 & Counter==Max_Counter & WriteOff_Amt != WriteOff_Amt_Adj, .N] / 
   treat_samp1[ExclusionID==0 & HasWOff==1 & Counter==Max_Counter, .N] * 100 
 diag.real2_3e <- mean(treat_samp1[HasWOff==1, WOff_Diff], na.rm=T)
 diag.real2_3f <- median(treat_samp1[HasWOff==1, WOff_Diff], na.rm=T)
 
-# [DIAGNOSTIC] Prevalence of mismatched repaid amounts observed
+# - [DIAGNOSTIC] Prevalence of mismatched repaid amounts observed
 treat_samp1[HasRepaid==1 & Counter==Max_Counter, Repaid_Diff := Receipt_Inf - Receipt_Adj]
 diag.real2_3g <- treat_samp1[ExclusionID==0 & HasRepaid==1 & Counter==Max_Counter & Receipt_Inf != Receipt_Adj, .N] / 
   treat_samp1[ExclusionID==0 & HasRepaid==1 & Counter==Max_Counter, .N] * 100
@@ -353,27 +356,25 @@ if (diag.real2_3a > 0 | diag.real2_3d > 0 | diag.real2_3g > 0) {
              "). \n\tCorrecting ..\n"))
   
   # - Fuse treated accounts' event amounts with main dataset
-  # To facilitate treatment success measurement later
+  ### NOTE: This is to facilitate treatment success measurement later
   datCredit_real <- merge(datCredit_real, treat_samp1[,list(LoanID, WriteOff_Amt_Adj, Receipt_Adj)], 
                           by=c("LoanID"), all.x=T)
   
-  # [TREATMENT] For early settlements, redistribute the 
-  # remaining balance to [Receipt_Inf] and correct Early Settlement Amount
+  # - [TREATMENT] For early settlements, redistribute the remaining balance to [Receipt_Inf] and correct Early Settlement Amount
   datCredit_real[ExclusionID==0 & Counter==Max_Counter & HasSettle==1 & 
                    EarlySettle_Amt != Receipt_Adj, Receipt_Inf := Receipt_Inf + Balance]
   datCredit_real[ExclusionID==0 & Counter==Max_Counter & HasSettle==1 & 
                    EarlySettle_Amt != Receipt_Adj, EarlySettle_Amt := Receipt_Inf] 
   
-  # [TREATMENT] For repaids, redistribute the remaining balance to [Receipt].
+  # - [TREATMENT] For repaids, redistribute the remaining balance to [Receipt].
   datCredit_real[ExclusionID==0 & Counter==Max_Counter & HasRepaid==1 & Receipt_Inf != Receipt_Adj, 
                  Receipt_Inf := Receipt_Inf + Balance]
   
-  # [TREATMENT] For write-offs, redistribute the remaining
-  # balance to the Write-off Amount
+  # - [TREATMENT] For write-offs, redistribute the remaining balance to the Write-off Amount
   datCredit_real[ExclusionID==0 & Counter==Max_Counter & HasWOff==1 & WriteOff_Amt != WriteOff_Amt_Adj, 
                  WriteOff_Amt := WriteOff_Amt + Balance]
   
-  # [TREATMENT] Set the balance explicitly to zero in either terminal case
+  # - [TREATMENT] Set the balance explicitly to zero in either terminal case
   datCredit_real[ExclusionID==0 & Counter==Max_Counter & (HasSettle==1 | HasWOff==1 | HasRepaid==1),
                  Balance := 0]
   
@@ -383,7 +384,7 @@ if (diag.real2_3a > 0 | diag.real2_3d > 0 | diag.real2_3g > 0) {
                                                     Receipt_Inf != Receipt_Adj), LoanID])
   datCredit_real[LoanID %in% LoanIDs & Counter==Max_Counter, TreatmentID := paste0(TreatmentID, ";8")]
   
-  # [SANITY CHECK] Are terminal cases behaving as expected?
+  # - [SANITY CHECK] Are terminal cases behaving as expected?
   check_advTreat8a <- datCredit_real[ExclusionID==0 & Counter==Max_Counter & HasSettle==1 &
                                        Receipt_Inf != Receipt_Adj, .N] / 
     datCredit_real[ExclusionID==0 & Counter==Max_Counter & HasSettle==1, .N] *100 == 0 # Should be true
@@ -406,13 +407,14 @@ rm(treat_samp1)
 
 
 
-# --- 9. Advanced Data Treatment 9: Treating zero-valued instalments at end-of-loan-life | See Data Experiment 8
+
+# ============ 6. Advanced Data Treatment 9: Treating zero-valued instalments at end-of-loan-life | See Data Experiment 8 ============
 
 # - Preliminaries
 datCredit_real[ExclusionID == 0, HasZeroIns_Last := ifelse(Instalment[.N] == 0, T, F), by=list(LoanID)]
 datCredit_real[ExclusionID == 0, HasZeroIns_SecondLast := ifelse(Instalment[.N-1] == 0, T, F), by=list(LoanID)]
 
-# [DIAGNOSTIC] Prevalence of zero-valued instalments at the last record
+# - [DIAGNOSTIC] Prevalence of zero-valued instalments at the last record
 diag.real8_3a <- datCredit_real[ExclusionID==0 & Counter==1 & HasZeroIns_Last == T & HasZeroIns_SecondLast == F &
                                   (HasWOff==1 | HasSettle==1 | HasRepaid==1), .N] / 
   datCredit_real[ExclusionID==0 & Counter==1, .N] * 100 
@@ -427,7 +429,7 @@ if (diag.real8_3a > 0) {
       round(diag.real8_3a,digits=2), "% of accounts (", round(diag.real8_3a_rec,digits=2), 
       "% of records as well).\n")
   
-  # [TREATMENT] Copy previous non-zero instalment to last record
+  # - [TREATMENT] Copy previous non-zero instalment to last record
   datCredit_real[ExclusionID==0 & HasZeroIns_Last == T & HasZeroIns_SecondLast == F & 
                    (HasWOff==1 | HasSettle==1 | HasRepaid==1), 
                  Instalment := ifelse(Counter<Max_Counter, Instalment, Instalment[.N-1]),
@@ -440,7 +442,7 @@ if (diag.real8_3a > 0) {
   # - Recalculate affected aggregates
   datCredit_real[ExclusionID == 0, HasZeroIns_Last := ifelse(Instalment[.N] == 0, T, F), by=list(LoanID)]
   
-  # [SANITY CHECK] Are terminal cases behaving as expected?
+  # - [SANITY CHECK] Are terminal cases behaving as expected?
   check_advTreat9 <- datCredit_real[ExclusionID==0 & Counter==1 & HasZeroIns_Last == T & 
                                       HasZeroIns_SecondLast == F & (HasWOff==1 | HasSettle==1 | HasRepaid==1), .N] / 
     datCredit_real[ExclusionID==0 & Counter==1, .N] *100 == 0 # Should be true
@@ -454,7 +456,7 @@ suppressWarnings( datCredit_real[, `:=`(HasZeroIns_Last = NULL, HasZeroIns_Secon
 
 
 
-# --- 10. Advanced Data Treatment 10: Treating zero-valued instalment-regimes at start | See Data Experiment 8
+# ============ 7. Advanced Data Treatment 10: Treating zero-valued instalment-regimes at start | See Data Experiment 8 ============
 
 # - Preliminaries
 datCredit_real[ExclusionID==0, Instalment_NonZero_Pos := which(Instalment>0)[1], by=list(LoanID)]
@@ -462,7 +464,7 @@ datCredit_real[ExclusionID==0, Arrears_Diff := c(0,diff(Arrears)), by=list(LoanI
 datCredit_real[ExclusionID==0 & Instalment_NonZero_Pos > 1, ZeroIns_Length2 := Instalment_NonZero_Pos-1,
                by=list(LoanID)]
 
-# [DIAGNOSTIC] Prevalence of accounts with starting zero-valued instalment-regimes
+# - [DIAGNOSTIC] Prevalence of accounts with starting zero-valued instalment-regimes
 diag.real8_4a <- datCredit_real[ExclusionID==0 & Counter == 1 & Instalment_NonZero_Pos > 1, .N] / 
   datCredit_real[ExclusionID==0 & Counter==1, .N] * 100
 diag.real8_4a_abs <- datCredit_real[ExclusionID==0 & Counter < Instalment_NonZero_Pos & Instalment_NonZero_Pos > 1, .N]
@@ -497,7 +499,7 @@ if (diag.real8_4a > 0) {
   # - Recalculate affected aggregates
   datCredit_real[ExclusionID==0, Instalment_NonZero_Pos := which(Instalment>0)[1], by=list(LoanID)]
   
-  # [SANITY CHECK] Did the treatment succeed?
+  # - [SANITY CHECK] Did the treatment succeed?
   check_advTreat10 <- datCredit_real[ExclusionID==0 & Counter==1 & Instalment_NonZero_Pos > 1, .N] / 
     datCredit_real[ExclusionID==0 & Counter==1, .N] *100 == 0 # Should be true
   cat( check_advTreat10  %?% 
@@ -512,14 +514,12 @@ suppressWarnings( datCredit_real[,`:=`(Instalment_NonZero_Pos = NULL, Arrears_Di
 
 
 
+# ============ 8. Re-applying Exclusions ============
+### NOTE: Previous treatments may have availed additional records for exclusion using
+###       the same logic, albeit applied as a single exclusion this time
 
-# ------ 7. Re-applying Exclusions
-# Previous treatments may have availed additional records for exclusion using
-# the same logic, albeit applied as a single exclusion this time
-
-# --- 1. Old single-record cases | See Data Experiment 4
-
-# [DIAGNOSTIC] Account-level and dataset-wide impacts of exclusion
+# --- 8.1 Old single-record cases | See Data Experiment 4
+# - [DIAGNOSTIC] Account-level and dataset-wide impacts of exclusion
 diag.real4b_2 <-  datCredit_real[ExclusionID == 0 & Counter == 1 & Max_Counter == 1 & 
                                    (Date_Origination < maxDate | is.na(Date_Origination) ), .N] / 
   datCredit_real[ExclusionID == 0 & Counter == 1, .N] * 100 
@@ -538,7 +538,7 @@ if (diag.real4b_2 > 0) {
                              (Date_Origination < maxDate | is.na(Date_Origination)), select="LoanID"))
   datCredit_real[LoanID %in% LoanIDs$LoanID & ExclusionID == 0, ExclusionID := 7]
   
-  # [SANITY CHECK] Treatment success?
+  # - [SANITY CHECK] Treatment success?
   check_excl1_2 <- datCredit_real[ExclusionID == 0 & Counter == 1 & Max_Counter == 1 & 
                                     (Date_Origination < maxDate | is.na(Date_Origination) ), .N]  / 
     datCredit_real[ExclusionID==0 & Counter == 1, .N] * 100 == 0
@@ -547,12 +547,11 @@ if (diag.real4b_2 > 0) {
 }
 
 
-# --- 2. Zero-balance credit histories | See Data Experiment 6
-
+# --- 8.2 Zero-balance credit histories | See Data Experiment 6
 # - Preliminaries
 datCredit_real[ExclusionID==0, HasZeroBalances_all := all(ifelse(Balance <= 0, TRUE, FALSE)), by=list(LoanID)]
 
-# [DIAGNOSTIC] What proportion of account's credit histories have zero balances throughout?
+# - [DIAGNOSTIC] What proportion of account's credit histories have zero balances throughout?
 diag.real6a_2 <- datCredit_real[ExclusionID == 0 & Counter == 1 & HasZeroBalances_all == TRUE, .N] /
   datCredit_real[ExclusionID == 0 & Counter == 1, .N] * 100
 diag.real6a_2_abs <- datCredit_real[ExclusionID == 0 & HasZeroBalances_all == TRUE, .N]
@@ -580,12 +579,11 @@ if (diag.real6a_2 > 0) {
 }
 
 
-# --- 3. Zero-Principal credit histories | See Data Experiment 5
-
+# --- 8.3 Zero-Principal credit histories | See Data Experiment 5
 # - Preliminaries
 datCredit_real[ExclusionID==0, HasZeroPrincipal_all := all(Principal==0), by=list(LoanID)]
 
-# [DIAGNOSTIC] Prevalence of zero-valued Principals throughout the entire account history?
+# - [DIAGNOSTIC] Prevalence of zero-valued Principals throughout the entire account history?
 diag.real5_1d_2 <- datCredit_real[ExclusionID==0 & Counter==1 & HasZeroPrincipal_all==T, .N] /
   datCredit_real[ExclusionID==0 & Counter==1, .N] * 100 
 diag.real5_1d_2_abs <- datCredit_real[ExclusionID==0 & HasZeroPrincipal_all==T, .N]
@@ -606,7 +604,7 @@ if (diag.real5_1d_2 > 0) {
   # - Recalculate affected aggregates
   datCredit_real[ExclusionID==0, HasZeroPrincipal_all := all(Principal==0), by=list(LoanID)]
   
-  # [SANITY CHECK] Treatment success?
+  # - [SANITY CHECK] Treatment success?
   check_excl3_2 <-  datCredit_real[ExclusionID==0 & Counter==1 & HasZeroPrincipal_all==T, .N] / 
     datCredit_real[ExclusionID==0 & Counter == 1, .N] * 100 == 0
   cat( check_excl3_2 %?% 'SAFE: Exclusion 3 successfully re-applied.\n' %:% 
@@ -614,19 +612,18 @@ if (diag.real5_1d_2 > 0) {
 }
 
 
-# --- 4. Zero-Instalment credit histories | See Data Experiment 8
-
+# --- 8.4 Zero-Instalment credit histories | See Data Experiment 8
 # - Preliminaries
 datCredit_real[ExclusionID==0, HasZeroIns_All := ifelse(all(Instalment==0),T,F),by=list(LoanID)]
 datCredit_real[ExclusionID==0, HasZeroArrears_All := ifelse(all(Arrears==0),T,F),by=list(LoanID)]
 
-# [DIAGNOSTIC] Prevalence of account-level zero-valued instalments
+# - [DIAGNOSTIC] Prevalence of account-level zero-valued instalments
 diag.real8_1a_2 <- datCredit_real[ExclusionID==0 & Counter==1 & HasZeroIns_All==T, .N] / 
   datCredit_real[ExclusionID==0 & Counter==1, .N] * 100
 diag.real8_1a_2_abs <- datCredit_real[ExclusionID==0 & HasZeroIns_All==T, .N]
 diag.real8_1a_2_rec <- diag.real8_1a_2_abs / datCredit_real[ExclusionID==0, .N] * 100
 
-# [DIAGNOSTIC] Prevalence of zero-valued arrears amongst zero-valued instalments?
+# - [DIAGNOSTIC] Prevalence of zero-valued arrears amongst zero-valued instalments?
 diag.real8_1c_2 <- datCredit_real[ExclusionID==0 & Counter==1 & HasZeroIns_All==T & HasZeroArrears_All==T, .N] /
   datCredit_real[ExclusionID==0 & Counter==1 & HasZeroIns_All==T, .N] * 100
 
@@ -646,7 +643,7 @@ if (diag.real8_1a_2 > 0 & diag.real8_1c_2 >= 0.9) {
   # - Recalculate affected aggregates
   datCredit_real[ExclusionID==0, HasZeroIns_All := ifelse(all(Instalment==0),T,F),by=list(LoanID)]
   
-  # [SANITY CHECK] Treatment success?
+  # - [SANITY CHECK] Treatment success?
   check_excl4_2 <- datCredit_real[ExclusionID==0 & Counter==1 & HasZeroIns_All==T, .N] / 
     datCredit_real[ExclusionID==0 & Counter == 1, .N] * 100 == 0
   cat( check_excl4_2 %?% 'SAFE: Exclusion 4 successfully re-applied.\n' %:% 
@@ -654,14 +651,15 @@ if (diag.real8_1a_2 > 0 & diag.real8_1c_2 >= 0.9) {
 }
 
 
-# --- Create and add one big exclusion impact to a common table
+# --- 8.5 Housekeeping
+# - Create and add one big exclusion impact to a common table
 datExcl <- data.table("Excl_ID"=7, "Reason"="Rerunning previous exclusions (TruEnd applied), given recent data treatments",
                       "Impact_Account" = diag.real4b_2 + diag.real6a_2 + diag.real5_1d_2 + diag.real8_1a_2,
                       "Impact_Dataset" = diag.real4b_2_rec + diag.real6a_2_rec + diag.real5_1d_2_rec + diag.real8_1a_2_rec,
                       "Impact_records" = diag.real4b_2_abs + diag.real6a_2_abs + diag.real5_1d_2_abs + diag.real8_1a_2_abs)
 if (exists('datExclusions')) datExclusions <- rbind(datExclusions, datExcl) else datExclusions <- datExcl
 
-# --- Clean up | Intermediary treatment-related fields no longer necessary
+# - Clean up | Intermediary treatment-related fields no longer necessary
 suppressWarnings( datCredit_real[,`:=`(HasZeroPrincipal_all = NULL, HasZeroBalances_all = NULL,
                                        HasZeroIns_All = NULL, HasZeroArrears_All = NULL)] )
 gc()
@@ -672,13 +670,14 @@ pack.ffdf(paste0(genObjPath,"Exclusions-TruEnd"), datExclusions);
 
 
 
+# ============ 9. Housekeeping ============
 
-# ------ 8. General Cleanup | Remove fields that will not likely be used
+# - General Cleanup | Remove fields that will not likely be used
 suppressWarnings( datCredit_real[, `:=`(WOFF_DATE = NULL, RMNG_TERM = NULL, BOND_AMT = NULL, 
                                         FACILITY_SIZE = NULL, DATEX = NULL)] )
-### NOTES: See Data Experiment 2 on WOFF_DATE's removal
+### NOTE: See Data Experiment 2 on WOFF_DATE's removal
 
-# [SANITY CHECK] Confirm dataset's grain
+# - [SANITY CHECK] Confirm dataset's grain
 check_cred3a <- datCredit_real[,list(Freqs = .N), by=list(LoanID, Date)][Freqs > 1,.N]
 cat( (check_cred3a == 0) %?% cat('SAFE: Grain of {datCredit_real} confirmed.\n') %:% 
        cat(paste0('ERROR: Grain broken in {datCredit_real} for ', check_cred3b, " cases.\n")) )
@@ -690,3 +689,6 @@ pack.ffdf(paste0(genPath,"creditdata_final2"), datCredit_real)
 # - Logging
 cat('Data finalised, with TruEnd-procedure applied.\n')
 proc.time() - ptm3 # IGNORE: elapsed runtime
+
+
+

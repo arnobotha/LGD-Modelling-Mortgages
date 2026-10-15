@@ -34,7 +34,7 @@
 
 
 
-# ------ 1. Model fitting
+# ============ 1. Model fitting ============
 
 # --- 1.1 Load and prepare datasets
 # - Confirm prepared datasets are loaded into memory
@@ -174,7 +174,7 @@ datCredit <- subset(datCredit, OOB_Ind==0)
 
 
 
-# ------ 2. Comparing loss rates quantitatively (account-level)
+# ============ 2. Comparing loss rates quantitatively (account-level) ============
 
 # --- 2.1 Compare loss rates
 # - Create labeling object
@@ -267,7 +267,7 @@ ggsave(LGD_metric, file=paste0(genFigPath,"/LGD_metrics.png"),width=30, height=1
 
 
 
-# ------ 3. Graphing LGDs over time
+# ============ 3. LGDs over time ============
 
 # --- 3.1 Aggregate loss rates
 # - Aggregate loss rates

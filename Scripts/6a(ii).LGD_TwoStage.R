@@ -1,4 +1,4 @@
-# ================= LGD DISTRIBUTION ANALYSIS - ONE-STAGE MODELS ===============
+# ================= LGD DISTRIBUTION ANALYSIS - Two-STAGE MODELS ===============
 # Comparing actual LGDs with expected LGDs from the fitted probability and 
 # severity models
 # ------------------------------------------------------------------------------
@@ -31,7 +31,7 @@
 # ==============================================================================
 
 
-# ------ 1. Preliminaries
+# ============ 1. Preliminaries ============
 
 # --- 1.1 Load and prepare datasets
 # - Confirm prepared datasets are loaded into memory
@@ -133,17 +133,29 @@ datCredit <- merge(datCredit, datHaz[, list(Node, Time, EventRate_survtree=Event
 datCredit[, LossSeverity:=predict(modGLM_Severity_CPG, newdata=datCredit, type="response")]
 
 # - Interact severities and probabilities
-# Basic discrete time hazard model
-datCredit[, LossRate_est_bas:=LossSeverity*EventRate_bas]
-# Advanced discrete time hazard model
-datCredit[, LossRate_est_adv:=LossSeverity*EventRate_adv]
-# Classical logistic regression model
-datCredit[, LossRate_est_classic:=LossSeverity*EventRate_classic]
-# Survival tree
-datCredit[, LossRate_est_survtree:=LossSeverity*EventRate_survtree]
+datCredit[, `:=`(LossRate_est_bas=LossSeverity*EventRate_bas, # Basic discrete time hazard model
+                 LossRate_est_adv=LossSeverity*EventRate_adv, # Advanced discrete time hazard model
+                 LossRate_est_classic=LossSeverity*EventRate_classic, # Classical logistic regression model
+                 LossRate_est_survtree=LossSeverity*EventRate_survtree)] # Survival tree
+
+# --- 1.6 Full write-off probabilities
+### MM: This can be removed if not sucessfull
+# - Calculate rolling write-off predictions over the default spell
+datCredit[order(DefSpell_Key, DefSpell_Counter),
+          `:=`(WriteOff_Prob_adv=rev(cumsum(rev(replace(EventRate_adv, is.na(EventRate_adv), 0)))),
+               WriteOff_Prob_bas=rev(cumsum(rev(replace(EventRate_bas, is.na(EventRate_bas), 0)))),
+               WriteOff_Prob_classic=rev(cumsum(rev(replace(EventRate_classic, is.na(EventRate_classic), 0)))),
+               WriteOff_Prob_survtree=rev(cumsum(rev(replace(EventRate_survtree, is.na(EventRate_survtree), 0))))),
+          by=list(DefSpell_Key)]
+
+# - Interact full probabilities with severities
+datCredit[, `:=`(LossRate_est_bas_alt=LossSeverity*WriteOff_Prob_bas, # Basic discrete time hazard model
+                 LossRate_est_adv_alt=LossSeverity*WriteOff_Prob_adv, # Advanced discrete time hazard model
+                 LossRate_est_classic_alt=LossSeverity*WriteOff_Prob_classic, # Classical logistic regression model
+                 LossRate_est_survtre_alte=LossSeverity*WriteOff_Prob_survtree)] # Survival tree
 
 
-# --- 1.6 Subset data
+# --- 1.7 Subset data
 # - Filter to maximum spell counter
 # datCredit <- subset(datCredit, DefSpell_Counter==1)
 # datCredit <- datCredit[, .SD[which.max(DefSpell_Counter)], by=DefSpell_Key]
@@ -161,7 +173,7 @@ datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")
 
 
 
-# ------ 2. Comparing actual and expected severities
+# ============ 2. Distributions of actual and expected severities ============
 
 # --- 2.1 Prepare data for plotting
 # - Filter for the last default spell observations
@@ -226,7 +238,7 @@ ggsave(g_WOFFs, file=paste0(genFigPath,"/ActvsExp_twostage_LossSeverities.png"),
 
 
 
-# ------ 3. LGDs from basic discrete time hazard model and the severity model
+# ============ 3. Distributions of LGDs from basic discrete time hazard model and the severity model ============
 
 # --- 3.1 Compare overall expected LGDs with actuals
 # - Filter for non-sensical loss rates
@@ -332,7 +344,7 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_DtH_Bas_A.png"),wid
 
 
 
-# ------ 4. LGDs from advanced discrete time hazard model and the severity model
+# ============ 4. Distributions of LGDs from advanced discrete time hazard model and the severity model ============
 
 # --- 4.1 Compare overall expected LGDs with actuals
 # - Filter for non-sensical loss rates
@@ -386,7 +398,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 # - Filter for non-sensical loss rates
 datCredit_WOFFs[, LossRate_est_adv := ifelse(LossRate_est_adv<=1 & LossRate_est_adv>=0, LossRate_est_adv, NA)]
 
-# Mean expected loss
+# - Mean expected loss
 (MeanLoss_exp_W <- mean(datCredit_WOFFs$LossRate_est_adv, na.rm=T))
 
 # - Create plotting data
@@ -438,7 +450,7 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_DtH_Adv_A.png"),wid
 
 
 
-# ------ 5. LGDs from classical logistic regression model and the severity model
+# ============ 5. LGDs from classical logistic regression model and the severity model ============
 
 # --- 5.1 Compare overall expected LGDs with actuals
 # - Filter for non-sensical loss rates
@@ -492,7 +504,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 # - Filter for non-sensical loss rates
 datCredit_WOFFs[, LossRate_est_classic := ifelse(LossRate_est_classic<=1 & LossRate_est_classic>=0, LossRate_est_classic, NA)]
 
-# Mean expected loss
+# - Mean expected loss
 (MeanLoss_exp_W <- mean(datCredit_WOFFs$LossRate_est_classic, na.rm=T))
 
 # - Create plotting data
@@ -543,7 +555,7 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_LR_A.png"),width=12
 
 
 
-# ------ 6. LGDs from survival tree and the severity model
+# ============ 6. LGDs from survival tree and the severity model ============
 
 # --- 6.1 Compare overall expected LGDs with actuals
 # - Filter for non-sensical loss rates
@@ -653,3 +665,115 @@ suppressWarnings(rm(datCredit, datCredit_train, datCredit_valid, datAdd, datCred
    datCredit_WOFFs, modLR_Adv, modLR_Bas, modLR_Classic, modGLM_Severity_CPG,
    g1, g2, gOverlay, gOverlay_hist, gOverlay_WOFFs, plot.full, plotData))
 gc()
+
+
+
+
+
+
+
+
+# ============ 7. Distributions of LGDs from advanced discrete time hazard model and the severity model ============
+### MM: Note this is for an experiment with using the full write-off probability and not just the single event rate
+
+# --- 7.1 Compare overall expected LGDs with actuals
+# - Filter for non-sensical loss rates
+datCredit[, LossRate_est_adv_alt := ifelse(LossRate_est_adv_alt<=1 & LossRate_est_adv_alt>=0, LossRate_est_adv_alt, NA)]
+
+# - Estimate statistics on distributional differences
+metrics<-evalModel_twostage(data_train=datCredit, actField="LossRate_Real", estField="LossRate_est_adv_alt")
+
+# Mean expected loss
+(MeanLoss_exp <- mean(datCredit$LossRate_est_adv_alt, na.rm=T))
+
+# - Create plotting data
+stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
+                    "KL: ", sprintf("%.4f", metrics$KL), "\n",
+                    "JS: ", sprintf("%.4f", metrics$JS),
+                    sep = "")
+
+# - Create plotting dataset
+plotData <- melt(datCredit, measure.vars=c("LossRate_Real", "LossRate_est_adv_alt"),
+                 variable.name="Type",value.name="LossRate")
+plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_adv_alt"),
+                        labels=c("Empirical", "DtH-Advanced A"))]
+plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
+
+# - Graphing parameters
+chosenFont <-"Cambria"
+vCol <- brewer.pal(10, "Paired")[c(8,6)]
+
+# - Plot
+(gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
+    theme_bw() +
+    geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type),
+                   alpha=0.35,bins=50, position="identity") +
+    geom_vline(xintercept=MeanLoss_exp, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
+    annotate(geom="text", x=MeanLoss_exp*1.1,  y=3, family=chosenFont,
+             label = paste0(sprintf("%.1f", MeanLoss_exp*100), "%"), size=3, colour=vCol[2], angle=90) +
+    labs(x=bquote({Realised~loss~rate~italic(L)}), y="Histogram of loss rates" ) +
+    theme(text=element_text(family=chosenFont),legend.position="bottom",
+          strip.background=element_rect(fill="snow2", colour="snow2"),
+          strip.text=element_text(size=8, colour="gray50"),
+          strip.placement="outside",        
+          strip.text.y.right=element_text(angle = 90)) +
+    scale_x_continuous(breaks=pretty_breaks(), labels = scales::percent) +
+    scale_colour_manual(values=c(vCol[1], vCol[2])) +
+    scale_fill_manual(values=c(vCol[1], vCol[2])) +
+    facet_grid(FacetLabel ~., scales="free")+
+    guides(fill=guide_legend(title = NULL), colour=guide_legend(title = NULL)))
+
+
+# --- 7.2 Compare expected write-off LGDs with actuals
+# - Filter for non-sensical loss rates
+datCredit_WOFFs[, LossRate_est_adv_alt := ifelse(LossRate_est_adv_alt<=1 & LossRate_est_adv_alt>=0, LossRate_est_adv_alt, NA)]
+
+# - Mean expected loss
+(MeanLoss_exp_W <- mean(datCredit_WOFFs$LossRate_est_adv_alt, na.rm=T))
+
+# - Create plotting data
+plotData <- melt(datCredit_WOFFs, measure.vars = c("LossRate_Real", "LossRate_est_adv_alt"),
+                 variable.name = "Type",value.name = "LossRate")
+plotData[, Type := factor(Type,levels = c("LossRate_Real", "LossRate_est_adv_alt"),
+                          labels = c("Actual loss rate", "DtH-Advanced A"))]
+plotData[, FacetLabel := "Resolved defaults [cures/write-offs]"]
+
+# - Plot
+(gOverlay_WOFFs <- ggplot(plotData, aes(x=LossRate)) + 
+    theme_bw() +
+    geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type), alpha=0.35,
+                   bins=50, position="identity") +
+    geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
+    annotate(geom="text", x=MeanLoss_exp_W*1.1,  y=2, family=chosenFont,
+             label = paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +     
+    theme(legend.position="none",text=element_text(size=12, family=chosenFont),
+          axis.text.y=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
+          axis.text.x=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
+          axis.title.x=element_blank(), axis.title.y=element_blank(),
+          axis.ticks=element_blank(), panel.grid.major=element_blank(),
+          panel.grid.minor=element_blank(),
+          panel.background=element_rect(color="black", fill="white"),
+          plot.background=element_rect(color="white"),
+          plot.margin=unit(c(0,0,0,0),"mm"),
+          strip.background=element_rect(fill="snow2", colour="snow2"),
+          strip.text=element_text(size=8, colour="gray50"),
+          strip.text.y.right=element_text(angle=90)) +
+    annotate("label", x=0.5, y=4, label=stats_text,
+             hjust=0, vjust=1, family=chosenFont,
+             size=4, fill="white", colour="black", label.size=0.5) +
+    labs(x="", y="", title=paste0("Write-offs only")) +
+    scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
+    scale_colour_manual(values=c(vCol[1], vCol[2])) +
+    scale_fill_manual(values   = c(vCol[1], vCol[2])))
+
+
+# --- 4.3 Combine and save graphs
+# - Combine graphs
+ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
+ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
+(plot.full <- gOverlay + annotation_custom(grob = ggplotGrob(gOverlay_WOFFs), xmin=0.2, xmax=1, ymin=ymin, ymax=ymax))
+
+# - Save plot
+dpi <- 240
+ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_twostage_DtH_Adv_A_FullWOffProb.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+

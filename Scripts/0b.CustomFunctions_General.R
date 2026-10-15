@@ -1240,7 +1240,7 @@ predSurv <- function(survTree, datGiven, fld_DefSpell_Age, fld_DefSpell_Event,
   
   # - Data corrections
   # Take last known survival probabilities for missing periods (where no events occured)
-  datSurv_full[, Surv:=na.locf(Surv, na.rm=FALSE), by=Node]
+  datSurv_full[, Surv:=zoo::na.locf(Surv, na.rm=FALSE), by=Node]
   # Replace all NA values with 1 since these constitute the start times of nodes with no events
   datSurv_full[is.na(Surv),Surv:=1]
   
