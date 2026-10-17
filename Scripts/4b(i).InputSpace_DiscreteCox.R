@@ -33,6 +33,10 @@ if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train
 # Validation
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
+# - Ensure order of data is correct
+setorder(datCredit_train_CDH, c("LoanID", "Date"))
+setorder(datCredit_valid_CDH, c("LoanID", "Date"))
+
 # - Use only default spells
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
@@ -41,7 +45,7 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 
-# --- 1.2 Fit prelimenary models
+# --- 1.2 Fit preliminary models
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
