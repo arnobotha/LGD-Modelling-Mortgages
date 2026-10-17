@@ -183,6 +183,10 @@ datCredit[, LossRate_est_survtree:=ifelse(LossRate_est_survtree<0 | LossRate_est
 
 
 # --- 1.8 Subset data
+# - Filter to maximum spell counter
+# datCredit <- subset(datCredit, DefSpell_Counter==1)
+# datCredit <- datCredit[, .SD[which.max(DefSpell_Counter)], by=DefSpell_Key]
+
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
 
@@ -270,9 +274,6 @@ ggsave(g_WOFFs, file=paste0(genFigPath,"Deprecated/Full Write-off Probabilities/
 # ============ 3. Distributions of LGDs from basic discrete time hazard model and the severity model ============
 
 # --- 3.1 Compare overall expected LGDs with actuals
-# - Filter for non-sensical loss rates
-datCredit[, LossRate_est_bas:=ifelse(LossRate_est_bas<=1 & LossRate_est_bas>=0, LossRate_est_bas, NA)]
-
 # - Estimate statistics on distributional differences
 metrics<-evalModel_twostage(data_train=datCredit, actField="LossRate_Real", estField="LossRate_est_bas")
 
@@ -388,9 +389,6 @@ ggsave(plot.full, file=paste0(genFigPath,"Deprecated/Full Write-off Probabilitie
 # ============ 4. Distributions of LGDs from advanced discrete time hazard model and the severity model ============
 
 # --- 4.1 Compare overall expected LGDs with actuals
-# - Filter for non-sensical loss rates
-datCredit[, LossRate_est_adv:=ifelse(LossRate_est_adv<=1 & LossRate_est_adv>=0, LossRate_est_adv, NA)]
-
 # - Estimate statistics on distributional differences
 metrics<-evalModel_twostage(data_train=datCredit, actField="LossRate_Real", estField="LossRate_est_adv")
 
@@ -506,10 +504,7 @@ ggsave(plot.full, file=paste0(genFigPath,"Deprecated/Full Write-off Probabilitie
 # ============ 5. LGDs from classical logistic regression model and the severity model ============
 
 # --- 5.1 Compare overall expected LGDs with actuals
-# - Filter for non-sensical loss rates
-datCredit[, LossRate_est_classic:=ifelse(LossRate_est_classic<=1 & LossRate_est_classic>=0, LossRate_est_classic, NA)]
-
-# Mean expected loss
+# - Mean expected loss
 (MeanLoss_act <- mean(datCredit$LossRate_Real, na.rm=T))
 (MeanLoss_exp <- mean(datCredit$LossRate_est_classic, na.rm=T))
 
@@ -623,9 +618,6 @@ ggsave(plot.full, file=paste0(genFigPath,"Deprecated/Full Write-off Probabilitie
 # ============ 6. LGDs from survival tree and the severity model ============
 
 # --- 6.1 Compare overall expected LGDs with actuals
-# - Filter for non-sensical loss rates
-datCredit[, LossRate_est_survtree:=ifelse(LossRate_est_survtree<=1 & LossRate_est_survtree>=0, LossRate_est_survtree, NA)]
-
 # - Mean expected loss
 (MeanLoss_act <- mean(datCredit$LossRate_Real, na.rm=T))
 (MeanLoss_exp <- mean(datCredit$LossRate_est_survtree, na.rm=T))
