@@ -7,12 +7,6 @@
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Data_Prepare_Credit_Advanced.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
-#   - 2d.Data_Enrich.R
-#   - 2f.Data_Fusion1.R
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:
@@ -26,7 +20,7 @@
 
 
 
-# ------ 1. Preliminaries
+# ============ 1. Preliminaries ============
 
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
@@ -57,7 +51,7 @@ modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
 
 
 
-# ------ 2. Delinquency-themed variables
+# ============ 2. Delinquency-themed variables ============
 
 # --- 2.1 Selection of delinquency volatility variables
 # - Initialize variables to be tested
@@ -185,7 +179,7 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 
 
-# ------ 3. Other portfolio-level variables
+# ============ 3. Other portfolio-level variables ============
 
 # --- 3.1 Median portfolio-level interest rates
 # - Initialize variables to be tested
@@ -251,7 +245,7 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 
 
-# ------ 4. Account-level variables
+# ============ 4. Account-level variables ============
 
 # --- 4.1 How do various non-delinquency account-level variables fare as single-factor models?
 # - Initialize variables to be tested
@@ -262,18 +256,18 @@ vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean",
 # - Correlation analysis towards obtaining clusters of correlated variables
 corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
 ### RESULTS:
-# Absolute correlations of  97%  found for  [Principal_Real] and [Principal ]
-# Absolute correlations of  84%  found for  [Principal_Real] and [Balance_Real_1] 
-# Absolute correlations of  80%  found for  [Principal]  and  [Balance_Real_1] 
-# Absolute correlations of  82%  found for  [Principal_Real] and [Balance_1] 
-# Absolute correlations of  82%  found for  [Principal] and [Balance_1]
-# Absolute correlations of  98%  found for  [Balance_Real_1] and [Balance_1]
-# Absolute correlations of  91%  found for  [Principal_Real] and [Instalment_Real] 
-# Absolute correlations of  89%  found for  [Principal] and [Instalment_Real]
-# Absolute correlations of  82%  found for  [Balance_Real_1] and [Instalment_Real]
-# Absolute correlations of  81%  found for  [Balance_Real_1] and [Instalment_Real]
-# Absolute correlations of  70%  found for  [Balance_Real_1] and [BalanceToPrincipal_1]
-# Absolute correlations of  70%  found for  [Balance_1] and [BalanceToPrincipal_1]
+###   Absolute correlations of  97%  found for  [Principal_Real] and [Principal ]
+###   Absolute correlations of  84%  found for  [Principal_Real] and [Balance_Real_1] 
+###   Absolute correlations of  80%  found for  [Principal]  and  [Balance_Real_1] 
+###   Absolute correlations of  82%  found for  [Principal_Real] and [Balance_1] 
+###   Absolute correlations of  82%  found for  [Principal] and [Balance_1]
+###   Absolute correlations of  98%  found for  [Balance_Real_1] and [Balance_1]
+###   Absolute correlations of  91%  found for  [Principal_Real] and [Instalment_Real] 
+###   Absolute correlations of  89%  found for  [Principal] and [Instalment_Real]
+###   Absolute correlations of  82%  found for  [Balance_Real_1] and [Instalment_Real]
+###   Absolute correlations of  81%  found for  [Balance_Real_1] and [Instalment_Real]
+###   Absolute correlations of  70%  found for  [Balance_Real_1] and [BalanceToPrincipal_1]
+###   Absolute correlations of  70%  found for  [Balance_1] and [BalanceToPrincipal_1]
 
 # - Refine variables given insights from correlation analyses
 ### NOTE: - Inflation adjusted variables preferred over their non-adjusted counterparts
@@ -299,7 +293,7 @@ table_Assess[order(C, decreasing=T)]
 
 
 
-# ------ 5. Macroeconomic variables
+# ============ 5. Macroeconomic variables ============
 
 # --- 5.1 Which lag order is the best for: M_Repo_Rate
 # - Initialize variables to be tested
@@ -444,7 +438,7 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 
 
-# ------ 6. Combine variables from all themes
+# ============ 6. Combine variables from all themes ============
 
 # --- 6.1 Run an automated selection procedure on the entire set
 # - Initialise set of variables
@@ -508,7 +502,7 @@ evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 
 
-# ------ 9. Final model
+# ============ 9. Final model ============
 
 # --- 9.1 Preliminaries
 # - Confirm prepared datasets are loaded into memory

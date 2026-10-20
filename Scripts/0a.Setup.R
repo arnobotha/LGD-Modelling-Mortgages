@@ -21,16 +21,15 @@
 # =======================================================================================
 
 
-# ================ 0. Library setup
+# ============ 1. Library setup ============
 
-# ------ Install and load packages
-# - data access and big data management
+# - Data access and big data management
 require(haven) # for SAS imports
 require(ETLUtils)
 require(ffbase)
 tempPath <- "C:/TempData"; options("fftempdir"=tempPath)
 
-# for data wrangling
+# - Data wrangling
 require(tidyr)
 require(dplyr)
 require(data.table)
@@ -40,27 +39,23 @@ require(bit64) # for very big numeric values
 require(stringr) # common string operations, e.g, str_pad
 require(purrr) # mapping functions from tidyverse in working with matrices, lists
 
-# for advanced looping functionality in simulation tasks
+# - Advanced looping functionality in simulation tasks
 require(doBy)
 require(foreach)
 require(doParallel)
 
-# for analyses
+# - Analyses
 require(Hmisc)
 require(moments) # for using skewness() function
 require(regclass) # for VIF
 require(DEoptimR) # For optimisation via differential evolution algorithms
 
-# for modelling
+# - Modelling
 require(survival) # for survival modelling
 require(zoo)
 require(car)
 require(partykit) # for fitting conditional inference survival trees
 require(survivalROC) # for time-dependent ROC-analysis from Heagerty et al.
-#require(survAUC) # for time-dependent ROC-analysis (alternative from Potapov et al.)
-#require(tdROC) # for time-dependent ROC-analysis ([outdated?] alternative from Li et al.)
-#require(timeROC) # for time-dependent ROC-analysis from Blanche2013 (disavowed in script 0b(iii)). DO NOT USE IN CREDIT DOMAIN
-#require(risksetROC) # for time-dependent ROC-analysis (I/D Cox regression method from Heagerty, P.J., Zheng Y. (2005))
 require(pROC); require(ROCR) # both for cross-sectional ROC-analysis (main:pROC)
 require(MASS)
 require(sandwich) # for robust variance estimators when using weights in glm()
@@ -70,7 +65,8 @@ require(tweedie)
 require(pcaPP)
 require(caret)
 require(MST) # for survival trees
-#for plots
+
+# - Plots
 require(ggplot2)
 require(ggpp) # Extensions to ggplot2, particularly geom_table
 require(scales)
@@ -80,16 +76,18 @@ require(extrafont) #remotes::install_version("Rttf2pt1", version = "1.3.8"); Sys
 require(survminer)
 require(gridExtra)
 require(corrplot)
-#require(Metrics)
 require(dplyr)
 require(patchwork)
 require(ggtext)
 
 
-# ================ 1. Parametrisation
 
-# - general R options
-options(scipen=999) # Suppress showing scientific notation
+
+# ============ 2. Parametrisation ============
+
+# --- 2.1 General R options
+# - Suppress showing scientific notation
+options(scipen=999)
 
 # - Parameters used in calculating delinquency measures
 sc.Thres <- 0.9; # repayment ratio - g1
@@ -97,8 +95,7 @@ d <- 3 # default threshold for g0/g1-measures of delinquency (payments in arrear
 k <- 6 # Probation period
 
 
-# -- Path variables | General
-
+# --- 2.2 Path variables | General
 # - Common path for saving big data objects
 genPath <- "C:/Data/LossModelling-Mortgages_Data/"
 
@@ -106,7 +103,7 @@ genPath <- "C:/Data/LossModelling-Mortgages_Data/"
 genRawPath <- "C:/Data/"
 
 
-# -- Path variables | User-dependent
+# --- 2.3 Path variables | User-dependent
 
 if (Sys.getenv("USERNAME") == "arnos") { # Kralkatorrik-machine
   # - Custom path where R-scripts are saved
@@ -179,9 +176,11 @@ if (Sys.getenv("USERNAME") == "arnos") { # Kralkatorrik-machine
   stop("User-specific paths not set for current user: ", Sys.getenv("USERNAME"), ". Please fix in Setup script (0.Setup.R) before continuing")
 }
 
-# ================ 2. Custom functions
 
-# ------ Custom function definitions
+
+
+# ============ 3. Custom functions ============
+
 # - Load all custom functions defined in a separate R-script
 source(paste0(path_cust,"0b.CustomFunctions_General.R"))
 source(paste0(path_cust,"0c.Custom_Functions_VarSelect.R"))
@@ -196,3 +195,23 @@ source(paste0(path_cust,'DelinqM.R'))
 
 # - Compile the TruEnd-suite of evaluation (and auxiliary) functions
 source(paste0(path_cust,'TruEnd.R'))
+
+
+
+
+# ============ 3. For cleaning the environment  ============
+
+# - Create a map of all variables and custom functions loaded into the enviroment
+environSetup <- c("environSetup", ls())
+
+# - Function to clean environment
+cleanEnviron <- function(vars=environSetup){
+  # vars <- environSetup
+  vars <- ls()[!(vars %in% ls())]
+  rm(list=setdiff(ls(envir=.GlobalEnv), vars), envir=.GlobalEnv); invisible(gc())
+}
+# cleanEnviron()
+
+
+
+

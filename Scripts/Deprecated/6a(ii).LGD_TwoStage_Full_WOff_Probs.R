@@ -7,17 +7,12 @@
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Data_Prepare_Credit_Advanced.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
-#   - 2d.Data_Enrich.R
-#   - 2f.Data_Fusion1.R
-#   - 2g.Data_Fusion2.R
 #   - 4b(i).InputSpace_DiscreteCox.R
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
 #   - 4d.InputSpace_TwoStage_LossSeverity.R
+#   - 4e.SurvivalTrees.R
+#
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
@@ -26,6 +21,8 @@
 #   - modLR_Classic | Classical logistic regression model as fitted in script 4c
 #   - modGLM_Severity_CPG | Single stage GLM model with a Tweedie link function
 #                           as fitted in script 4d
+#   - SurvTree_CTree | Survival tree as fitted in script 4e
+#
 # -- Outputs:
 #   - <Analytics> | Graphs
 # ==============================================================================
@@ -53,10 +50,6 @@ datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key))
 # - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
 datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
 datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
-
-# - Weigh default cases, as determined interactively based on calibration success (script 6e)
-datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
-datCredit_valid[, Weight:=ifelse(DefSpell_Event==1,1,1)]
 
 # - Transform categorical variables to factor
 # Payment method
@@ -104,6 +97,7 @@ modGLM_Severity_CPG <- readRDS(paste0(genObjPath,"Severity_CPH_Model.rds"))
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
 datCredit[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
+### MM: The logistic regression model does not produce a hazard rate, it produces the full probability of writing-off??
 
 # - Derive survival probability S(t) = prod(1 - hazard)
 datCredit[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
@@ -135,6 +129,9 @@ datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_sm
 datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, EventRate_survtree=EventRate)],
                    by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T)
 
+# - Ensure order of data is correct
+setorder(datCredit, LoanID, Date)
+
 
 # --- 1.5 Estimate loss severities
 # - Forecast severities
@@ -155,15 +152,22 @@ datCredit[order(DefSpell_Key, DefSpell_Counter),
           by=list(DefSpell_Key)]
 
 # - Interact full probabilities with severities
-datCredit[, `:=`(LossRate_est_bas=LossSeverity*WriteOff_Prob_bas, # Basic discrete time hazard model
-                 LossRate_est_adv=LossSeverity*WriteOff_Prob_adv, # Advanced discrete time hazard model
-                 LossRate_est_classic=LossSeverity*WriteOff_Prob_classic, # Classical logistic regression model
-                 LossRate_est_survtree=LossSeverity*WriteOff_Prob_survtree)] # Survival tree
+datCredit[, `:=`(LossRate_est_bas=LossSeverity*EventRate_bas, # Basic discrete time hazard model
+                 LossRate_est_adv=LossSeverity*EventRate_adv, # Advanced discrete time hazard model
+                 LossRate_est_classic=LossSeverity*EventRate_classic, # Classical logistic regression model
+                 LossRate_est_survtree=LossSeverity*EventRate_survtree)] # Survival tree
+datCredit[, `:=`(LossRate_est_bas_Full=LossSeverity*WriteOff_Prob_bas, # Basic discrete time hazard model
+                 LossRate_est_adv_Full=LossSeverity*WriteOff_Prob_adv, # Advanced discrete time hazard model
+                 LossRate_est_classic_Full=LossSeverity*WriteOff_Prob_classic, # Classical logistic regression model
+                 LossRate_est_survtree_Full=LossSeverity*WriteOff_Prob_survtree)] # Survival tree
+datCredit[, `:=`(LossRate_est_classic_Alt=LossSeverity*Hazard_classic)]
 
 # - Get a lookup to check predictions
-lookup <- datCredit[DefSpell_Key==unique(datCredit[DefSpell_Age>=30 & LossRate_Real!=0, DefSpell_Key])[5000],
-                    c("DefSpell_Key", "TimeInDefSpell", "Date", "EventRate_adv", "WriteOff_Prob_adv", "LossSeverity",
-                      "LossRate_est_adv", "LossRate_Real")]
+lookup <- datCredit[DefSpell_Key==unique(datCredit[DefSpell_Age>=30 & LossRate_Real>0, DefSpell_Key])[3000],
+                    c("DefSpell_Key", "TimeInDefSpell", "Date",
+                      "EventRate_adv", "LossSeverity", "LossRate_est_adv", "LossRate_Real",
+                      "WriteOff_Prob_adv", "LossSeverity", "LossRate_est_adv_Full", "LossRate_Real",
+                      "Hazard_classic", "LossSeverity", "LossRate_est_classic_Alt", "LossRate_Real")]
 
 
 # --- 1.7 Correct for non-sensical loss rates

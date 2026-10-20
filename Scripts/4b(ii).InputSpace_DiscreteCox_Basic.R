@@ -3,16 +3,10 @@
 # compiling an input space for a basic discrete-time hazard model.
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Data_Prepare_Credit_Advanced.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
-#   - 2d.Data_Enrich.R
-#   - 2f.Data_Fusion1.R
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:
@@ -25,8 +19,8 @@
 
 
 
+# ============ 1. Preliminaries ============
 
-# ------ 1. Preliminaries
 # --- 1.1 Load data
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
@@ -51,7 +45,7 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 
 
-# ------ 2. Final model
+# ============ 2. Final model ============
 ### NOTE: Selection based on expert judgement only
 
 # - Final variables

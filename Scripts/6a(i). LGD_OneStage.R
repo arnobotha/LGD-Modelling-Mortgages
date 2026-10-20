@@ -27,7 +27,7 @@
 # ==============================================================================
 
 
-# ------ 1. Preliminaries
+# ============ 1. Preliminaries ============
 
 # --- 1.1 Load and prepare datasets
 # - Confirm prepared datasets are loaded into memory
@@ -66,7 +66,7 @@ modGLM_OneStage_CPG <- readRDS(paste0(genObjPath,"OneStage_CPH_Model.rds"))
 
 
 
-# ------ 2. Actual overall LGDs
+# ============ 2. Actual overall LGDs ============
 
 # --- 2.1 Create graphs
 # - Graphing parameters
@@ -133,7 +133,7 @@ ggsave(plot.full, file=paste0(genFigPath,"/Actual_LGD.png"),width=1200/dpi, heig
 
 
 
-# ------ 3. LGDs from Gaussian model
+# ============ 3. LGDs from Gaussian model ============
 
 # --- 3.1 Compare overall expected LGDs with actuals
 # - Render predictions with model
@@ -141,7 +141,7 @@ datCredit[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit,t
 datCredit_WOFFs[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit_WOFFs,type="response")]
 
 # - Filter for non-sensical loss rates
-datCredit[, LossRate_Gaussian := ifelse(LossRate_Gaussian<=1 & LossRate_Gaussian>=0, LossRate_Gaussian, NA)]
+datCredit[, LossRate_Gaussian:=ifelse(LossRate_Gaussian<=1 & LossRate_Gaussian>=0, LossRate_Gaussian, NA)]
 #datCredit <- subset(datCredit, LossRate_Gaussian<=1 & LossRate_Gaussian>=0)
 
 # - Estimate statistics on distributional diffirences
@@ -240,7 +240,7 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_gaussian.png"),widt
 
 
 
-# ------ 4. LGDs from Tweedie model
+# ============ 4. LGDs from Tweedie model ============
 
 # --- 4.1 Compare overall expected LGDs with actuals
 # - Render predictions with model
@@ -350,3 +350,13 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_tweedie.png"),width
 suppressWarnings(rm(datCredit, datCredit_WOFFs, datCredit_train, datCredit_valid, modGLM_OneStage_CPG, modGLM_OneStage_Gaus, 
    plotData, g1, g2, gOverlay, gOverlay_WOFF, plot.full))
 gc()
+
+
+
+
+# ============ 5. Housekeeping ============
+
+cleanEnviron()
+
+
+

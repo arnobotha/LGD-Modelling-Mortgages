@@ -3,16 +3,10 @@
 # compiling an input space for an advanced logistic regression model.
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Data_Prepare_Credit_Advanced.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
-#   - 2d.Data_Enrich.R
-#   - 2f.Data_Fusion1.R
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:
@@ -23,7 +17,10 @@
 #   - modLR | Final logistic regression modeling object
 # ------------------------------------------------------------------------------
 
-# ------ 1. Preliminaries
+
+
+# ============ 1. Preliminaries ============
+
 # --- 1.1. Load data
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
@@ -49,7 +46,7 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 
 
-# ------ 2. Delinquency-themed variables
+# ============ 2. Delinquency-themed variables ============
 
 # --- 2.1 Selection of delinquency volatility variables
 # - Initialize variables to be tested
@@ -187,7 +184,8 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 
 
 
-# ------ 3. Other portfolio-level variables
+# ============ 3. Other portfolio-level variables ============
+
 # --- 3.1 Selection of the portfolio median interest rate margin
 # - Set initial variables to be tested
 vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "InterestRate_Margin_Aggr_Med_2",
@@ -249,7 +247,8 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 
 
 
-# ------ 4. Account-level variables
+# ============ 4. Account-level variables ============
+
 # --- 4.1 Selection of non-delinquency related account-level variables
 # - Set initial variables to be tested
 vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean", 
@@ -299,7 +298,8 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 
 
 
-# ------ 5. Macroeconomic variables
+# ============ 5. Macroeconomic variables ============
+
 # --- 5.1 Which lag order is the best for: [M_Repo_Rate]
 # - Set initial variables to be tested
 vars <- c("M_Repo_Rate", "M_Repo_Rate_1 ", "M_Repo_Rate_2", "M_Repo_Rate_3", "M_Repo_Rate_6", "M_Repo_Rate_9", "M_Repo_Rate_12")
@@ -402,7 +402,7 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 ###               [M_Emp_Growth_12]; [M_Emp_Growth_9]; [M_Emp_Growth_6]
 
 
-# --- 7.7 Combining insights: Macroeconomic variables
+# --- 5.7 Combining insights: Macroeconomic variables
 # - Initialize variables to be tested
 vars <- c("M_Repo_Rate_3", "M_Repo_Rate_6", "M_Repo_Rate_2", 
           "M_Inflation_Growth_6", "M_Inflation_Growth_3", "M_Inflation_Growth_1",
@@ -441,7 +441,7 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 
 
 
-# ------ 6. Combine variables from all themes
+# ============ 6. Combine variables from all themes ============
 
 # --- 6.1 Run an automated selection procedure on the entire set
 # - Initialise set of variables
@@ -506,7 +506,7 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 
 
 
-# ------ 7. Final 
+# ============ 7. Final ============
 
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
@@ -532,8 +532,8 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Final variables
 vars <- c("PrevDefaults", "DefSpell_Num_binned",
-          "ArrearsToBalance_1_Aggr_Prop", "Balance_Real_1", 'DefSpell_Age',
-          "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2", 'InterestRate_Nom',
+          "ArrearsToBalance_1_Aggr_Prop", "Balance_Real_1", "DefSpell_Age",
+          "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2", "InterestRate_Nom",
           "DefaultStatus1_Aggr_Prop_Lag_12", "g0_Delinq_Ave", "M_DTI_Growth_6",
           "Principal_Real", "M_RealGDP_Growth_12", "g0_Delinq_Num",
           "M_Repo_Rate_2", "M_Inflation_Growth_3")
@@ -576,3 +576,6 @@ GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, ,legPos=c(0.6,0.4), panel
 pack.ffdf(paste0(genObjPath,"LR_fits"), Table_LR)
 # Modeling object
 saveRDS(modLR, file=paste0(genObjPath,"LR_Model.rds"))
+
+
+
