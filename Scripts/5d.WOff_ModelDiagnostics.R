@@ -6,9 +6,9 @@
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 4a(i).InputSpace_DiscreteCox.R
-#   - 4a(ii).InputSpace_DiscreteCox_Basic.R
-#   - 4e(ii).Dichotomisation
+#   - 4b(i).InputSpace_DiscreteCox.R
+#   - 4b(ii).InputSpace_DiscreteCox_Basic.R
+#   - 4c.InputSpace_LogisticRegression
 #   - 4e.SurvivalTrees.R
 #
 # -- Inputs:
@@ -81,7 +81,7 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 
 
-# --- 1.3 Estimate event rates to facilitate the application of dichotomisation
+# --- 1.3 Estimate event rates
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type="response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type="response")]

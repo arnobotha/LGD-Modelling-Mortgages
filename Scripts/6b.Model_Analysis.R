@@ -6,19 +6,12 @@
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
-#   - 0.Setup.R
-#   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Data_Prepare_Credit_Advanced.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
-#   - 2d.Data_Enrich.R
-#   - 2f.Data_Fusion1.R
-#   - 2g.Data_Fusion2.R
 #   - 4b(i).InputSpace_DiscreteCox.R
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
 #   - 4d.InputSpace_TwoStage_LossSeverity.R
-#   - 4e(ii).Dichotomisation
+#   - 4e.SurvivalTrees.R
+#
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g
@@ -100,7 +93,7 @@ SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 modGLM_Severity_CPG <- readRDS(paste0(genObjPath,"Severity_CPH_Model.rds"))
 
 
-# --- 1.3 Estimate event rates to facilitate the application of dichotomisation
+# --- 1.3 Estimate event rates
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
@@ -218,7 +211,7 @@ datComp[Model=="1-stage Gaussian",names(datComp)[-1]:=as.list(
   evalModel_onestage(datCredit,"LossRate_Real","LossRate_Gaussian",modGLM_OneStage_Gaus))]
 datComp[Model=="1-stage Tweedie",names(datComp)[-1]:=as.list(
   evalModel_onestage(datCredit,"LossRate_Real","LossRate_Tweedie",modGLM_OneStage_CPG))]
-# Two stage | A series (un-dichotomised)
+# Two stage
 datComp[Model=="2-stage DtH-Basic",names(datComp)[-1]:=as.list(
   evalModel_twostage(datCredit,"LossRate_Real","LossRate_est_bas"))]
 datComp[Model=="2-stage DtH-Advanced",names(datComp)[-1]:=as.list(
@@ -430,7 +423,7 @@ dpi <-180
 ggsave(g3, file=paste0(genFigPath, "LossRate-time_onestage__DefaultCohort_StopTime.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
-# --- 3.4 Loss rates for two-stage models | Series A (un-dichotomised)
+# --- 3.4 Loss rates for two-stage models
 # -- 3.4.1 Preliminaries
 # - Create dataset for ggplot
 datPlot_TwoStage <- subset(datPlot, Dataset %in% c("A", "D", "E", "F", "G"))

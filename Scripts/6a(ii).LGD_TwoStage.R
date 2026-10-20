@@ -92,7 +92,7 @@ SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 modGLM_Severity_CPG <- readRDS(paste0(genObjPath,"Severity_CPH_Model.rds"))
 
 
-# --- 1.3 Estimate event rates to facilitate the application of dichotomisation
+# --- 1.3 Estimate event rates
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
