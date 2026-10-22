@@ -382,6 +382,9 @@ rm(treat_samp1, treat_samp2)
 # - Save to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final1c"), datCredit_real)
 
+# - Clean-up
+cleanEnviron()
+
 # - Logging
 cat('Data prepared (Advanced). Pending application (or not) of the TruEnd-procedure next ..\n')
 proc.time() - ptm2 # IGNORE: elapsed runtime

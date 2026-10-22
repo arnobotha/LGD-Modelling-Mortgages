@@ -63,3 +63,9 @@ proc.time() - ptm # IGNORE: elapsed runtime
 # - Save to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath, "creditdata_input1"), datInput.raw)
 rm(datInput.raw); gc() # remove for now as a memory optimisation since this set is not needed now
+
+# --- 5. Housekeeping
+cleanEnviron()
+
+
+

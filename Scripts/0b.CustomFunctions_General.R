@@ -1263,3 +1263,15 @@ predSurv <- function(survTree, datGiven, fld_DefSpell_Age, fld_DefSpell_Event,
   return(datHaz)
   
 }
+
+
+# -------- Cleaning environment
+
+# - Function to clean environment
+cleanEnviron <- function(vars=environSetup){
+  # vars <- environSetup
+  rm(list=setdiff(ls(envir=.GlobalEnv), vars), envir=.GlobalEnv); invisible(gc())
+}
+
+
+

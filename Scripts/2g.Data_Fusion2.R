@@ -4,8 +4,7 @@
 # some basic feature engineering towards cultivating a comprehensive input space
 # ---------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Marcel Muller (MM), Roland Breedt (RB), 
-#                   Bernard Scheepers (BS), Mohammed Gabru (MG)
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Marcel Muller (MM), Mohammed Gabru (MG)
 #
 # DESCRIPTION:
 # This script performs the following high-level tasks:
@@ -16,12 +15,6 @@
 # ---------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Data_Prepare_Credit_Advanced.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
-#   - 2d.Data_Enrich.R
-#   - 2e.Data_Prepare_Macro.R
 #   - 2f.Data_Fusion1.R
 
 # -- Inputs:
@@ -41,7 +34,7 @@
 
 
 
-# ------ 1. Preliminaries
+# ============ 1. Preliminaries ============
 
 ptm <- proc.time() # for runtime calculations (ignore)
 
@@ -57,7 +50,7 @@ clusVar_Spell <- "DefSpell_Key" # for clustered random sampling on spell-level w
 timeVar <- "Date" # calendar time variable over which main event is observed & predicted, used in strata analysis
 counter <- "Counter" # subject-level row index variable, used in strata analysis
 
-# Optional field named (stratification)
+# - Optional field named (stratification)
 stratifiers <-NA# First variable should be of type "date"
 ### NOTE: Assign stratifiers to NA if no stratifiers are desired. Good candidates include: "Event_Type", "LN_TPE", and "HasDefaulted_Ever"
 
@@ -96,20 +89,17 @@ pack.ffdf(paste0(genPath,"creditdata_final_CDH_keys"), datKeys)
 
 
 
-
-
-# ------- 1. Fuse the input space with the prepared dataset
+# ============ 2. Fuse the input space with the prepared dataset ============
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datInput.raw')) unpack.ffdf(paste0(genPath,"creditdata_input1"), tempPath)
 
-# [SANITY CHECK] Prevalence of overlapping fields in the input space and the main credit dataset
+# - [SANITY CHECK] Prevalence of overlapping fields in the input space and the main credit dataset
 # Find intersection between fields in input space and those perhaps already in the main credit dataset
 overlap_flds <- intersect(colnames(datCredit_real), colnames(datInput.raw))
 check.fuse1 <- length(overlap_flds) == 0 # FALSE; duplicate columns exists.
 cat(check.fuse1 %?% 'SAFE: No overlapping fields in the input space and the main credit dataset' %:%
       'WARNING: Overlapping field(s) detected in the input space and the main credit dataset.')
-
 # Conditional reporting
 if (check.fuse1 == 0) {cat('NOTE: The following fields overlap: ', overlap_flds,"\n",sep="\t")}
 ### RESULTS: The following fields overlap: 	slc_pmnt_method	slc_days_excess	slc_acct_pre_lim_perc	
@@ -145,15 +135,16 @@ NROW(data_grain_check_merge <- datCredit_prep[, list(Freq = .N), by=list(LoanID,
 
 # - Save intermediary snapshot to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1a"), datCredit_prep)
+
 # - Clean-up
 rm(datInput.raw, data_grain_check, data_grain_check_merge); gc()
 
 
 
 
-# ------- 3. Feature engineering for modelling purposes
+# ============ 3. Feature engineering for modelling purposes ============
 
-# - Confirm that required data objects are loaded into memory
+# --- 3.0 Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1a"), tempPath)
 
 
@@ -181,7 +172,7 @@ suppressWarnings( datCredit_prep[, `:=`(value_ind_slc_days_excess = NULL, slc_da
 
 
 # --- 3.2. Missing value treatment (categorical variables)
-# Treatment: create "missing"-bin for all N/A values
+### NOTE: Treatment: create "missing"-bin for all N/A values
 
 # - Payment method
 if (doDescribe) describe(datCredit_prep$slc_pmnt_method)
@@ -225,7 +216,7 @@ pack.ffdf(paste0(genPath, "creditdata_final_CDH_smp1b"), datCredit_prep); gc()
 
 
 # --- 3.3 Missing value treatment (numeric variables)
-# Analyse whether to use mean or median value imputation
+### NOTE: Analyse whether to use mean or median value imputation
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1b"), tempPath)
@@ -246,34 +237,34 @@ cat( ( datCredit_prep[is.na(slc_acct_pre_lim_perc_imputed_med), .N ] == 0) %?%
 if (doDescribe) describe(datCredit_prep$slc_acct_pre_lim_perc_imputed_med); 
 hist(datCredit_prep$slc_acct_pre_lim_perc_imputed_med, breaks='FD')
 ### RESULTS: Imputation successful, with mean of 0.086 vs median of 0 ,
-# bounded by [0, 0.80] for 5%-95% percentiles; no outliers, other than at 0 and 1
+###          bounded by [0, 0.80] for 5%-95% percentiles; no outliers, other than at 0 and 1
 
 # - Number of times an account was in arrears over last 24 months
 if (doDescribe) describe(datCredit_prep$slc_acct_roll_ever_24); hist(datCredit_prep$slc_acct_roll_ever_24, breaks='FD')
 datCredit_prep[is.na(slc_acct_roll_ever_24), .N] / datCredit_prep[,.N] * 100
 ### RESULTS: Highly right-skewed distribution, with most discrete values having the value of 0
-# Use mean imputation, given 11.6% missingness degree, trading off the minor distributional distortion as a result
+###          Use mean imputation, given 11.6% missingness degree, trading off the minor distributional distortion as a result
 datCredit_prep[, slc_acct_roll_ever_24_imputed_mean := 
                 ifelse(is.na(slc_acct_roll_ever_24) | slc_acct_roll_ever_24 == "", 
                        mean(slc_acct_roll_ever_24, na.rm=TRUE), slc_acct_roll_ever_24)]
 
-# [SANITY CHECK] Confirm treatment success
+# - [SANITY CHECK] Confirm treatment success
 cat( ( datCredit_prep[is.na(slc_acct_roll_ever_24_imputed_mean), .N ] == 0) %?% 
        'SAFE: Treatment successful for [slc_acct_roll_ever_24_imputed_mean].\n' %:% 
        'ERROR: Treatment failed for [slc_acct_roll_ever_24_imputed_mean] \n' )
 if (doDescribe) describe(datCredit_prep$slc_acct_roll_ever_24_imputed_mean); 
 hist(datCredit_prep$slc_acct_roll_ever_24_imputed_mean, breaks='FD')
 ### RESULTS: Imputation successful, categorical variable now has 6 distinct classes, with majority having 0-value, while
-# the imputed cases (value of 0.50) being the second most prevalent.
+###          the imputed cases (value of 0.50) being the second most prevalent.
 
 # - Percentage-valued direction of prepaid/available funds - current compared to 12 months ago
 if (doDescribe) describe(datCredit_prep$slc_acct_prepaid_perc_dir_12); 
 hist(datCredit_prep[slc_acct_prepaid_perc_dir_12<=5, slc_acct_prepaid_perc_dir_12])
 datCredit_prep[is.na(slc_acct_prepaid_perc_dir_12), .N] / datCredit_prep[,.N] * 100
 ### RESULTS: Highly right-skewed distribution, with mean of ~13m vs median of 0, 
-# bounded by [0, 4.2] for 5%-95% percentiles; some very large outliers
+###          bounded by [0, 4.2] for 5%-95% percentiles; some very large outliers
 
-# Use median imputation, given 11.6% missingness degree, trading off the minor distributional distortion as a result
+# - Use median imputation, given 11.6% missingness degree, trading off the minor distributional distortion as a result
 datCredit_prep[, slc_acct_prepaid_perc_dir_12_imputed_med := 
                 ifelse(is.na(slc_acct_prepaid_perc_dir_12) | slc_acct_prepaid_perc_dir_12 == "", 
                        median(slc_acct_prepaid_perc_dir_12, na.rm=TRUE), slc_acct_prepaid_perc_dir_12)]
@@ -288,11 +279,10 @@ hist(datCredit_prep[slc_acct_prepaid_perc_dir_12_imputed_med<=5, slc_acct_prepai
 # - Amount by which the account is overdue at the associated reporting date
 if (doDescribe) describe(datCredit_prep$slc_past_due_amt); hist(datCredit_prep$slc_past_due_amt, breaks='FD')
 datCredit_prep[is.na(slc_past_due_amt), .N] / datCredit_prep[,.N] * 100
-### RESULTS: Highly right-skewed distribution, with mean of 329.4 vs median of 0, 
-# bounded by [0, 171.4] for 5%-95% percentiles; some very large outliers
-### MM: Scope for eventual extreme value treatment if those outliers are correct; or use winsorized mean
-# Use median imputation, given 11.6% missingness degree, trading off the minor distributional distortion as a result
-
+### RESULTS: - Highly right-skewed distribution, with mean of 329.4 vs median of 0, 
+###            bounded by [0, 171.4] for 5%-95% percentiles; some very large outliers
+###          -  Use median imputation, given 11.6% missingness degree, trading off
+###             the minor distributional distortion as a result
 datCredit_prep[, slc_past_due_amt_imputed_med := 
                 ifelse(is.na(slc_past_due_amt) | slc_past_due_amt == "", 
                        median(slc_past_due_amt, na.rm=TRUE), slc_past_due_amt)]
@@ -303,19 +293,17 @@ cat( ( datCredit_prep[is.na(slc_past_due_amt_imputed_med), .N] == 0) %?%
 if (doDescribe) describe(datCredit_prep$slc_past_due_amt_imputed_med); 
 hist(datCredit_prep$slc_past_due_amt_imputed_med[datCredit_prep$slc_past_due_amt_imputed_med>0], breaks='FD')
 ### RESULTS: Imputation successful, with mean of 2712 vs median of 0,
-# bounded by [0, 5589] for 5%-95% percentiles; extreme outliers
+###          bounded by [0, 5589] for 5%-95% percentiles; extreme outliers
 
 # - InterestRate_Margin (incorporating risk-based pricing info)
 if (doDescribe) describe(datCredit_prep$InterestRate_Margin); hist(datCredit_prep$InterestRate_Margin, breaks="FD")
 datCredit_prep[is.na(InterestRate_Margin), .N] / datCredit_prep[,.N] * 100
-### RESULTS: Highly right-skewed distribution (as expected), with mean of -0.007 vs median of -0.008, 
-# bounded by [-0.02, 0.01] for 5%-95% percentiles; some negative outliers distort shape of distribution
-# Use median imputation for any possible missingness
-
+### RESULTS: - Highly right-skewed distribution (as expected), with mean of -0.007 vs median of -0.008, 
+###            bounded by [-0.02, 0.01] for 5%-95% percentiles; some negative outliers distort shape of distribution
+###          - Use median imputation for any possible missingness
 datCredit_prep[, InterestRate_Margin_imputed_mean := 
                 ifelse(is.na(InterestRate_Margin) | InterestRate_Margin == "", 
                        median(InterestRate_Margin, na.rm=TRUE), InterestRate_Margin)]
-
 # [SANITY CHECK] Confirm treatment success
 cat( ( datCredit_prep[is.na(InterestRate_Margin_imputed_mean), .N] == 0) %?% 
        'SAFE: Treatment successful for [InterestRate_Margin_imputed_mean].\n' %:% 
@@ -331,7 +319,7 @@ datCredit_prep[is.na(g0_Delinq_SD_4), .N] / datCredit_prep[,.N] * 100
 
 datCredit_prep[, g0_Delinq_SD_4 := 
                   ifelse(is.na(g0_Delinq_SD_4) | g0_Delinq_SD_4 == "", 
-                         
+   
                          median(g0_Delinq_SD_4, na.rm=TRUE), g0_Delinq_SD_4)]
 cat( ( datCredit_prep[is.na(g0_Delinq_SD_4), .N] == 0) %?% 
        'SAFE: Treatment successful for [g0_Delinq_SD_4].\n' %:% 
@@ -390,7 +378,6 @@ pack.ffdf(paste0(genPath, "creditdata_final_CDH_smp1c"), datCredit_prep); gc()
 
 
 # --- 3.4. Feature Engineering: ratio-type variables (Period-level)
-
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1c"), tempPath)
 
@@ -412,17 +399,15 @@ cat( ( datCredit_prep[is.na(BalanceToPrincipal), .N] == 0) %?%
 # distributional analysis
 if (doDescribe) describe(datCredit_prep$BalanceToPrincipal); hist(datCredit_prep$BalanceToPrincipal, breaks='FD')
 ### RESULTS: Highly left-skewed distribution, with mean of 0.67 vs median of 0.83,
-# bounded by [~0, 1] for 5%-95% percentiles; no outliers
+###          bounded by [~0, 1] for 5%-95% percentiles; no outliers
 
 
 # --- 3.5. Feature Engineering: Binning and factorisation
-
 # - Condense the payment group
 datCredit_prep[, pmnt_method_grp := 
                 case_when(slc_pmnt_method == "Debit Order FNB account" | slc_pmnt_method == "Debit Order other bank" ~ "Debit Order",
                           slc_pmnt_method == "Salary" | slc_pmnt_method == "Suspense" ~ "Salary/Suspense",
                           TRUE ~ slc_pmnt_method)]
-
 # [SANITY CHECK] Check new feature for illogical values
 cat((datCredit_prep[is.na(pmnt_method_grp), .N] == 0) %?% 
       'SAFE: New feature [pmnt_method_grp] has logical values.\n' %:% 
@@ -439,7 +424,7 @@ if (doDescribe) describe(datCredit_prep$pmnt_method_grp)
 datCredit_prep[,g0_Delinq_fac := as.factor(g0_Delinq)]
 if (doDescribe) describe(datCredit_prep$g0_Delinq_fac)
 ### RESULTS: Proportion of observations in each g0 bucket:
-# 0: 89.4%; 1: 5.7%; 2: 0.8%; 3: 4.1%
+###          0: 89.4%; 1: 5.7%; 2: 0.8%; 3: 4.1%
 # [SANITY CHECK] Check new feature for illogical values
 cat((anyNA(datCredit_prep$g0_Delinq_fac)) %?% 'WARNING: New feature [g0_Delinq_fac] has missing values. \n' %:%
       'SAFE: New feature [g0_Delinq_fac] has no missing values. \n')
@@ -470,7 +455,6 @@ datCredit_prep[, DefSpell_Num_binned := ifelse(DefSpell_Num <= 3, DefSpell_Num, 
 
 
 # --- 3.6. Feature Engineering: Inflating time-sensitive monetary variables to the latest date
-
 # - Confirm that required data objects are loaded into memory
 if (!exists('datMV')) unpack.ffdf(paste0(genPath,"datMV"), tempPath)
 
@@ -488,7 +472,6 @@ cat((anyNA(datCredit_prep$Inf_Factor)) %?% paste0('WARNING: Inflation factor(s) 
 datCredit_prep[, Principal_Real := Principal*Inf_Factor]
 datCredit_prep[, Balance_Real := Balance*Inf_Factor]
 datCredit_prep[, Instalment_Real := Instalment*Inf_Factor]
-
 # [SANITY CHECK] Missingness in any new variables?
 cat( (all(anyNA(datCredit_prep$Principal_Real), anyNA(datCredit_prep$Balance_Real), anyNA(datCredit_prep$Instalment_Real)))
      %?% paste0('WARNING: Some values of [Principal_Real], [Balance_Real], and/or [Instalment_Real] not created successfully. \n') %:%
@@ -506,33 +489,34 @@ if (doDescribe) describe(datCredit_prep$Instalment_Real); hist(datCredit_prep$In
 
 
 # --- 3.7. Featuring Engineering: Lagged [Balance] to deal with 0 values on Write-off
-
+# - Investigate field
 if (doDescribe) describe(datCredit_prep$Balance); hist(datCredit_prep$Balance)
 ### RESULTS: Highly right-skewed distribution as expected
 
-# Creating a lagged version of Balance
+# - Creating a lagged version of Balance
 datCredit_prep[, Balance_1 := fcoalesce(shift(Balance, 1, type = "lag"), Balance), by = LoanID]
 
-# [SANITY CHECK] Check new feature for illogical values
+# - [SANITY CHECK] Check new feature for illogical values
 cat( ( datCredit_prep[is.na(Balance_1), .N] == 0) %?% 
        'SAFE: New feature [Balance_1] has logical values.\n' %:% 
        'WARNING: New feature [Balance_1] has illogical values \n' )
 
-# Create another variable for balanced to account for these
+# - Create another variable for balanced to account for these
 datCredit_prep[, BalanceToPrincipal_1 := Balance_1/Principal]
 
-# [SANITY CHECK] Check new feature for illogical values
+# - [SANITY CHECK] Check new feature for illogical values
 cat( ( datCredit_prep[is.na(BalanceToPrincipal_1), .N] == 0) %?% 
        'SAFE: New feature [BalanceToPrincipal_1] has logical values.\n' %:% 
        'WARNING: New feature [BalanceToPrincipal_1] has illogical values \n' )
 
+# - Investigate field
 if (doDescribe) describe(datCredit_prep$Balance_Real); hist(datCredit_prep$Balance_Real)
 ### RESULTS: Highly right-skewed distribution as expected
 
-# Create another variable for balanced to account for these
+# - Create another variable for balanced to account for these
 datCredit_prep[, Balance_Real_1 := Balance_1*Inf_Factor]
 
-# [SANITY CHECK] Check new feature for illogical values
+# - [SANITY CHECK] Check new feature for illogical values
 cat( ( datCredit_prep[is.na(Balance_Real_1), .N] == 0) %?% 
        'SAFE: New feature [Balance_Real_1] has logical values.\n' %:% 
        'WARNING: New feature [Balance_Real_1] has illogical values \n' )
@@ -545,12 +529,11 @@ rm(datMV, date_range, datInflation)
 
 
 # --- 3.8. Featuring Engineering: Portfolio-level information
-
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1d"), tempPath)
 
 # - Post default delinquency rate
-#Note: Creating an aggregated dataset with which to fuse to the full dataset
+### Note: Creating an aggregated dataset with which to fuse to the full dataset
 dat_g0_Delinq_Aggr <- data.table(datCredit_prep[DefaultStatus1==1, list(sum(g0_Delinq>0, na.rm=T)/.N), by=list(Date)])
 colnames(dat_g0_Delinq_Aggr) <- c("Date", "g0_Delinq_Any_Aggr_Prop")
 # Applying various lags
@@ -612,12 +595,12 @@ cat((anyNA(datCredit_prep$DefaultStatus1_Aggr_Prop_Lag_12)) %?% 'WARNING: Merge 
       'SAFE: Merge successful, no NA values present. \n')
 if (doDescribe) describe(datCredit_prep$DefaultStatus1_Aggr_Prop_Lag_12); hist(datCredit_prep$DefaultStatus1_Aggr_Prop_Lag_12, breaks="FD")
 ### RESULTS: No missingness after merge, merge successful. Original DefaultRate_12 has mean of 0.05 and median of 0.049; 
-# bounded by [0.028, 0.084] for 5%-95% percentiles; no outliers
+###          bounded by [0.028, 0.084] for 5%-95% percentiles; no outliers
 
 # - Ratio type variables (portfolio-level) during default spells
-# Total arrears to total balance; Total instalments to total balance
-# NOTE: These portfolio-level aggregated variables are engineered to capture/ aggregate information only for accounts that are in a performance spell
-# The resulting aggregated dataset can be fused to the full dataset
+### NOTE: - Total arrears to total balance; Total instalments to total balance
+###       - These portfolio-level aggregated variables are engineered to capture/ aggregate information only for accounts that are in a performance spell
+###       - The resulting aggregated dataset can be fused to the full dataset
 dat_Aggr <- data.table(datCredit_prep[DefaultStatus1==1, list(sum(Arrears, na.rm=T)/sum(Balance, na.rm=T)), by=list(Date)],
                        datCredit_prep[DefaultStatus1==1, list(sum(Instalment, na.rm=T)/sum(Balance)), by=list(Date)][,2],
                        datCredit_prep[DefaultStatus1==1, list(sum(Arrears, na.rm=T)/sum(Balance_1)), by=list(Date)][,2],
@@ -731,7 +714,6 @@ suppressWarnings(rm(dat_IRM_Aggr, dat_IRM_Aggr_Check1, list_merge_variables, res
 
 
 # --- 3.9 Macroeconomic feature engineering
-
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1e"), tempPath)
 if (!exists('datMV')) unpack.ffdf(paste0(genPath,"datMV"), tempPath)
@@ -794,7 +776,6 @@ rm(datMV, list_merge_variables, results_missingness, datMV_Check1, datMV_Check2)
 
 
 # --- 3.10 Model-based feature engineering
-
 # - Create binned version of [TimeInPerfSpell] for discrete-time hazard models
 timeBinning <- function(x) {
   case_when(
@@ -817,13 +798,14 @@ datCredit_prep[, g0_Delinq_Lag_1 := shift(g0_Delinq,fill=0),by=LoanID]
 # - Create start point variable
 datCredit_prep[, Start := TimeInDefSpell - 1]
 
-# -- Save fused- and enriched subsampled dataset for quick disk-based retrieval later
+
+# --- 3.11 Save fused- and enriched subsampled dataset for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), datCredit_prep)
 
 
 
 
-# ------ 4. Apply a basic cross-validation clustered resampling scheme with possible n-way stratification
+# ============ 4. Apply a basic cross-validation clustered resampling scheme with possible n-way stratification ============
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), tempPath)
@@ -898,9 +880,10 @@ pack.ffdf(paste0(genPath,"creditdata_train_CDH"), datCredit_train_CDH)
 pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
 
 
-# --- 4.3 Clean up
-suppressWarnings(rm(dat_keys_smp_perf, dat_keys_smp_perf,  dat_train_keys_perf,
-                    dat_train_keys_def, datCredit_train_perf, datCredit_train_def,
-                    datCredit_valid_perf, datCredit_valid_def, check.1, check.2, check.3,
-                    check.4_a, check.4_b, check.4_c, check.5_a, check.5_b, datCredit_prep,
-                    datStrata_prep_min, datCredit_train_CDH, datCredit_valid_CDH, train_ids));gc()
+
+# ============ 5. Housekeeping ============
+
+cleanEnviron()
+
+
+

@@ -18,10 +18,6 @@
 # ---------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Data_Prepare_Credit_Advanced.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
 #   - 2d.Data_Enrich.R
 #   - 2e.Data_Prepare_Macro.R
 #
@@ -35,8 +31,7 @@
 
 
 
-
-# ------- 1. Apply exclusions on the credit dataset to increase available memory
+# ============ 1. Apply exclusions on the credit dataset to increase available memory ============
 
 ptm <- proc.time() # for runtime calculations (ignore)
 
@@ -98,8 +93,7 @@ datCredit_real <- subset(datCredit_real, select = -c(ExclusionID))
 
 
 
-
-# ------- 2. Fuse the macroeconomic data with the credit data
+# ============ 2. Fuse the macroeconomic data with the credit data ============
 
 # - Find intersection between fields in the credit dataset and the macroeconomic dataset
 (overlap_flds <- intersect(colnames(datCredit_real), colnames(datMV))) # no overlapping fields except Date
@@ -135,9 +129,9 @@ rm(datMV); gc()
 
 
 
-# ------- 3. Feature Engineering that needs entire loan- and spell histories
+# ============ 3. Feature Engineering that needs entire loan- and spell histories ============
 
-# --- Create preliminary target/outcome variables for stated modelling objective
+# --- 3.1 Create preliminary target/outcome variables for stated modelling objective
 # NOTE: This particular field is instrumental to designing the subsampling & resampling scheme,
 # as well as in tracking the impact of exclusions
 
@@ -153,7 +147,7 @@ datCredit_real$DefaultStatus1_lead_12_max %>% table() %>% prop.table()
 datCredit_real <- datCredit_real %>% relocate(DefaultStatus1_lead_12_max, .after=DefaultStatus1)
 
 
-# --- Delinquency-themed variables on a loan-level
+# --- 3.2 Delinquency-themed variables on a loan-level
 # - Embed previous defaults into a new Boolean-valued input variable
 datCredit_real[, PrevDefaults := ifelse(all(is.na(PerfSpell_Num)), F, max(PerfSpell_Num,na.rm = T) > 1), by=list(LoanID)]
 cat( (datCredit_real[is.na(PrevDefaults), .N] == 0) %?% "SAFE: No missingness, [PrevDefaults] created successfully.\n" %:%
@@ -211,7 +205,7 @@ cat( (datCredit_real[is.na(TimeInDelinqState), .N] == 0) %?% "SAFE: No missingne
        "WARNING: Missingness detected, [TimeInDelinqState] compromised.\n")
 
 
-# --- Delinquency-themed variables on a performance spell-level
+# --- 3.3 Delinquency-themed variables on a performance spell-level
 # - Delinquency state number, where each change in g_0 denotes such a "state" that may span several periods during a performance spell
 datCredit_real[!is.na(PerfSpell_Key), PerfSpell_g0_Delinq_Num := cumsum(g0_Delinq_Shift) + 1, by=list(PerfSpell_Key)] # Assign state numbers over each performance spell
 # [SANITY CHECK] Check new feature for illogical values
@@ -227,27 +221,32 @@ cat( ( datCredit_real[is.na(PerfSpell_g0_Delinq_SD),.N]==datCredit_real[is.na(Pe
        'SAFE: New feature [PerfSpell_g0_Delinq_SD] has logical values.\n' %:% 
        'WARNING: New feature [PerfSpell_g0_Delinq_SD] has illogical values \n' )
 
-# --- Create portfolio-level input variables that vary over time
 
-# - Default incidence rate
-# Not the same as the 12-month default rate (a conditional probability)
+# --- 3.4 Create portfolio-level input variables that vary over time
+# -- 3.4.1 Default incidence rate
+### NOTE: This is not the same as the 12-month default rate (a conditional probability)
 
-# Aggregate to monthly level and observe up to given point
+# - Aggregate to monthly level and observe up to given point
 port.aggr <- datCredit_real[, list(DefaultStatus1_Aggr_Prop = sum(DefaultStatus1, na.rm=T)/.N), by=list(Date)]
-# Quick plot for visual inspection
+
+# - Quick plot for visual inspection
 plot(port.aggr[,1],as.matrix(port.aggr[,2]),type="l",xlab="Date", ylab="Probability", main="Default incidence rate")
-# Merge default incidence to credit dataset by date
+
+# - Merge default incidence to credit dataset by date
 datCredit_real <- merge(datCredit_real, port.aggr, by="Date", all.x=T); Sys.sleep(0.5)
-# [Sanity Check] Check for any missingness in the DefaultStatus1_Aggr_Prop variable
+
+# - [Sanity Check] Check for any missingness in the DefaultStatus1_Aggr_Prop variable
 cat(anyNA(datCredit_real[,DefaultStatus1_Aggr_Prop]) %?% "WARNING: Missingness detected in the DefaultStatus1_Aggr_Prop variable. \n" %:%
       "SAFE: No Missingness detected in the DefaultStatus1_Aggr_Prop variable. \n")
 
 
-# - Proportion of new loans vs existing portfolio over time
-# NOTE: we therefore measure credit demand within market, underlying market conditions, and the implicit effect of bank policies)
-# Creating an aggregated dataset
+# -- 3.4.2 Proportion of new loans vs existing portfolio over time
+### NOTE: we therefore measure credit demand within market, underlying market conditions, and the implicit effect of bank policies)
+
+# - Creating an aggregated dataset
 dat_NewLoans_Aggr <- datCredit_real[, list(NewLoans_Aggr_Prop = sum(Age_Adj==1, na.rm=T)/.N), by=list(Date)]
-# Applying various lags
+
+# - Applying various lags
 lags <- c(1,3,4,5) # Lags
 ColNames <- colnames(dat_NewLoans_Aggr)[-1] # Names of the columns
 for (i in seq_along(lags)){ # Looping over the specified lags and applying each to each of the specified columns
@@ -255,15 +254,17 @@ for (i in seq_along(lags)){ # Looping over the specified lags and applying each 
     dat_NewLoans_Aggr[, (paste0(ColNames[j],"_",lags[i])) := fcoalesce(shift(get(ColNames[j]), n=lags[i], type="lag"),get(ColNames[j]))] # Impute NA's with the non lagged value
   }
 }
-# [SANITY CHECK] Check whether the lags were created correctly
+
+# - [SANITY CHECK] Check whether the lags were created correctly
 cat((anyNA(dat_NewLoans_Aggr[,NewLoans_Aggr_Prop_1]) | anyNA(dat_NewLoans_Aggr[,NewLoans_Aggr_Prop_3]) | anyNA(dat_NewLoans_Aggr[,NewLoans_Aggr_Prop_4])
      | anyNA(dat_NewLoans_Aggr[,NewLoans_Aggr_Prop_5])) %?% "WARNING: Missingness detected, [NewLoans_Aggr_Prop_1], [NewLoans_Aggr_Prop_3], [NewLoans_Aggr_Prop_4], and/or [NewLoans_Aggr_Prop_5] compromised.\n" %:%
       "SAFE: No missingness, [NewLoans_Aggr_Prop_1], [NewLoans_Aggr_Prop_3], [NewLoans_Aggr_Prop_4], and [NewLoans_Aggr_Prop_5] created successfully.\n")
 ### RESULTS: Variables successfully created without any missingness
 
-# Merging the credit dataset with the aggregated dataset
+# - Merging the credit dataset with the aggregated dataset
 datCredit_real <- merge(datCredit_real, dat_NewLoans_Aggr, by="Date", all.x=T)
-# Validate merging success by checking for missingness (should be zero)
+
+# - Validate merging success by checking for missingness (should be zero)
 list_merge_variables <- list(colnames(dat_NewLoans_Aggr))
 results_missingness <- list()
 for (i in 1:length(list_merge_variables)){
@@ -279,14 +280,17 @@ cat( (length(which(results_missingness > 0)) == 0) %?% "SAFE: No missingness, fu
 
 
 
-# ------ 4. General cleanup & checks
+# ============ 4. Housekeeping ============
 
-# - remove intermediary fields, as a memory enhancement
+# - Remove intermediary fields, as a memory enhancement
 datCredit_real[, g0_Delinq_Shift := NULL]
-
-# - Clean-up
-rm(list_merge_variables, results_missingness)
 
 # - Save to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath, "creditdata_final4a"), datCredit_real); gc()
 proc.time() - ptm # IGNORE: elapsed runtime
+
+# - Clean-up
+cleanEnviron()
+
+
+

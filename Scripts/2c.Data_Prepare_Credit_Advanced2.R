@@ -686,6 +686,9 @@ cat( (check_cred3a == 0) %?% cat('SAFE: Grain of {datCredit_real} confirmed.\n')
 rm(LoanIDs, datExcl); gc() # memory optimization; no need for raw data anymore at this point
 pack.ffdf(paste0(genPath,"creditdata_final2"), datCredit_real)
 
+# - Clean-up
+cleanEnviron()
+
 # - Logging
 cat('Data finalised, with TruEnd-procedure applied.\n')
 proc.time() - ptm3 # IGNORE: elapsed runtime
