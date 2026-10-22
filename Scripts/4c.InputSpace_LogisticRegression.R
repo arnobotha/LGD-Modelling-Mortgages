@@ -21,27 +21,12 @@
 
 # ============ 1. Preliminaries ============
 
-# --- 1.1. Load data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath); gc()
+if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath); gc()
 
-# - Use only default spells and first default observations
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
-
-# - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
-
-
-# --- 1.2 Prepare data
-# - Create an indicator to identify a write-off
-datCredit_train[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
-datCredit_valid[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
-
-
-# --- 1.3 Fit an empty model to use in analytics
-modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
+# - Fit an empty model to use in analytics
+modLR_base <- glm(DefSpell_Event~1, data=datCredit_train_CS, family="binomial")
 
 
 
@@ -54,14 +39,14 @@ vars <- c("g0_Delinq_SD_4", "g0_Delinq_SD_5", "g0_Delinq_SD_6", "g0_Delinq_SD_9"
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [g0_Delinq_SD_12]; [g0_Delinq_SD_9]; [g0_Delinq_SD_5]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [g0_Delinq_SD_4]; [g0_Delinq_SD_5]; [g0_Delinq_SD_6]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best Harrell's C-statistics: [g0_Delinq_SD_12]; [g0_Delinq_SD_5]; [g0_Delinq_SD_6]
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best Harrell's C-statistics: [g0_Delinq_SD_12]; [g0_Delinq_SD_4]; [g0_Delinq_SD_9]
 
 ### Conclusion: Select top three variables (preference given to C-statistic rankings):
-###               [g0_Delinq_SD_12]; [g0_Delinq_SD_5]; [g0_Delinq_SD_6]
+###               [g0_Delinq_SD_12]; [g0_Delinq_SD_4]; [g0_Delinq_SD_9]
 
 
 # --- 2.2 Selection of portfolio-level variables indicating the prevalence of delinquent accounts
@@ -72,10 +57,10 @@ vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [g0_Delinq_Any_Aggr_Prop_12]; [g0_Delinq_Any_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_6]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [g0_Delinq_Any_Aggr_Prop]; [g0_Delinq_Any_Aggr_Prop_Lag_6]; [g0_Delinq_Any_Aggr_Prop_Lag_12]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
 ### RESULTS: Best C-statistics: [g0_Delinq_Any_Aggr_Prop_Lag_12]; [g0_Delinq_Any_Aggr_Prop_9]; [g0_Delinq_Any_Aggr_Prop_Lag_6]
 
 ### Conclusion: Select top three variabels:
@@ -90,11 +75,11 @@ vars <- c("DefaultStatus1_Aggr_Prop", "DefaultStatus1_Aggr_Prop_Lag_1", "Default
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_2]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [DefaultStatus1_Aggr_Prop]_12; [DefaultStatus1_Aggr_Prop_Lag_9]; [DefaultStatus1_Aggr_Prop_Lag_6]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12]
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best C-statistics: [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_2]
 
 ### CONCLUSION: Select top three variables (preference given to C-statistic rankings):
 ###               [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12]
@@ -106,80 +91,77 @@ vars <- c("g0_Delinq_Ave", "ArrearsToBalance_1_Aggr_Prop", "CuringEvents_Aggr_Pr
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [CuringEvents_Aggr_Prop]; [g0_Delinq_Ave]; [ArrearsToBalance_1_Aggr_Prop]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [g0_Delinq_Ave]; [ArrearsToBalance_1_Aggr_Prop]; [CuringEvents_Aggr_Prop]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [CuringEvents_Aggr_Prop]; [g0_Delinq_Ave]; [ArrearsToBalance_1_Aggr_Prop]
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best C-statistics: [g0_Delinq_Ave]; [CuringEvents_Aggr_Prop]; [ArrearsToBalance_1_Aggr_Prop]
 
 ### Conclusion: All are significant, therefore include all three
 
 
 # --- 2.5 Selection of account-level delinquency-themed variables
 # - Set initial variables to be tested
-vars <- c("DefSpell_Age", "g0_Delinq_Lag_1", "slc_acct_arr_dir_3_Change_Ind",
+vars <- c("TimeInDefSpell", "g0_Delinq_Lag_1", "slc_acct_arr_dir_3_Change_Ind",
           "g0_Delinq_Num", "slc_acct_arr_dir_3", "slc_acct_roll_ever_24_imputed_mean", "Arrears", "PrevDefaults","TimeInDelinqState",
           "slc_past_due_amt_imputed_med", "slc_curing_ind", "DefSpell_Num_binned")
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [PrevDefaults]; [g0_Delinq_Num]; [DefSpell_Age]; [DefSpell_Num_binned]; [slc_past_due_amt_imputed_med]; [slc_acct_arr_dir_3]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [Arrears]; [g0_Delinq_Num]; [slc_past_due_amt_imputed_med]; [TimeInDelinqState]; [slc_curing_ind]; [slc_acct_arr_dir_3]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num]; [Arrears]; [DefSpell_Num_binned]; [slc_acct_roll_ever_24_imputed_mean];
-###                            [slc_past_due_amt_imputed_med]; [slc_acct_arr_dir_3]
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [PrevDefaults]; [g0_Delinq_Lag_1]; [g0_Delinq_Num]; [TimeInDefSpell]; [DefSpell_Num_binned]; [slc_acct_roll_ever_24_imputed_mean];
+###                            [slc_acct_arr_dir_3]; [slc_acct_arr_dir_3_Change_Ind]
 
 ### CONCLUSION: Differences are pronounced between the AICs and C-statistics; preference given to C-statistic in final choice
 ###             Select top 5 variables (preference given to C-statistic rankings):
-###               [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num]; [Arrears]; [DefSpell_Num_binned]
+###               [PrevDefaults]; [g0_Delinq_Lag_1]; [g0_Delinq_Num]; [TimeInDefSpell]; [DefSpell_Num_binned]
 
 
 # --- 2.6 Combining insights: delinquency-themed variables
 # - Set initial variables to be tested
-vars <- c("g0_Delinq_SD_12", "g0_Delinq_SD_5", "g0_Delinq_SD_6",
-          "DefaultStatus1_Aggr_Prop_Lag_12", "DefaultStatus1_Aggr_Prop_Lag_9" , "DefaultStatus1_Aggr_Prop_Lag_6",
+vars <- c("g0_Delinq_SD_12", "g0_Delinq_SD_4", "g0_Delinq_SD_9",
+          "DefaultStatus1_Aggr_Prop", "DefaultStatus1_Aggr_Prop_Lag_1" , "DefaultStatus1_Aggr_Prop_Lag_12",
           "CuringEvents_Aggr_Prop", "g0_Delinq_Ave", "ArrearsToBalance_1_Aggr_Prop",
-          "PrevDefaults", "DefSpell_Age", "g0_Delinq_Num", "Arrears", "DefSpell_Num_binned")
+          "PrevDefaults", "g0_Delinq_Lag_1", "g0_Delinq_Num", "TimeInDefSpell", "DefSpell_Num_binned")
 
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-                  data=datCredit_train, family="binomial")
+                  data=datCredit_train_CS, family="binomial")
 summary(modLR_full);
-evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   70 839; McFadden R^2:  29.21%; AUC:  85.75%
+evalLR(modLR_full, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC:   8 959; McFadden R^2:  46.95%; AUC:  95.74%
 
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope=list(lower=~ 1, 
                                              upper=as.formula(paste("~", paste(vars, collapse=" + ")))), 
-                      direction="both", k=log(datCredit_train[,.N]), maxit=50)
+                      direction="both", k=log(datCredit_train_CS[,.N]), maxit=50)
 summary(modLR_step)
-evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+evalLR(modLR_step, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
 proc.time() - ptm # IGNORE: elapsed runtime; 1m
-### RESULTS: AIC:   70 840; McFadden R^2:  25.93%; AUC:  85.74%
+### RESULTS: AIC:   8 960; McFadden R^2:  46.91%; AUC:  95.73%
 
 # - Domain expertise
-### CONCLUSION: Remove [g0_Delinq_Any_Aggr_Prop_Lag_9] since [g0_Delinq_Any_Aggr_Prop_Lag_12] is already present
-### CONCLUSION: Remove [g0_Delinq_SD_6] since [g0_Delinq_SD_12] is already present
+### CONCLUSION: Remove [DefaultStatus1_Aggr_Prop] since [g0_Delinq_Any_Aggr_Prop_Lag_12] is already present
+### CONCLUSION: Remove [g0_Delinq_SD_9] since [g0_Delinq_SD_4] is already present
 
 ### CONCLUSION: Refine selection from automated selection with expert judgement
 
 # - Final variables (expert judgement)
-vars <- c("g0_Delinq_SD_12",
-          "DefaultStatus1_Aggr_Prop_Lag_12",
-          "CuringEvents_Aggr_Prop", "g0_Delinq_Ave", "ArrearsToBalance_1_Aggr_Prop",
-          "PrevDefaults", "DefSpell_Age", "g0_Delinq_Num", "Arrears", "DefSpell_Num_binned")
-  
+vars <- colnames(modLR_step$model[,-1])
+vars <- vars[!(vars %in% c("DefaultStatus1_Aggr_Prop", "g0_Delinq_SD_9"))]
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
+              data=datCredit_train_CS, family="binomial")
 summary(modLR);
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   71 775; McFadden R^2:  25.21%; AUC:  85.44%.
+evalLR(modLR, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC:   9 026; McFadden R^2:  46.50%; AUC:  95.61%.
 
 ### CONCLUSION: Select:
-###               [g0_Delinq_SD_12]; [DefaultStatus1_Aggr_Prop_Lag_12];
-###               [CuringEvents_Aggr_Prop]; [g0_Delinq_Ave]; [ArrearsToBalance_1_Aggr_Prop];
-###               [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num] [Arrears]; [DefSpell_Num_binned]
+###               [g0_Delinq_SD_4]; [g0_Delinq_Lag_1];
+###               [PrevDefaults]; [DefaultStatus1_Aggr_Prop_Lag_12]; [DefSpell_Num_binned];
+###               [TimeInDefSpell]; [g0_Delinq_Ave]; [ArrearsToBalance_1_Aggr_Prop] [g0_Delinq_Num]
 
 
 
@@ -193,14 +175,14 @@ vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "Int
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [InterestRate_Margin_Aggr_Med_9]; [InterestRate_Margin_Aggr_Med_3]; [InterestRate_Margin_Aggr_Med_2]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2];
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best C-statistics: [InterestRate_Margin_Aggr_Med_3]; [InterestRate_Margin_Aggr_Med_9]; [InterestRate_Margin_Aggr_Med_2];
 
 ### Conclusion: Select top three variables:
-###               [InterestRate_Margin_Aggr_Med];, [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2]
+###               [InterestRate_Margin_Aggr_Med_2];, [InterestRate_Margin_Aggr_Med_3]; [InterestRate_Margin_Aggr_Med_9]
 
 
 # --- 3.2 Selection of other portfolio-level, non-delinquency themed, variables
@@ -209,40 +191,40 @@ vars <- c("InstalmentToBalance_1_Aggr_Prop", "AgeToTerm_Aggr_Mean", "DefSpell_Ma
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [AgeToTerm_Aggr_Mean]; [InstalmentToBalance_1_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]; [NewLoans_Aggr_Prop]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [InstalmentToBalance_1_Aggr_Prop]; [NewLoans_Aggr_Prop]; [AgeToTerm_Aggr_Mean]; [DefSpell_Maturity_Aggr_Mean]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [AgeToTerm_Aggr_Mean]; [InstalmentToBalance_1_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]; [NewLoans_Aggr_Prop]
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [NewLoans_Aggr_Prop]; [AgeToTerm_Aggr_Mean]; [InstalmentToBalance_1_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]
 
 ### CONCLUSION: Select top three variables:
-###               [AgeToTerm_Aggr_Mean]; [InstalmentToBalance_1_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]
+###               [NewLoans_Aggr_Prop]; [AgeToTerm_Aggr_Mean]; [InstalmentToBalance_1_Aggr_Prop]
 
 
 # --- 3.3 Combining insights
 # - Set initial variables to be tested
-vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "InterestRate_Margin_Aggr_Med_2",
-          "AgeToTerm_Aggr_Mean", "InstalmentToBalance_1_Aggr_Prop", "DefSpell_Maturity_Aggr_Mean")
+vars <- c("InterestRate_Margin_Aggr_Med_2", "InterestRate_Margin_Aggr_Med_3", "InterestRate_Margin_Aggr_Med_9",
+          "NewLoans_Aggr_Prop", "AgeToTerm_Aggr_Mean", "InstalmentToBalance_1_Aggr_Prop")
 
 # - Full model
 modLR_full <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-                  data=datCredit_train, family="binomial")
+                  data=datCredit_train_CS, family="binomial")
 summary(modLR_full)
-evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 94 464; McFadden R^2: 5.63%; AUC: 66.64%.
+evalLR(modLR_full, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 16 622; McFadden R^2: 1.33%; AUC: 60.79%.
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
                                                 upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
-                      direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+                      direction = "both", k=log(datCredit_train_CS[,.N]), maxit=50)
 proc.time() - ptm # IGNORE: elapsed runtime; 1m
 summary(modLR_step)
-evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:   90 413; McFadden R^2: 5.62%; AUC: 66.64%
+evalLR(modLR_step, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC:   16 633; McFadden R^2: 1.22%; AUC: 60.50%
 
 ### CONCLUSION: Select variables from automated variable selection:
-###             [InterestRate_Margin_Aggr_Med_2]; [InstalmentToBalance_1_Aggr_Prop]
+###             [InterestRate_Margin_Aggr_Med_9]; [InstalmentToBalance_1_Aggr_Prop]
 
 
 
@@ -256,23 +238,23 @@ vars <- c("Principal_Real", "Principal", "InterestRate_Margin_imputed_mean",
           "BalanceToPrincipal_1", "slc_acct_pre_lim_perc_imputed_med")
 
 # - Correlation analysis towards obtaining clusters of correlated variables
-corrAnalysis(datCredit_train, vars, corrThresh = 0.6, method = 'spearman')
+corrAnalysis(datCredit_train_CS, vars, corrThresh = 0.6, method = 'spearman')
 ### RESULTS:
 ###   Absolute correlations of  96%  found for  [Principal_Real] and [Principal] 
-###   Absolute correlations of  92%  found for  [Principal_Real] and [Balance_Real_1] 
-###   Absolute correlations of  87%  found for  [Principal] and [Balance_Real_1]
-###   Absolute correlations of  90%  found for  [Principal_Real] and [Balance_1] 
-###   Absolute correlations of  91%  found for  [Principal] and [Balance_1] 
-###   Absolute correlations of  97%  found for  [Balance_Real_1] and [Balance_1] 
-###   Absolute correlations of  91%  found for  [Principal_Real] and [Instalment_Real] 
-###   Absolute correlations of  86%  found for  [Principal] and [Instalment_Real] 
-###   Absolute correlations of  96%  found for  [Balance_Real_1] and [Instalment_Real] 
-###   Absolute correlations of  92%  found for  [Balance_1] and [Instalment_Real] 
+###   Absolute correlations of  90%  found for  [Principal_Real] and [Balance_Real_1] 
+###   Absolute correlations of  85%  found for  [Principal] and [Balance_Real_1]
+###   Absolute correlations of  89%  found for  [Principal_Real] and [Balance_1] 
+###   Absolute correlations of  89%  found for  [Principal] and [Balance_1] 
+###   Absolute correlations of  98%  found for  [Balance_Real_1] and [Balance_1] 
+###   Absolute correlations of  87%  found for  [Principal_Real] and [Instalment_Real] 
+###   Absolute correlations of  83%  found for  [Principal] and [Instalment_Real] 
+###   Absolute correlations of  91%  found for  [Balance_Real_1] and [Instalment_Real] 
+###   Absolute correlations of  89%  found for  [Balance_1] and [Instalment_Real] 
 ###   Absolute correlations of  -60%  found for  [Balance_Real_1] and [AgeToTerm] 
 ###   Absolute correlations of  76%  found for  [Balance_Real_1] and [BalanceToPrincipal_1] 
-###   Absolute correlations of  69%  found for  [Balance_1] and [BalanceToPrincipal_1] 
-###   Absolute correlations of  67%  found for  [Instalment_Real] and [BalanceToPrincipal_1] 
-###   Absolute correlations of  -65%  found for  [AgeToTerm] and [BalanceToPrincipal_1]
+###   Absolute correlations of  70%  found for  [Balance_1] and [BalanceToPrincipal_1] 
+###   Absolute correlations of  61%  found for  [Instalment_Real] and [BalanceToPrincipal_1] 
+###   Absolute correlations of  -62%  found for  [AgeToTerm] and [BalanceToPrincipal_1]
 
 # - Initialize variables to be tested
 ### NOTE: - Inflation adjusted variables preferred over their non-adjusted counterparts
@@ -283,17 +265,17 @@ vars <- c("Principal_Real", "InterestRate_Margin_imputed_mean", "pmnt_method_grp
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [Balance_Real_1]; [InterestRate_Nom]; [Principal_Real]; [pmnt_method_grp]; [InterestRate_Margin_imputed_mean];
-###                            [slc_acct_pre_lim_perc_imputed_med]; [BalanceToPrincipal_1]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [InterestRate_Nom]; [InterestRate_Margin_imputed_mean]; [pmnt_method_grp]; [Principal_Real];
+###                            [Balance_Real_1]; [BalanceToPrincipal_1]; [slc_acct_pre_lim_perc_imputed_med];
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [Balance_Real_1]; [Principal_Real]; [InterestRate_Nom]; [BalanceToPrincipal_1]; [pmnt_method_grp];
-###                            [InterestRate_Margin_imputed_mean]; [slc_acct_pre_lim_perc_imputed_med]
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best C-statistics: [Balance_Real_1]; [Principal_Real]; [BalanceToPrincipal_1]; [pmnt_method_grp];
+###                            [InterestRate_Margin_imputed_mean]; [slc_acct_pre_lim_perc_imputed_med]; [InterestRate_Nom]
 
 ### CONCLUSION: Select top five variables (preference given to C-statistic rankings):
-###               [Balance_Real_1]; [Principal_Real]; [InterestRate_Nom];
-###               [BalanceToPrincipal_1]; [pmnt_method_grp]
+###               [Balance_Real_1]; [Principal_Real]; [BalanceToPrincipal_1]; [pmnt_method_grp];
+###               [InterestRate_Margin_imputed_mean]
 
 
 
@@ -306,14 +288,14 @@ vars <- c("M_Repo_Rate", "M_Repo_Rate_1 ", "M_Repo_Rate_2", "M_Repo_Rate_3", "M_
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_Repo_Rate_3]; [M_Repo_Rate_2]; [M_Repo_Rate_1] 
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_Repo_Rate_12]; [M_Repo_Rate_9]; [M_Repo_Rate_6] 
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [M_Repo_Rate_3]; [M_Repo_Rate_6]; [M_Repo_Rate_2] 
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best C-statistics: [M_Repo_Rate_12]; [M_Repo_Rate_9]; [M_Repo_Rate_6] 
 
 ### CONCLUSION: Select top three variables (preference given to C-statistic rankings):
-###               [M_Repo_Rate_3]; [M_Repo_Rate_6]; [M_Repo_Rate_2] 
+###               [M_Repo_Rate_12]; [M_Repo_Rate_9]; [M_Repo_Rate_6] 
 
 
 # --- 5.2 Which lag order is the best for: [M_Inflation_Growth]
@@ -323,15 +305,14 @@ vars <- c("M_Inflation_Growth", "M_Inflation_Growth_1 ", "M_Inflation_Growth_2",
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_Inflation_Growth_3]; [M_Inflation_Growth_2]; [M_Inflation_Growth_1]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_Inflation_Growth_12]; [M_Inflation_Growth_9]; [M_Inflation_Growth]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### results: Best C-statistics: [M_Inflation_Growth_6]; [M_Inflation_Growth_3]; [M_Inflation_Growth_1]
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### results: Best C-statistics: [M_Inflation_Growth_12]; [M_Inflation_Growth_9]; [M_Inflation_Growth_6]
 
 ### CONCLUSION: Select top three variables (preference given to C-statistic rankings):
-###               [M_Inflation_Growth_6]; [M_Inflation_Growth_3]; [M_Inflation_Growth_1]
-### MM: I changed this selection from the previous one: [M_Inflation_Growth_2]; [M_Inflation_Growth_3]; [M_Inflation_Growth_1]
+###               [M_Inflation_Growth_12]; [M_Inflation_Growth_9]; [M_Inflation_Growth_6]
 
 
 # --- 5.3 Which lag order is the best for: [M_RealGDP_Growth]
@@ -341,14 +322,14 @@ vars <- c("M_RealGDP_Growth", "M_RealGDP_Growth_1 ", "M_RealGDP_Growth_2", "M_Re
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_RealGDP_Growth_12]; [M_RealGDP_Growth_9]; [M_RealGDP_Growth_6]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_RealGDP_Growth_12]; [M_RealGDP_Growth]; [M_RealGDP_Growth_1]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
 ### RESULTS: Best C-statistics: [M_RealGDP_Growth_12]; [M_RealGDP_Growth_9]; [M_RealGDP_Growth_6]
 
 ### CONCLUSION: Select top three variables:
-###               [M_RealGDP_Growth_6]; [M_RealGDP_Growth_12]; [M_RealGDP_Growth_9]
+###               [M_RealGDP_Growth_12]; [M_RealGDP_Growth_9]; [M_RealGDP_Growth_6]
 
 
 # --- 5.4 Which lag order is the best for: [M_RealIncome_Growth]
@@ -358,14 +339,14 @@ vars <- c("M_RealIncome_Growth", "M_RealIncome_Growth_1 ", "M_RealIncome_Growth_
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_RealIncome_Growth_12]; [M_RealIncome_Growth_9]; [M_RealIncome_Growth_6] 
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_RealIncome_Growth_9]; [M_RealIncome_Growth_6]; [M_RealIncome_Growth_12] 
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [M_RealIncome_Growth_12]; [M_RealIncome_Growth_9]; [M_RealIncome_Growth_6]
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best C-statistics: [M_RealIncome_Growth_1]; [M_RealIncome_Growth_2]; [M_RealIncome_Growth_3]
 
 ### CONCLUSION: Select top three variables (preference given C-statistic rankings):
-###               [M_RealIncome_Growth_12]; [M_RealIncome_Growth_9]; [M_RealIncome_Growth_6]
+###               [M_RealIncome_Growth_1]; [M_RealIncome_Growth_2]; [M_RealIncome_Growth_3]
 
 
 # --- 5.5 Which lag order is the best for: [M_DTI_Growth]
@@ -375,14 +356,14 @@ vars <- c("M_DTI_Growth", "M_DTI_Growth_1 ", "M_DTI_Growth_2", "M_DTI_Growth_3",
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_DTI_Growth_3]; [M_DTI_Growth_6]; [M_DTI_Growth_2]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_DTI_Growth_12]; [M_DTI_Growth_9]; [M_DTI_Growth_6]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [M_DTI_Growth_3]; [M_DTI_Growth_6]; [M_DTI_Growth_2]
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best C-statistics: [M_DTI_Growth_12]; [M_DTI_Growth_9]; [M_DTI_Growth_6]
 
 ### CONCLUSION: Select top three variables:
-###               [M_DTI_Growth_3]; [M_DTI_Growth_6]; [M_DTI_Growth_2]
+###               [M_DTI_Growth_12]; [M_DTI_Growth_9]; [M_DTI_Growth_6]
 
 
 # --- 5.6 Which lag order is the best for: [M_Emp_Growth]
@@ -392,51 +373,47 @@ vars <- c("M_Emp_Growth", "M_Emp_Growth_1 ", "M_Emp_Growth_2", "M_Emp_Growth_3",
 
 # - Single-factor modelling results
 # Goodness-of-fit
-aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best AIC-results: [M_Emp_Growth_12]; [M_Emp_Growth_9]; [M_Emp_Growth_6]
+aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best AIC-results: [M_Emp_Growth_1]; [M_Emp_Growth_2]; [M_Emp_Growth_6]
 # Discriminatory power (in-sample)
-concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
-### RESULTS: Best C-statistics: [M_Emp_Growth_12]; [M_Emp_Growth_9]; [M_Emp_Growth_6]
+concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete")
+### RESULTS: Best C-statistics: [M_Emp_Growth_3]; [M_Emp_Growth_2]; [M_Emp_Growth_1]
 
 ### CONCLUSION: Select top three variables:
-###               [M_Emp_Growth_12]; [M_Emp_Growth_9]; [M_Emp_Growth_6]
+###               [M_Emp_Growth_3]; [M_Emp_Growth_2]; [M_Emp_Growth_1]
 
 
 # --- 5.7 Combining insights: Macroeconomic variables
 # - Initialize variables to be tested
-vars <- c("M_Repo_Rate_3", "M_Repo_Rate_6", "M_Repo_Rate_2", 
-          "M_Inflation_Growth_6", "M_Inflation_Growth_3", "M_Inflation_Growth_1",
-          "M_RealGDP_Growth_6", "M_RealGDP_Growth_12", "M_RealGDP_Growth_9",
-          "M_RealIncome_Growth_12", "M_RealIncome_Growth_9", "M_RealIncome_Growth_2",
-          "M_DTI_Growth_3", "M_DTI_Growth_6", "M_DTI_Growth_2",
-          "M_Emp_Growth_12", "M_Emp_Growth_9", "M_Emp_Growth_6")
+vars <- c("M_Repo_Rate_12", "M_Repo_Rate_9", "M_Repo_Rate_6", 
+          "M_Inflation_Growth_12", "M_Inflation_Growth_9", "M_Inflation_Growth_6",
+          "M_RealGDP_Growth_12", "M_RealGDP_Growth_9", "M_RealGDP_Growth_6",
+          "M_RealIncome_Growth_1", "M_RealIncome_Growth_2", "M_RealIncome_Growth_3",
+          "M_DTI_Growth_12", "M_DTI_Growth_9", "M_DTI_Growth_6",
+          "M_Emp_Growth_3", "M_Emp_Growth_2", "M_Emp_Growth_1")
 
 # - Full model | Stepwise forward selection procedure
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-                   data=datCredit_train, family="binomial")
+                   data=datCredit_train_CS, family="binomial")
 summary(modLR_full);
-evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC:  93 775; McFadden R^2:  6.28%; AUC:  67.24%
+evalLR(modLR_full, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC:  16 614; McFadden R^2:  1.52%; AUC:  60.94%
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
                                                 upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
-                      direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+                      direction = "both", k=log(datCredit_train_CS[,.N]), maxit=50)
 proc.time() - ptm # IGNORE: elapsed runtime; 1m
 
 # - Evaluate model
 summary(modLR_step)
-evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+evalLR(modLR_step, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC:   93 983;   McFadden R^2:  6.06%; AUC:  66.98%
 
 ### CONCLUSION: Select variables from automated variable selection:
-###               [M_Repo_Rate_2]; [M_Repo_Rate_6];
-###               [M_Inflation_Growth_3]; [M_Inflation_Growth_6];
-###               [M_RealGDP_Growth_9]; [M_RealGDP_Growth_12];
-###               [M_RealIncome_Growth_9]; [M_RealIncome_Growth_12];
-###               [M_DTI_Growth_2]; [M_DTI_Growth_3]; [M_DTI_Growth_6]
-###               [M_Emp_Growth_6]; [M_Emp_Growth_9]
+###               [M_Repo_Rate_6]; [M_Repo_Rate_12];
+###               [M_RealIncome_Growth_2]; [M_Emp_Growth_1]
 
 
 
@@ -445,63 +422,53 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 
 # --- 6.1 Run an automated selection procedure on the entire set
 # - Initialise set of variables
-vars <- c("g0_Delinq_SD_12", "DefaultStatus1_Aggr_Prop_Lag_12",
-          "CuringEvents_Aggr_Prop", "g0_Delinq_Ave", "ArrearsToBalance_1_Aggr_Prop",
-          "PrevDefaults", "DefSpell_Age", "g0_Delinq_Num", "Arrears", "DefSpell_Num_binned",
-          "InterestRate_Margin_Aggr_Med_2", "InstalmentToBalance_1_Aggr_Prop",
-          "Balance_Real_1", "Principal_Real", "InterestRate_Nom",
-          "BalanceToPrincipal_1", "pmnt_method_grp",
-          "M_Repo_Rate_2", "M_Repo_Rate_6",
-          "M_Inflation_Growth_3", "M_Inflation_Growth_6",
-          "M_RealGDP_Growth_9", "M_RealGDP_Growth_12",
-          "M_RealIncome_Growth_9", "M_RealIncome_Growth_12",
-          "M_DTI_Growth_2", "M_DTI_Growth_3", "M_DTI_Growth_6",
-          "M_Emp_Growth_6", "M_Emp_Growth_9")
+vars <- c("g0_Delinq_SD_4", "g0_Delinq_Lag_1",
+          "PrevDefaults", "DefaultStatus1_Aggr_Prop_Lag_12", "DefSpell_Num_binned",
+          "TimeInDefSpell", "g0_Delinq_Ave", "ArrearsToBalance_1_Aggr_Prop", "g0_Delinq_Num",
+          "InterestRate_Margin_Aggr_Med_9", "InstalmentToBalance_1_Aggr_Prop",
+          "Balance_Real_1", "Principal_Real", "BalanceToPrincipal_1", "pmnt_method_grp",
+          "InterestRate_Margin_imputed_mean",
+          "M_Repo_Rate_6", "M_Repo_Rate_12", "M_RealIncome_Growth_2", "M_Emp_Growth_1")
 
 # - Full model
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-                   data=datCredit_train, family="binomial")
+                   data=datCredit_train_CS, family="binomial")
 summary(modLR_full)
-evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 67 526; McFadden R^2: 32.56%; AUC: 87.36%
+evalLR(modLR_full, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 6 164; McFadden R^2: 63.65%; AUC: 98.35%
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
 modLR_step <- stepAIC(modLR_base, scope = list(lower = ~ 1, 
                                                upper = as.formula(paste("~", paste(vars, collapse = " + ")))), 
-                      direction = "both", k=log(datCredit_train[,.N]), maxit=50)
+                      direction = "both", k=log(datCredit_train_CS[,.N]), maxit=50)
 proc.time() - ptm # IGNORE: elapsed runtime; 3m
 
 # - Evaluate model
 summary(modLR_step)
-evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 67 678; McFadden R^2: 32.38%; AUC: 87.25%
+evalLR(modLR_step, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 6 205; McFadden R^2: 63.30%; AUC: 98.28%
 
 ### CONCLUSION: Select variables from automated variable selection:
-###               [PrevDefaults]; [M_Repo_Rate_6]; [DefSpell_Num_binned];
-###               [ArrearsToBalance_1_Aggr_Prop]; [Balance_Real_1]; [DefSpell_Age];
-###               [pmnt_method_grp]; [InterestRate_Margin_Aggr_Med_2]; [InterestRate_Nom];
-###               [DefaultStatus1_Aggr_Prop_Lag_12]; [g0_Delinq_Ave]; [M_DTI_Growth_6];
-###               [Principal_Real]; [M_RealGDP_Growth_12]; [g0_Delinq_Num];
-###               [M_Repo_Rate_2]; [M_Inflation_Growth_3]
+###               [InterestRate_Margin_imputed_mean]; [InstalmentToBalance_1_Aggr_Prop]; [g0_Delinq_SD_4];
+###               [g0_Delinq_Lag_1]; [InterestRate_Margin_Aggr_Med_9]; [pmnt_method_grp];
+###               [TimeInDefSpell]; [DefaultStatus1_Aggr_Prop_Lag_12]; [Principal_Real];
+###               [Balance_Real_1]; [g0_Delinq_Ave]
 
 
 # --- 6.2 Model refinements | Adjusting the input space based on expert judgement
-### NOTE: The following changes have been made:
-### Removed: 1) [M_Repo_Rate_6]
-vars <- c("PrevDefaults", "DefSpell_Num_binned",
-          "ArrearsToBalance_1_Aggr_Prop", "Balance_Real_1", 'DefSpell_Age',
-          "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2", 'InterestRate_Nom',
-          "DefaultStatus1_Aggr_Prop_Lag_12", "g0_Delinq_Ave", "M_DTI_Growth_6",
-          "Principal_Real", "M_RealGDP_Growth_12", "g0_Delinq_Num",
-          "M_Repo_Rate_2", "M_Inflation_Growth_3")
+### NOTE: The following changes have been made to ensure a macroeconomic variable is included:
+### Add: 1) [M_Repo_Rate_6]
+### Remove 1) [InstalmentToBalance_1_Aggr_Prop] 
+vars <- colnames(modLR_step$model[,-1])
+vars <- c(vars, c("M_Repo_Rate_6")); vars <- vars[!(vars %in% c("InstalmentToBalance_1_Aggr_Prop"))]
 
 # - Fit model
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
+              data=datCredit_train_CS, family="binomial")
 summary(modLR)
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 67 873; McFadden R^2: 32.18%; AUC: 87.11%
+evalLR(modLR, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 6 363; McFadden R^2: 62.37%; AUC: 98.09%
 
 
 
@@ -509,34 +476,21 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 # ============ 7. Final ============
 
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
-
-# - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key) & DefSpell_Counter==1,]
-
-# - Add an event indicator
-datCredit_train[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
-datCredit_valid[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
-
-# - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath);gc()
+if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath);gc()
 
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
-modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
+modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train_CS, family="binomial")
 
 # - Final variables
-vars <- c("PrevDefaults", "DefSpell_Num_binned",
-          "ArrearsToBalance_1_Aggr_Prop", "Balance_Real_1", "DefSpell_Age",
-          "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2", "InterestRate_Nom",
-          "DefaultStatus1_Aggr_Prop_Lag_12", "g0_Delinq_Ave", "M_DTI_Growth_6",
-          "Principal_Real", "M_RealGDP_Growth_12", "g0_Delinq_Num",
-          "M_Repo_Rate_2", "M_Inflation_Growth_3")
+vars <- c("InterestRate_Margin_imputed_mean", "g0_Delinq_SD_4",
+          "g0_Delinq_Lag_1", "InterestRate_Margin_Aggr_Med_9", "pmnt_method_grp",
+          "TimeInDefSpell", "DefaultStatus1_Aggr_Prop_Lag_12", "Principal_Real",
+          "Balance_Real_1", "g0_Delinq_Ave", "M_Repo_Rate_6")
   
 # - Fit model
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train, family="binomial")
+              data=datCredit_train_CS, family="binomial")
 summary(modLR)
 
 # - Test significance of variables
@@ -547,29 +501,38 @@ coeftest(modLR, vcov.=robust_se)
 ### RESULTS: All variables are significant
 
 # - Other diagnostics
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 67 873; McFadden R^2: 32.18%; AUC: 87.11%
+evalLR(modLR, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 6 363; McFadden R^2: 62.37%; AUC: 98.09%
 
 # - Test goodness-of-fit using AIC-measure over single-factor models
-(aicTable_LR <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [Prev_Defaults]; [M_Repo_Rate_2]; [M_Repo_Rate_6]; [M_DTI_Growth_6]; [InterestRate_Margin_Aggr_Med_2];
-###                         [Balance_Real_1]; [M_RealGDP_Growth_12]
+(aicTable_LR <- aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
+### RESULTS: Top variables: [InterestRate_Margin_imputed_mean]; [g0_Delinq_SD_4]; [g0_Delinq_Lag_1]; [InterestRate_Margin_Aggr_Med_9]
+###                         [DefaultStatus1_Aggr_Prop_Lag_12]; [g0_Delinq_Ave]; [pmnt_method_grp]
 
 # - Test accuracy using c-statistic over single-factor models
-(concTable_LR <- concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [Prev_Defaults]; [DefSpell_Age]; [M_Repo_Rate_6]; [M_Repo_Rate_2]; [M_DTI_Growth_6]
-###                          [InterestRate_Margin_Aggr_Med_2]; [Balance_Real_1]
+(concTable_LR <- concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
+### RESULTS: Top variables: [g0_Delinq_Lag_1]; [InterestRate_Margin_Aggr_Med_9]; [Balance_Real_1]; [Principal_Real]; [TimeInDefSpell]
+###                         [M_Repo_Rate_6]; [g0_Delinq_Ave]
 
 # - Combine results into a single object
 Table_LR <- merge(concTable_LR[,1:2], aicTable_LR, by="Variable")
 
-GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, ,legPos=c(0.6,0.4), panelTitle="Logistic Regression",
+GoF_CoxSnell_KS(modLR, datCredit_train_CS, GraphInd=TRUE, ,legPos=c(0.6,0.4), panelTitle="Logistic Regression",
                 fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_LR", ".png"), dpi=280,fldLstRowInd="DefSpell_Counter")
-### RESULTS: KS-statistic = 43%; Harell's c = 87.25%; AIC = 67 678
+### RESULTS: KS-statistic=92%; Harell's c=98.090%; AIC=6 363
 
 # - Save objects
 # Model analytics
 pack.ffdf(paste0(genObjPath,"LR_fits"), Table_LR)
 # Modeling object
 saveRDS(modLR, file=paste0(genObjPath,"LR_Model.rds"))
+
+
+
+
+# ============ 8. Housekeeping ============
+
+cleanEnviron()
+
+
 

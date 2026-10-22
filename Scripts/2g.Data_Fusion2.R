@@ -881,7 +881,43 @@ pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
 
 
 
-# ============ 5. Housekeeping ============
+
+# ============ 5. Apply a basic cross-validation clustered resampling scheme with possible n-way stratification | Selecting random spell observations ============
+
+# - Confirm that required data objects are loaded into memory
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
+if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
+
+# - Subset for default spells
+datCredit_train_CS <- datCredit_train_CDH[!is.na(DefSpell_Key)]
+datCredit_valid_CS <- datCredit_valid_CDH[!is.na(DefSpell_Key)]
+
+# - Create an indicator to identify a write-off
+datCredit_train_CS[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
+datCredit_valid_CS[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
+
+# - Implement simple random sampling on a spell-level
+set.seed(1, kind="Mersenne-Twister")
+datCredit_train_CS <- datCredit_train_CS[, .SD[sample(.N, 1)], by=list(DefSpell_Key)]
+datCredit_valid_CS <- datCredit_valid_CS[, .SD[sample(.N, 1)], by=list(DefSpell_Key)]
+
+# - [SANITY CHECKS]
+check1 <- datCredit_train_CS[,.N]==uniqueN(datCredit_train_CDH$DefSpell_Key, na.rm=T) & datCredit_valid_CS[,.N]==uniqueN(datCredit_valid_CDH$DefSpell_Key, na.rm=T)
+cat((check1 %?% "SAFE: Training and validation datasets succcessfully by selecting a random row from each default spell. \n" %:% 
+       'WARNING: Training and validation datasets do not reconstitue the subsampled dataset. \n' ))
+
+
+# --- 5.2 Saving the cross-validation scheme
+# - Training dataset
+pack.ffdf(paste0(genPath,"creditdata_train_CS"), datCredit_train_CS)
+
+# - Validation dataset
+pack.ffdf(paste0(genPath,"creditdata_valid_CS"), datCredit_valid_CS)
+
+
+
+
+# ============ 6. Housekeeping ============
 
 cleanEnviron()
 
