@@ -523,10 +523,6 @@ datCredit_valid[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0
 # - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
-# - Weigh default cases heavier. as determined interactively based on calibration success (script 6e)
-datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
-datCredit_valid[, Weight := ifelse(DefSpell_Event==1,1,1)]
-
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
@@ -576,6 +572,4 @@ GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, ,legPos=c(0.6,0.4), panel
 pack.ffdf(paste0(genObjPath,"LR_fits"), Table_LR)
 # Modeling object
 saveRDS(modLR, file=paste0(genObjPath,"LR_Model.rds"))
-
-
 
