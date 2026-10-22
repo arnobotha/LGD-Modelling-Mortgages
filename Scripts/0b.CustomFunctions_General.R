@@ -869,7 +869,7 @@ resid_deviance_glm <- function(model, err_Median = 0.025, err_quantiles = 0.05) 
 # see https://bookdown.org/egarpor/SSS2-UC3M/logreg-deviance.html ; https://web.pdx.edu/~newsomj/cdaclass/ho_logistic.pdf; 
 # https://statisticalhorizons.com/r2logistic/
 # https://stats.stackexchange.com/questions/8511/how-to-calculate-pseudo-r2-from-rs-logistic-regression
-coefDeter_glm <- function(model, model_base = NA) {
+coefDeter_glm <- function(model, model_base = NA, weightsGiven=F) {
   # Testing conditions:
   # model <- modLR; model_base <- modLR_base
   
@@ -904,20 +904,24 @@ coefDeter_glm <- function(model, model_base = NA) {
   # -- Implement the McFadden pseudo R^2 measure from McFadden1974, R^2 = 1 - log(L_M)/log(L_0)
   # NOTE: null deviance L_0 plays an analogous role to the residual sum of squares in linear regression, therefore
   # McFadden's R^2 corresponds to a proportional reduction in "error variance", according to Allison2013 (https://statisticalhorizons.com/r2logistic/)
-  # NOTE2: deviance (L_M) and null deviance (L_0) within a GLM-object is already the log-likelihood since deviance = -2*ln(L_M) by definition
   # https://stats.stackexchange.com/questions/8511/how-to-calculate-pseudo-r2-from-rs-logistic-regression
-  if (any(class(model) == "multinom") ) {
-    coef_McFadden <- 1 - (as.numeric(L_full) / as.numeric(L_base))
-  } else coef_McFadden <- 1 - model$deviance / model$null.deviance
+  coef_McFadden <- 1 - (as.numeric(L_full) / as.numeric(L_base))
   
   # The following check will fail if the given model does not contain an intercept
-  if ( abs(coef_McFadden - as.numeric(1 - (-2*L_full)/(-2*L_base))) > 0.000001 ) {
-    if (attr(terms(model), "intercept") == 1) {
-      stop("ERROR: Internal function error in calculating & verifying McFadden's pseudo R^2-measure")
-    } else{
-      cat("NOTE: Provided model contains no intercept term.\n")
-      coef_McFadden <- as.numeric(1 - (-2*L_full)/(-2*L_base))
-    }
+  if (attr(terms(model), "intercept") != 1) {
+    cat("NOTE: Provided model contains no intercept term.\n")
+  }
+  
+  if (weightsGiven == T & any(model$prior.weights > 1)) {
+    # NOTE: McFadden's pseudo-R^2 is computed using the ratio of model likelihoods.
+    # For weightsGiven==T, the model is estimated under a quasi-binomial specification (and thus lacks a 
+    # fully defined likelihood).
+    cat("NOTE: Model is fitted using a quasi-likelihood approach (quasi-binomial specification) and therefore does not admit 
+        a fully defined likelihood function. Consequently, likelihood-based quantities (e.g., log-likelihood, AIC)
+        are not formally available. However, since the mean and variance structure are specified within the quasi-likelihood framework,
+        inference proceeds via the corresponding quasi-likelihood (estimating equations), which remains well-defined.
+        This is important context for calculating the McFadden pesudo R^2, which ordinarily requires log-likelihood values,
+        but is now computed from the implied binomial likelihood kernel.")
   }
   
   
@@ -956,13 +960,13 @@ coefDeter_glm <- function(model, model_base = NA) {
 # datTrain_simp <- data.table(ISLR::Default); datTrain_simp[, `:=`(default=as.factor(default), student=as.factor(student))]
 # logit_model <- glm(default ~ student + balance + income, data=datTrain_simp, family="binomial")
 # coefDeter_glm(logit_model)
-### RESULTS: candidate is 46% (McFadden) better than null-model in terms of its deviance
+### RESULTS: candidate is 46% (McFadden) better than null-model
 
 
 
 
 # --- Evaluation function for glm-based objects
-evalLR <- function(model, model_base, datGiven, targetFld, predClass) {
+evalLR <- function(model, model_base=NA, datGiven, targetFld, predClass) {
   require(data.table); require(scales)
   # - Test conditions
   # model <- modLR; model_base <- modLR_base; datGiven <- datCredit_train

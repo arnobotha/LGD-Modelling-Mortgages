@@ -242,3 +242,15 @@ concTable <- function(data_train, data_valid, variables, fldSpellID="DefSpell_Ke
 }
 
 
+
+# --- Function to calculate the Restricted Mean Survival Time (RMST) given a Kaplan-Meier object (survFit) and
+# a time horizon tau
+calcRMST <- function(km, tau=NA) {
+  if (is.na(tau)) tau <- max(km$time)
+  
+  keep <- km$time <= tau
+  dt <- diff(c(0, km$time[keep], 1))
+  surv <- c(km$surv[keep], tail(km$surv[keep],1))
+  rmst <- sum(surv * dt)
+  return(rmst)
+}
