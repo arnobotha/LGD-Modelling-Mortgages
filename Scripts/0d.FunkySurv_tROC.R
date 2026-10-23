@@ -84,7 +84,7 @@ tROC.multi <- function(datGiven, cox=NA, Markers=NA, month_Start=0, month_End, s
   
   
   # -- Error handling
-  hasCox <- inherits(cox, "coxph")
+  hasCox <- inherits(cox, c("coxph", "glm"))
   hasMarkers <- !all(is.na(Markers))
   
   if (!is.data.table(dt)) {
