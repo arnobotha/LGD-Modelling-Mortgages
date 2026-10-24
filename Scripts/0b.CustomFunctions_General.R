@@ -860,8 +860,8 @@ resid_deviance_glm <- function(model, err_Median = 0.025, err_quantiles = 0.05) 
 
 # --- Pseudo R^2 measures for classifiers
 # Calculate a pseudo coefficient of determination (R^2) \in [0,1] for glm assuming binary
-# logistic regression as default, based on the "null deviance" in likelihoods
-# between the candidate model and the intercept-only (or "empty/worst/null") model.
+# logistic regression as default, based on the log-likelihoods of a given model and an
+# intercept-only model (or baseline model)
 # NOTE: This generic R^2 is NOT equal to the typical R^2 used in linear regression, i.e., it does
 # NOT explain the % of variance explained by the model; but rather it denotes the %-valued degree
 # to which the candidate's fit can be deemed as "perfect".
