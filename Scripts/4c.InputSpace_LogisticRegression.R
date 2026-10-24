@@ -457,18 +457,20 @@ evalLR(modLR_step, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", p
 
 
 # --- 6.2 Model refinements | Adjusting the input space based on expert judgement
-### NOTE: The following changes have been made to ensure a macroeconomic variable is included:
-### Add: 1) [M_Repo_Rate_6]
-### Remove 1) [InstalmentToBalance_1_Aggr_Prop] 
+### NOTE: 1) The following changes have been made to ensure a macroeconomic variable is included:
+###           - Added: [M_Repo_Rate_6]
+###           - Removed: [InstalmentToBalance_1_Aggr_Prop]
+###       2) The following changes has been made to ensure independence between observations:
+###           - Added [DefSpell_Num_Binned]
 vars <- colnames(modLR_step$model[,-1])
-vars <- c(vars, c("M_Repo_Rate_6")); vars <- vars[!(vars %in% c("InstalmentToBalance_1_Aggr_Prop"))]
+vars <- c(vars, c("M_Repo_Rate_6", "DefSpell_Num")); vars <- vars[!(vars %in% c("InstalmentToBalance_1_Aggr_Prop"))]
 
 # - Fit model
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train_CS, family="binomial")
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 6 363; McFadden R^2: 62.37%; AUC: 98.09%
+### RESULTS: AIC: 6 359; McFadden R^2: 62.40%; AUC: 98.10%
 
 
 

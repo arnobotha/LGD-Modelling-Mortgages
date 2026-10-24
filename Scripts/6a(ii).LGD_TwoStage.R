@@ -47,10 +47,6 @@ setorder(datCredit_valid_CDH, LoanID, Date)
 datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key))
 datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key))
 
-# - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
-datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
-datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
-
 # - Transform categorical variables to factor
 # Payment method
 datCredit_train[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]

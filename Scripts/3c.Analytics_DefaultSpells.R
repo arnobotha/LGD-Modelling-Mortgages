@@ -4,16 +4,10 @@
 # Histogram and density of resolution over default spell age
 # ------------------------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Bernard Scheepers (BS), Marcel Muller (MM), Mohammed Gabru (MG)
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Marcel Muller (MM), and Mohammed Gabru (MG)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Data_Prepare_Credit_Advanced.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
-#   - 2d.Data_Enrich.R
-#   - 2e.Data_Prepare_Macro.R
 #   - 2f.Data_Fusion1.R
 
 # -- Inputs:
@@ -29,7 +23,8 @@
 
 
 
-# ----------------- 1. Max spell number ---
+# ============ 1. Max spell number ============
+
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_real')) unpack.ffdf(paste0(genPath,"creditdata_final4a"), tempPath)
 
@@ -76,7 +71,7 @@ rm(datAggr,datAggr2,g1);gc()
 
 
 
-# ----------------- 2. Default resolution rate over time per numbered spell | Cohort-end
+# ============ 2. Default resolution rate over time per numbered spell | Cohort-end ============
 
 # --- Merge datasets together for graphing purposes, subset necessary fields, and rename columns for graphing ease
 datGraph <- rbind(datCredit_real[DefSpell_Num==1, list(Date, LoanID, DefSpell_Key, DefSpell_Num, 
@@ -139,13 +134,16 @@ rm(datAggr_cohorts, datGraph)
 
 
 
+# ============ 3. Extent of censored spells over spell age ============
 
-# ----------------- 3. Extent of censored spells over spell age
-
+# - Aggregate data
 datAggr <- datCredit_real[, list(CensorRate = mean(ifelse(DefSpellResol_Type_Hist=="Censored", 1, 0), na.rm=T)), 
                           by=list(DefSpell_Age)]
+
+# - Add a label
 datAggr[, Resol_Type := "Right-censoring rate"]
 
+# - Investigate censoring rate
 describe(datAggr[DefSpell_Age<=120, CensorRate]); hist(datAggr[DefSpell_Age<=120, CensorRate], breaks="FD")
 
 # - Annotations
@@ -155,6 +153,7 @@ sMeanCensor <- mean(datAggr[DefSpell_Age<=120, CensorRate], na.rm=T)
 chosenFont <- "Cambria"
 vCol <- brewer.pal(10, "Paired")[c(2,1)]
 
+# - Main plot
 (ggOuter <- ggplot(datAggr[DefSpell_Age<=120, ], aes(x=CensorRate)) + theme_minimal() +
     labs(y="Histogram and empirical density", 
          x="Censoring rate per unique spell age") + 
@@ -170,7 +169,7 @@ vCol <- brewer.pal(10, "Paired")[c(2,1)]
     scale_fill_manual(name="", values=vCol[2]) + 
     scale_y_continuous(label=comma) + scale_x_continuous(label=percent))
 
-
+# - Inset plot
 (ggInner <- ggplot(datAggr[DefSpell_Age<=120,], aes(x=DefSpell_Age, y=CensorRate)) + theme_bw() +
     labs(y="Mean censoring rate (%)", x=" Default spell age") + 
     theme(text=element_text(size=12, family="Cambria"),
@@ -190,7 +189,6 @@ vCol <- brewer.pal(10, "Paired")[c(2,1)]
     scale_colour_manual(name="", values=vCol[1]) + 
     scale_y_continuous(label=percent))
 
-
 # - Combining the two above plots onto a single graph
 ymin <- diff(ggplot_build(ggOuter)$layout$panel_params[[1]]$y.range) * 0.45
 ymax <- max(ggplot_build(ggOuter)$layout$panel_params[[1]]$y.range) * 0.975
@@ -203,11 +201,9 @@ ggsave(plot.full, file=paste0(genFigPath,"CensoringRate_DefaultSpells-HistogramD
 
 
 
-# ----------------- 4. Failure time histogram & densities per resolution type
+# ============ 4. Failure time histogram & densities per resolution type ============
 
-
-# ------Preliminaries
-
+# --- 4.1 Preliminaries
 # - Select one record per default spell
 datSurv <- subset(datCredit_real, DefSpell_Counter==1 & DefSpell_Age < 500,
                   select=c("LoanID","DefSpell_Key","DefSpell_Age", "DefSpellResol_Type_Hist", "DefSpell_Num", "TimeInDefSpell")); gc()
@@ -216,10 +212,10 @@ datSurv <- subset(datCredit_real, DefSpell_Counter==1 & DefSpell_Age < 500,
 datSurv[,Resol_Type := case_when(DefSpellResol_Type_Hist == "WOFF" ~ "a_Written-off",
                                  DefSpellResol_Type_Hist == "Censored" ~ "b_Right-censored",
                                  DefSpellResol_Type_Hist == "Cured" ~ "c_Cured")]
-# [SANITY CHECK] Frequency analysis
+
+# - [SANITY CHECK] Frequency analysis
 datSurv$DefSpellResol_Type_Hist %>% table() %>% prop.table()
 (Resol_Type.props <- datSurv$Resol_Type %>% table() %>% prop.table())
-
 
 # - Graphing Parameters
 chosenFont <- "Cambria"
@@ -254,3 +250,109 @@ ggsave(g1_Densities_Resol_Type, file=paste0(genFigPath,"WOff-FailureTime-Densiti
 
 # - Clean-up
 rm(datSurv, g1_Densities_Resol_Type)
+
+
+
+
+# ============ 5. Spell volumes over sampling window ============
+
+# --- 5.1 Overall observations
+# - Create plotting data
+datPlot <- datCredit_real[!is.na(DefSpell_Key), .(Volume=.N), by=list(Date)]
+
+# - Calculate TTC-mean and associated confidence interval 
+confLevel <- 0.95
+meanVol <- mean(datPlot$Volume)
+stdErrVol <- sd(datPlot$Volume)/sqrt(sum(datPlot[,.N]))
+margVol <- qnorm(1-(1-confLevel)/2) * stdErrVol
+Anno <- paste0("'TTC-mean over: ", sprintf("%.0f", meanVol), " ± ",
+               sprintf("%1.0f", margVol), "'")
+
+# - Graphing parameters
+chosenFont <- "Cambria"
+vCol <- brewer.pal(8, "Dark2")[c(2)]
+
+# - Plot
+(gVolume <- ggplot(datPlot, aes(x=Date, y=Volume)) +
+  theme_minimal() + 
+  labs(y=bquote("Default spell volume"), x=bquote("Reporting date (MMMCCYY)")) + 
+  theme(text=element_text(family=chosenFont), legend.position = "bottom", legend.margin=ggplot2::margin(-10, 0, 0, 0),
+        axis.text.x=element_text(angle=90), 
+        strip.background=element_rect(fill="snow2", colour="snow2"),
+        strip.text=element_text(size=11, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
+  # Main graph
+  geom_line(colour=vCol, linewidth=0.3, alpha=0.7) + geom_point(colour=vCol, size=1.8, alpha=0.7) +
+  # Annotations
+  annotate(geom="text", x=as.Date("2016-12-31"), y=17500, label=Anno, parse=T, size=3) +
+  # Facets & scales
+  scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
+  scale_y_continuous(breaks=pretty_breaks(), labels=comma))
+
+# - Save plot
+dpi <-180
+ggsave(gVolume, file=paste0(genFigPath, "DefaultSpell_Volume_ReportingTime.png"),
+       width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
+
+
+# --- 5.2 Observations by resolution outcome
+# - Create plotting data
+datPlot <- datCredit_real[!is.na(DefSpell_Key), .(Volume=.N), by=list(Date, DefSpellResol_Type_Hist)]
+
+# - Calculate TTC-mean and associated confidence interval 
+confLevel <- 0.95
+vmeanVol <- datPlot[, mean(Volume), by=list(DefSpellResol_Type_Hist)][,2]
+vstdErrVol <- datPlot[, sd(Volume), by=list(DefSpellResol_Type_Hist)][,2]/sqrt(datPlot[, .N, by=list(DefSpellResol_Type_Hist)][,2])
+vmargVol <- qnorm(1-(1-confLevel)/2) * stdErrVol
+
+# - Create and assign labels
+series_labels <- c("A[t]", "B[t]", "C[t]")
+vAnno <- sapply(seq_along(series_labels), function(i) {
+  paste0("'TTC-mean over '*italic(t)*' for '*italic(", series_labels[i], ")*' : ",
+         sprintf("%.2f", vmeanVol[i]), " ± ", sprintf("%1.3f", vstdErrVol[i]),"'")
+})
+
+# - Compile annotation dataset
+datAnno <- data.table(DefSpellResol_Type_Hist=datPlot[, mean(Volume), by=list(DefSpellResol_Type_Hist)][,1],
+                      x=rep(as.Date("2016-12-31"), 3), y=c(12500, 11000, 9000),
+                      Label=vAnno)
+
+# - Graphing parameters
+chosenFont <- "Cambria"
+vCol <- brewer.pal(8, "Dark2")[c(2,1,3)]
+vLabel <- c("A"=bquote(italic(A[t])~": Cured"),
+            "B"=bquote(italic(B[t])~": Written-off"), 
+            "C"=bquote(italic(C[t])~": Censored"))
+
+# - Plot
+(gVolume_ResolType <- ggplot(datPlot, aes(x=Date, y=Volume)) +
+    theme_minimal() + 
+    labs(y=bquote("Default spell volume"), x=bquote("Reporting date (MMMCCYY)")) + 
+    theme(text=element_text(family=chosenFont), legend.position = "bottom", legend.margin=ggplot2::margin(-10, 0, 0, 0),
+          axis.text.x=element_text(angle=90), 
+          strip.background=element_rect(fill="snow2", colour="snow2"),
+          strip.text=element_text(size=11, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
+    # Main graph
+    geom_line(aes(colour=DefSpellResol_Type_Hist), linewidth=0.3, alpha=0.7) +
+    geom_point(aes(colour=DefSpellResol_Type_Hist), size=1.8, alpha=0.7) +
+    # Annotations
+    geom_text(data=datAnno, aes(x=x, y=y, label=Label), alpha=0.7, family=chosenFont, parse=T, size=3) +
+    # Facets & scales
+    scale_colour_manual(name="Resolution outcome", values=vCol, labels=vLabel, 
+                        guide=guide_legend(nrow = 1, byrow=T)) +
+    scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
+    scale_y_continuous(breaks=pretty_breaks(), labels=comma))
+
+# - Save plot
+dpi <-180
+ggsave(gVolume_ResolType, file=paste0(genFigPath, "DefaultSpell_Volume_ResolutionType_ReportingTime.png"),
+       width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
+
+
+
+
+# ============ 6. Housekeeping ============
+
+cleanEnviron()
+
+
+

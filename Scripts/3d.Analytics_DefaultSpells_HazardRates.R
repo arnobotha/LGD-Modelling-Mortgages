@@ -6,16 +6,11 @@
 # across including/excluding left-truncation and first-spell vs multi-spell.
 # ------------------------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Bernard Scheepers (BS), Mohammed Gabru (MG)
+# SCRIPT AUTHOR(S): Dr Arno Botha (AB), Mohammed Gabru (MG)
 # ------------------------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
 #   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Data_Prepare_Credit_Advanced.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
-#   - 2d.Data_Enrich.R
-#   - 2e.Data_Prepare_Macro.R
 #   - 2f.Data_Fusion1.R
 
 # -- Inputs:
@@ -30,7 +25,8 @@
 # ------------------------------------------------------------------------------------------------------
 
 
-# -------- 0 Preliminaries
+# ============ 1. Preliminaries ============
+
 # - Generic parameters
 mainEventName <- "Write-off"
 
@@ -40,16 +36,16 @@ if (!exists('datCredit_real')) unpack.ffdf(paste0(genPath,"creditdata_final4a"),
 
 
 
-# -------- 1. Kaplan-Meier analysis across all default spells | Left-truncation included
+# ============ 2. Kaplan-Meier analysis across all default spells | Left-truncation included ============
 
-# --- Fit Kaplan-Meier (KM) nonparametric model
-# Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
+# --- 2.1 Fit Kaplan-Meier (KM) nonparametric model
+# - Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
 km_All <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=WOff_Ind==1, type="counting") ~ 1, 
                   id=DefSpell_Key, data=datCredit_real[!is.na(DefSpell_Key),])
 summary(km_All)$table # overall summary statistics
 plot(km_All, conf.int = T) # survival curve
 
-# -- Calculate various summary statistics
+# --- 2.2 Calculate various summary statistics
 # - Chosen percentile of survival times, used later as a prediction time, e.g., 75%
 # NOTE: Median would also work, though sample sizes typically dwindle at that point, which can complicate analyses
 survPercentile <- 0.75
@@ -57,11 +53,11 @@ cat(paste0("Kaplan-Meier: Survival time at the xth percentile of the distributio
            percTimepoint <- min(km_All$time[km_All$surv <= survPercentile],na.rm=T)))
 
 # - Calculate the Truncated Mean (or "Restricted Mean Survival Time" [RMST]) of survival times
-# NOTE: The classical mean survival time is only defined when S(t) can reach 0
-# NOTE2: Calculating RMST involves integrating the KM-curve up to the last (hence truncated) observed unique event time
-#         I.e., sum the survival probabilities, as weighted by the time difference between two successive survival times
-# NOTE3: RMST: What is the average survival time (time-to-event) over a window lf length \tau?
-#       Up to how long does an individual survive during a time span of \tau units?
+### NOTE: - The classical mean survival time is only defined when S(t) can reach 0
+###       - Calculating RMST involves integrating the KM-curve up to the last (hence truncated) observed unique event time
+###         I.e., sum the survival probabilities, as weighted by the time difference between two successive survival times
+###       - RMST: What is the average survival time (time-to-event) over a window lf length \tau?
+###         Up to how long does an individual survive during a time span of \tau units?
 tau <- max(km_All$time) # if max, then RMST = "mean follow-up time"
 rmst <- calcRMST(km_All, tau)
 cat(paste0("Kaplan-Meier: Restricted Mean Survival Time [RMST] during window of length tau = ", tau, ": \t", round(rmst,digits=2),
@@ -88,18 +84,17 @@ cat(paste0("Kaplan-Meier: Retrieved mean survival probability at last unique eve
            percent(km_All$surv[max(which(km_All$time <= max(km_All$time)))], accuracy=0.01)))
 
 
-
-
-# --- Cumulative Lifetime Distribution F(t)=1-S(t)
-
-# - Graphing parameters
+# --- 2.3 Cumulative Lifetime Distribution F(t)=1-S(t)
+# -- 2.3.1 Graphing parameters
 vCol <- brewer.pal(8, "Set1")[c(1)] # for F(t)
 medLife <- summary(km_All)$table["median"]
 median_survival <- data.frame(x = medLife, y = 0.5)
 maxTime <- max(km_All$time)
 chosenFont <- "Cambria"
 
-# - Graphing logic: Entire domain of time to event
+
+# -- 2.3.2 Graphing logic: Entire domain of time to event
+# - Plot
 gsurv_Ft <- ggsurvplot(km_All, fun="event", conf.int=T, surv.scale = "percent", legend="none", 
                        break.time.by=100, palette=vCol,
                        xlab = bquote(Discrete~time~italic(t)*" (months) in spell: Multi-spell"),
@@ -113,7 +108,7 @@ gsurv_Ft <- ggsurvplot(km_All, fun="event", conf.int=T, surv.scale = "percent", 
                        font.family=chosenFont, fontsize=2.5,
                        surv.median.line = "hv", size=0.5)
 
-# Add median annotation for illustrative purposes
+# - Add median annotation for illustrative purposes
 gsurv_Ft$plot <- gsurv_Ft$plot  +    
   annotate("text", x = medLife, y = 0.5,
            label = paste0("50th Percentile: ", medLife, " months"),
@@ -121,28 +116,28 @@ gsurv_Ft$plot <- gsurv_Ft$plot  +
   annotate("text", x=medLife*5, y=0.55,
            label = paste0("RMST (during window of ", tau, " months): ", round(rmst, digits=1), " months"),
            vjust=-0.5, hjust=1, color = "black", size = 2.5, family = chosenFont)
-# Add Custom percentile line segment for illustrative purposes   
+
+# - Add Custom percentile line segment for illustrative purposes   
 gsurv_Ft$plot <- gsurv_Ft$plot  +    
   geom_segment(x = 0, xend=percTimepoint, y=1-survPercentile, yend = 1-survPercentile, linetype = "dashed", color = "black") +
   geom_segment(x = percTimepoint, xend=percTimepoint, y=0, yend = 1-survPercentile, linetype = "dashed", color = "black") +
   annotate("text", x = percTimepoint, y = 1 - survPercentile, label = paste0(comma((1-survPercentile)*100), "th Percentile: ", round(percTimepoint, 2), " months"),
            vjust=-0.5, hjust=-0.1, color = "black", size = 2.5, family = chosenFont)
-### RESULTS: Based on survival analysis, about 100% of the dataset was consumed at t=120; We shall henceforth remove outlines purely
-# for graphing purposes
+### RESULTS: Based on survival analysis, about 100% of the dataset was consumed at t=120;
+### CONCLUSION: We shall henceforth remove outlines purely for graphing purposes
+
+# - Set maximum period for graphing purposes
 maxPeriod <- 120
 
-# - Save graph
+# - Save graphs
 dpi <- 190
 ggsave(gsurv_Ft$plot, file=paste0(genFigPath, "Kaplan-Meier/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc.png"), width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
 dpi <- 185 # need to decrease size for risk tables' text
 ggsave(print(gsurv_Ft,newpage=F), file=paste0(genFigPath,"Kaplan-Meier/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_RiskTable.png"),width=1200/dpi, height=1200/dpi,dpi=dpi, bg="white")
 
 
-
-
-
-
-# - Graphing logic: Limited domain of time to event [maxPeriod]
+# -- 2.3.3 Graphing logic: Limited domain of time to event [maxPeriod]
+# - Plot
 gsurv_Ft2 <- ggsurvplot(km_All, fun="event", conf.int=T, surv.scale = "percent", legend="none", 
                         break.time.by=round(maxPeriod)/8, palette=vCol,
                         xlab = bquote(Discrete~time~italic(t)*" (months) in spell: Multi-spell"),
@@ -155,7 +150,8 @@ gsurv_Ft2 <- ggsurvplot(km_All, fun="event", conf.int=T, surv.scale = "percent",
                         risk.table.title = "Number in (% of) sample at risk of main event",
                         font.family=chosenFont, fontsize=2.5,
                         surv.median.line = "hv", size=0.5)
-# Add median annotation for illustrative purposes
+
+# - Add median annotation for illustrative purposes
 gsurv_Ft2$plot <- gsurv_Ft2$plot  +    
   annotate("text", x = medLife, y = 0.51,
            label = paste0("50th Percentile: ", medLife, " months"),
@@ -163,23 +159,22 @@ gsurv_Ft2$plot <- gsurv_Ft2$plot  +
   annotate("text", x=medLife*1.5, y=0.55,
            label = paste0("RMST (during window of ", tau, " months): ", round(rmst, digits=1), " months"),
            vjust=-0.5, hjust=1, color = "black", size = 2.5, family = chosenFont)
-# Add Custom percentile line segment for illustrative purposes   
+
+# - Add Custom percentile line segment for illustrative purposes   
 gsurv_Ft2$plot <- gsurv_Ft2$plot  +    
   geom_segment(x = 0, xend=percTimepoint, y=1-survPercentile, yend = 1-survPercentile, linetype = "dashed", color = "black") +
   geom_segment(x = percTimepoint, xend=percTimepoint, y=0, yend = 1-survPercentile, linetype = "dashed", color = "black") +
   annotate("text", x = percTimepoint, y = 1 - survPercentile+0.01, label = paste0(comma((1-survPercentile)*100), "th Percentile: ", round(percTimepoint, 2), " months"),
            vjust=-0.5, hjust=1, color = "black", size = 2.5, family = chosenFont)
 
-# - Save graph
+# - Save graphs
 dpi <- 190
 ggsave(gsurv_Ft2$plot, file=paste0(genFigPath,"Kaplan-Meier/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_LimPeriod.png"),width=1200/dpi, height=1200/dpi,dpi=dpi, bg="white")
 dpi <- 185
 ggsave(print(gsurv_Ft2,newpage=F), file=paste0(genFigPath,"Kaplan-Meier/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_RiskTable_LimPeriod.png"),width=1200/dpi, height=1200/dpi,dpi=dpi, bg="white")
 
 
-
-
-# --- Create data and graphing objects
+# --- 2.4 Create data and graphing objects
 # - Create survival table using surv_summary()
 (datSurv <- surv_summary(km_All)) # Survival table
 datSurv <- datSurv %>% rename(Time=time, AtRisk_n=`n.risk`, Event_n=`n.event`, Censored_n=`n.censor`, SurvivalProb_KM=`surv`) %>%
@@ -214,9 +209,10 @@ plot(datSurv$EventRate, type="b")
 ### RESULTS: Somewhat of a U-shape is seen
 ### the values increase till roughly 24 months and from that they decrease
 ### This is intuitive and what is to be expected
-# --- Graphing the hazard rate h(t)
 
-# Fitting Locally Estimated Scatterplot Smoothing (LOESS)
+
+# --- 2.5 Graphing the hazard rate h(t)
+# - Fitting Locally Estimated Scatterplot Smoothing (LOESS)
 sSpan <- 0.2
 smthHazard_Act <- loess(datSurv$Hazard_Actual ~ datSurv[,list(x=1:.N)]$x, span=sSpan)
 summary(smthHazard_Act)
@@ -264,9 +260,8 @@ ggsave(gsurv_ht, file=paste0(genFigPath, "Kaplan-Meier/DiscreteHazard_", mainEve
 
 
 
-# --- Graphing the event density / probability mass function f(t)
-
-# Fitting Locally Estimated Scatterplot Smoothing (LOESS)
+# --- 2.6 Graphing the event density / probability mass function f(t)
+# - Fitting Locally Estimated Scatterplot Smoothing (LOESS)
 sSpan <- 0.175
 smthEventRate_Act <- loess(datSurv$EventRate ~ datSurv[,list(x=1:.N)]$x, span=sSpan)
 summary(smthEventRate_Act)
@@ -275,11 +270,11 @@ summary(smthEventRate_Act)
 vPredSmth <- predict(smthEventRate_Act, newdata=datSurv, se=T)
 
 # - Add smoothed estimate to graphing object
-datSurv[, EventRate_spline := vPredSmth$fit]
+datSurv[, EventRate_spline:=vPredSmth$fit]
 alpha <- 0.05 # significance level for confidence intervals
 critVal <- qt(1-alpha/2, df=vPredSmth$df) # use t-distribution for small sample sizes (<30)
-datSurv[, EventRate_spline_upper := EventRate_spline + critVal*vPredSmth$se.fit]
-datSurv[, EventRate_spline_lower := EventRate_spline - critVal*vPredSmth$se.fit]
+datSurv[, EventRate_spline_upper:=EventRate_spline+critVal*vPredSmth$se.fit]
+datSurv[, EventRate_spline_lower:=EventRate_spline-critVal*vPredSmth$se.fit]
 
 # - Graphing parameters
 vCol3 <- brewer.pal(10, "Paired")[c(4,3)]
@@ -317,32 +312,33 @@ pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), datSurv)
 
 
 
+# ============ 3. Fit competing risks non-parametric survival model using Aalen-Johansen estimator of S(t) ============
 
-# -------- 2. Fit competing risks non-parametric survival model using Aalen-Johansen estimator of S(t)
-
+# --- 3.1  Calculate survival quantities
+# - Investigate resolution types
 describe(datCredit_real$DefSpellResol_Type_Hist)
-### NOTE: Semantically, the spell periods preceding the last record are not "censored", even though they are
-# labelled as such. This is merely to fit the paradigm of the counting-process Surv() function 
-# within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "cesnored")
-# indicates zero events during said interval.
+### NOTE: - Semantically, the spell periods preceding the last record are not "censored", even though they are
+###         labelled as such.
+###       - This is merely to fit the paradigm of the counting-process Surv() function within a multistate setup,
+###         which requires the event indicator at the end of each interval, where 0 (or "cesnored")
+###         indicates zero events during said interval.
 datCredit_real[, DefSpell_EventType := 
-                 case_when(TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "WOFF" ~ "Write-off",
-                           TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Cured" ~ "Cured",
-                           TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Censored" ~ "Censored",
-                           TimeInDefSpell<DefSpell_Age ~ "Censored",
-                           T ~ NA), by=.(DefSpell_Key)]
+                 case_when(TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist=="WOFF"~"Write-off",
+                           TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist=="Cured"~"Cured",
+                           TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist=="Censored"~"Censored",
+                           TimeInDefSpell<DefSpell_Age~"Censored",
+                           T~NA), by=.(DefSpell_Key)]
 
-# Recreate event type as a factor in preparation for Surv() function
-datCredit_real[, DefSpell_EventType := 
-                 factor(DefSpell_EventType, levels=c("Censored", "Write-off", "Cured"))]
+# - Recreate event type as a factor in preparation for Surv() function
+datCredit_real[, DefSpell_EventType:=factor(DefSpell_EventType, levels=c("Censored", "Write-off", "Cured"))]
 
 # - Fit Aalen-Johansen estimator for S(t) amidst competing risks
-aj_All <- survfit(Surv(time=TimeInDefSpell - 1, time2=TimeInDefSpell, event=DefSpell_EventType) ~ 1,
-                  id = DefSpell_Key, data = datCredit_real[!is.na(DefSpell_Key),])
+aj_All <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=DefSpell_EventType) ~ 1,
+                  id=DefSpell_Key, data=datCredit_real[!is.na(DefSpell_Key),])
 summary(aj_All)
 
 # - Cast state probabilities over time into data object and merge with main object
-# Note that these probabilities are equivalent to the cause-specific cumulative incidence functions (CIFs)
+### NOTE: These probabilities are equivalent to the cause-specific cumulative incidence functions (CIFs)
 datSurv2 <- data.table(Time = aj_All$time, AtRisk_n = aj_All$n.risk[,"(s0)"],
            Event_n_WriteOff = aj_All$n.event[,"Write-off"], Event_n_Cured = aj_All$n.event[,"Cured"],
            Censored_n = aj_All$n.censor[,"(s0)"], SurvivalProb_AJ = aj_All$pstate[,"(s0)"], 
@@ -384,16 +380,13 @@ plot(datSurv$EventRate, type="b")
 lines(datSurv2$EventRate_WriteOff, type="b", col="red")
 
 
-
-
-# --- Graphing the event density / probability mass function f(t)
-# Comparison between KM-based classical write-off probability f(t) and f_g(t) for cause g (write-off)
+# --- 3.2 Graphing the event density / probability mass function f(t)
+### NOTE: Comparison between KM-based classical write-off probability f(t) and f_g(t) for cause g (write-off)
 
 # - Compile data for graphing purposes
-datGraph <- rbind(data.table(Time=datSurv$Time, EventRate = datSurv$EventRate, Type="Classical"),
-                  data.table(Time=datSurv2$Time, EventRate = datSurv2$EventRate_WriteOff, Type="CompRisks"))
+datGraph <- rbind(data.table(Time=datSurv$Time, EventRate=datSurv$EventRate, Type="Classical"),
+                  data.table(Time=datSurv2$Time, EventRate=datSurv2$EventRate_WriteOff, Type="CompRisks"))
 
-# - C
 # - Graphing parameters
 vCol4 <- brewer.pal(10, "Paired")[c(4,6)]
 vLabel <- c("Classical"=bquote("Write-off Probability (Kaplan-Meier) "*italic(f(t))),
@@ -418,10 +411,16 @@ dpi <- 175 # reset
 ggsave(gsurv_ft_1, file=paste0(genFigPath, "Kaplan-Meier/EventProb-", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_CompRisks.png"),
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
+
+
+
+# ============ 4. Housekeeping ============
+
 # - Save snapshots to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompRisks"), datSurv2)
 
-# - Housekeeping
-rm(gsurv_Ft, gsurv_Ft2, gsurv_ht, gsurv_ft, km_All, median_survival, datSurv, vlabel, 
-   smthEventRate_Act, smthHazard_Act, vPredSmth, datCredit_real, datGraph, datSurv2, gsurv_ft_1,
-   vLabel, aj_All)
+# - Clean-up
+cleanEnviron()
+
+
+

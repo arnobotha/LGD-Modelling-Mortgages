@@ -805,7 +805,7 @@ pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), datCredit_prep)
 
 
 
-# ============ 4. Apply a basic cross-validation clustered resampling scheme with possible n-way stratification ============
+# ============ 4. Apply a cross-validation clustered resampling scheme | Using all spell observaitons ============
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), tempPath)
@@ -882,7 +882,7 @@ pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
 
 
 
-# ============ 5. Apply a basic cross-validation clustered resampling scheme with possible n-way stratification | Selecting random spell observations ============
+# ============ 5. Apply a cross-validation clustered resampling scheme | Selecting random spell observations ============
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
