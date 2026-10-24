@@ -320,7 +320,7 @@ pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), datSurv)
 
 # -------- 2. Fit competing risks non-parametric survival model using Aalen-Johansen estimator of S(t)
 
-describe(datCredit_real$DefSpellResol_Type_Hist)
+# - Create multinomial event type variable
 ### NOTE: Semantically, the spell periods preceding the last record are not "censored", even though they are
 # labelled as such. This is merely to fit the paradigm of the counting-process Surv() function 
 # within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "cesnored")

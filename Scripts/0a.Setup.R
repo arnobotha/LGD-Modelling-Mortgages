@@ -64,7 +64,8 @@ require(cplm)
 require(tweedie)
 require(pcaPP)
 require(caret)
-require(MST) # for survival trees
+require(nnet) # for multinomial logistic regression
+require(MASS) # for likelihood ratio tests dropterm() appropriate for MLR-models
 
 # - Plots
 require(ggplot2)
