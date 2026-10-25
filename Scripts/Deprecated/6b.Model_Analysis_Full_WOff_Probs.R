@@ -7,18 +7,10 @@
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Data_Prepare_Credit_Advanced.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
-#   - 2d.Data_Enrich.R
-#   - 2f.Data_Fusion1.R
-#   - 2g.Data_Fusion2.R
 #   - 4b(i).InputSpace_DiscreteCox.R
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
 #   - 4d.InputSpace_TwoStage_LossSeverity.R
-#   - 4e(ii).Dichotomisation
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
 #   - datCredit_valid_CDH | Prepared from script 2g

@@ -169,20 +169,23 @@ suppressWarnings(rm(coefDeter_LR, coefDeter_Adv, coefDeter_LR, PseudoR2_Table));
 datCredit[, `:=`(DefSpell_Min_Date=min(Date),
                  DefSpell_Max_Date=max(Date)),by=list(DefSpell_Key)]
 
+# - Create a numeric version of the target
+datCredit[, DefSpell_Event2_Num:=as.numeric(DefSpell_Event2)]
+
 # - Calculate AUCs by default cohort start time
 ### MM: As with my commentary on the LGD distributions and t-Brier Scores, this is not a valid comparison given
 ###     that the hazard rate is not calculated correctly for the classical model
-BasAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date","DefSpell_Event2","Hazard_bas")
-AdvAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date", "DefSpell_Event2","Hazard_adv")
-LRAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date","DefSpell_Event2","Hazard_classic")
-STAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date", "DefSpell_Event2", "Hazard_survtree")
+BasAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date","DefSpell_Event2_Num","Hazard_bas")
+AdvAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date", "DefSpell_Event2_Num","Hazard_adv")
+LRAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date","DefSpell_Event2_Num","Hazard_classic")
+STAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date", "DefSpell_Event2_Num", "Hazard_survtree")
 
 # - Calculate AUCs by default cohort STOP time
 ### MM: Same commentary as above
-BasAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date","DefSpell_Event2","Hazard_bas")
-AdvAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date","DefSpell_Event2","Hazard_adv")
-LRAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date","DefSpell_Event2","Hazard_classic")
-STAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date", "DefSpell_Event2", "Hazard_survtree")
+BasAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date","DefSpell_Event2_Num","Hazard_bas")
+AdvAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date","DefSpell_Event2_Num","Hazard_adv")
+LRAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date","DefSpell_Event2_Num","Hazard_classic")
+STAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date", "DefSpell_Event2_Num", "Hazard_survtree")
 
 
 # --- 3.2 Prepare datasets for graphing
