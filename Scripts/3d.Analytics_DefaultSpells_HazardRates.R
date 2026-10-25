@@ -383,6 +383,8 @@ lines(datSurv2$SurvivalProb_Cured, type="b", col="blue")
 plot(datSurv$EventRate, type="b")
 lines(datSurv2$EventRate_WriteOff, type="b", col="red")
 
+# - Save snapshots to disk (zip) for quick disk-based retrieval later
+pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompRisks"), datSurv2)
 
 
 
@@ -417,9 +419,6 @@ vLabel <- c("Classical"=bquote("Write-off Probability (Kaplan-Meier) "*italic(f(
 dpi <- 175 # reset
 ggsave(gsurv_ft_1, file=paste0(genFigPath, "Kaplan-Meier/EventProb-", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_CompRisks.png"),
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
-
-# - Save snapshots to disk (zip) for quick disk-based retrieval later
-pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompRisks"), datSurv2)
 
 # - Housekeeping
 rm(gsurv_Ft, gsurv_Ft2, gsurv_ht, gsurv_ft, km_All, median_survival, datSurv, vlabel, 

@@ -15,6 +15,11 @@
 # ---------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
+#   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Data_Prepare_Credit_Advanced.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
 #   - 2f.Data_Fusion1.R
 
 # -- Inputs:
@@ -776,18 +781,7 @@ rm(datMV, list_merge_variables, results_missingness, datMV_Check1, datMV_Check2)
 
 
 # --- 3.10 Model-based feature engineering
-# - Create binned version of [TimeInPerfSpell] for discrete-time hazard models
-timeBinning <- function(x) {
-  case_when(
-    0 < x & x <= 6 ~ "01.[1,6]",
-    6 < x & x <= 18 ~ "02.(6,18]", 18 < x & x <= 28 ~ "03.(18,28]",
-    28 < x & x <= 36 ~ "04.(28,36]", 36 < x & x <= 42 ~ "05.(36,42]",
-    42 < x & x <= 48 ~ "06.(42,48]", 48 < x & x <= 54 ~ "07.(48,54]",
-    54 < x & x <= 60 ~ "08.(54,60]", 60 < x & x <= 72 ~ "09.(60,72]",
-    72 < x & x <= 84 ~ "10.(72,84]", 84 < x & x <= 96 ~ "11.(84,96]",
-    96 < x & x <= 108 ~ "12.(96,108]", TRUE ~ "(20.108+"
-  )
-}
+# See script 0h for function definition
 datCredit_prep[, Time_Binned := timeBinning(TimeInDefSpell)]
 table(datCredit_prep$Time_Binned) %>% prop.table()
 ### RESULTS: Between 1% and 15% of observations in each bin; deemed appropriate, particulalarly in

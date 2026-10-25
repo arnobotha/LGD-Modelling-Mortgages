@@ -162,12 +162,12 @@ datCredit_real[, ExclusionID := 0]
 maxDate <- rollback(max(datCredit_real$Date_Origination, na.rm=T), roll_to_first = T)
 
 # - [DIAGNOSTIC] Account-level and dataset-wide impacts of exclusion
-diag.real4b <-  datCredit_real[ExclusionID == 0 & Counter == 1 & Max_Counter == 1 & 
+diag.real4b <- datCredit_real[ExclusionID == 0 & Counter == 1 & Max_Counter == 1 & 
                                   (Date_Origination < maxDate | is.na(Date_Origination) ), .N] / 
     datCredit_real[ExclusionID == 0 & Counter == 1, .N] * 100 
 diag.real4b_abs <- datCredit_real[ExclusionID == 0 & Max_Counter == 1 & 
                                     (Date_Origination < maxDate | is.na(Date_Origination)) , .N]
-diag.real4b_rec <-  diag.real4b_abs / datCredit_real[ExclusionID == 0, .N] * 100 
+diag.real4b_rec <- diag.real4b_abs / datCredit_real[ExclusionID == 0, .N] * 100 
 
 # - Conditional exclusion
 if (diag.real4b > 0) {

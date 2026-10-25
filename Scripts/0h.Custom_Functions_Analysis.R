@@ -143,14 +143,16 @@ evalModel_twostage <- function(data_train, actField, estField){
              Kendalls_Tau=kendalls, Spearmans_rho=spearman)
 }
 
-
-
-
-
-
-
-
-
-
-
+# - Create binned version of [TimeInPerfSpell] for discrete-time hazard models
+timeBinning <- function(x) {
+  case_when(
+    0 < x & x <= 6 ~ "01.[1,6]",
+    6 < x & x <= 18 ~ "02.(6,18]", 18 < x & x <= 28 ~ "03.(18,28]",
+    28 < x & x <= 36 ~ "04.(28,36]", 36 < x & x <= 42 ~ "05.(36,42]",
+    42 < x & x <= 48 ~ "06.(42,48]", 48 < x & x <= 54 ~ "07.(48,54]",
+    54 < x & x <= 60 ~ "08.(54,60]", 60 < x & x <= 72 ~ "09.(60,72]",
+    72 < x & x <= 84 ~ "10.(72,84]", 84 < x & x <= 96 ~ "11.(84,96]",
+    96 < x & x <= 108 ~ "12.(96,108]", TRUE ~ "(20.108+"
+  )
+}
 

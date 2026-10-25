@@ -171,7 +171,7 @@ modMLR_base <- multinom(DefSpell_EventType ~  1, data = datCredit_train, maxit=1
 
 # - Final variables
 ### NOTE: Variable selection dependent on single-risk DtH-model for write-off
-vars <- c("Time_Binned*DefSpell_Num_binned",
+vars <- c("Time_Binned", "DefSpell_Num_binned", 
           "InterestRate_Nom", "pmnt_method_grp",
           "Principal_Real",
           "M_Repo_Rate_12", "NewLoans_Aggr_Prop",
