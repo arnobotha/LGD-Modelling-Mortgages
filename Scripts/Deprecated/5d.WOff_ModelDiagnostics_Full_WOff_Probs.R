@@ -69,12 +69,6 @@ rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 
 # --- 1.2 Load models
-# - GLM with Gaussian link function
-modGLM_OneStage_Gaus <- readRDS(paste0(genObjPath,"OneStage_Gaus_Model.rds"))
-
-# - GLM with Tweedie (Compound Poisson Gaussian) link function
-modGLM_OneStage_CPG <- readRDS(paste0(genObjPath,"OneStage_CPH_Model.rds"))
-
 # - Basic discrete-time hazard model
 modLR_Bas <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
 
@@ -86,9 +80,6 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
 # - Tree model
 SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
-
-# - CPG severity model
-modGLM_Severity_CPG <- readRDS(paste0(genObjPath,"Severity_CPH_Model.rds"))
 
 
 # --- 1.3 Estimate event rates
@@ -407,7 +398,7 @@ start_y <- 0.4; space <- 0.035
 y_vals <- c(start_y,start_y-space,start_y-space*2,start_y-space*3)
 
 # - Creating an annotation dataset for easier annotations
-datAnno <- data.table(MeanAUC=NULL, Dataset=c("A-B","A-C", "A-D", "A-E"),
+datAnno <- data.table(MeanAUC=NULL, Model=c("A-B","A-C", "A-D", "A-E"),
                       x=rep(as.Date("2016-06-30"),4), # Text x coordinates
                       y=y_vals)
 
@@ -443,7 +434,7 @@ vShape <- c(17,20,4,7,12)
 # - Plot
 ### MM: Horrendous results, am I using the correct probabilities?
 ### MM: Also need to create such a loss-severity by default cohort graph
-(g2_ResolRate <- ggplot(data=datPlot, aes(x=Date, y=WOff_Rate)) + theme_minimal() +
+(g2_ResolRate <- ggplot(data=datPlot[Model!="e_SurvTree"], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
   labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Default spell cohorts (mmmccyy): entry time "*italic(t[e]))) + 
   theme(text=element_text(family=chosenFont), legend.position="bottom",
         axis.text.x=element_text(angle=90), 
@@ -453,7 +444,7 @@ vShape <- c(17,20,4,7,12)
   geom_line(aes(colour=Model, linetype=Model)) +
   geom_point(aes(colour=Model, shape=Model)) +
   # Annotations
-  geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T) +
+  geom_text(data=datAnno[Model!="A-E"], aes(x=x, y=y, label=Label), parse=T) +
   # Facets & scale options
   scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
   scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
@@ -468,7 +459,7 @@ vShape <- c(17,20,4,7,12)
 
 # - Save graph
 dpi <-180
-ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_DefaultCohort_StartTime.png"),
+ggsave(g2_ResolRate, file=paste0(genFigPath, "Deprecated/WriteOff_ResolRate_DefaultCohort_StartTime_FullProbs.png"),
        width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
