@@ -759,7 +759,7 @@ rm(datMV, list_merge_variables, results_missingness, datMV_Check1, datMV_Check2)
 datCredit_prep[, Time_Binned := timeBinning(TimeInDefSpell)]
 table(datCredit_prep$Time_Binned) %>% prop.table()
 ### RESULTS: Between 1% and 15% of observations in each bin; deemed appropriate, particulalarly in
-# as the eralier bins cover a vast majority of the data
+# as the earlier bins cover a vast majority of the data
 # Lag g0-delinq with appropriate period for discrete-time hazard model
 datCredit_prep[, g0_Delinq_Lag_1 := shift(g0_Delinq,fill=0),by=LoanID]
 
