@@ -42,9 +42,9 @@ setorder(datCredit_valid_CDH, LoanID, Date)
 datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key))
 datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key))
 
-# - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
-datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
-datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
+# - Create a spell-level target variable for write-off instance
+datCredit_train[, DefSpell_Event2:=DefSpell_Event]; datCredit_valid[, DefSpell_Event2:=DefSpell_Event]
+datCredit_train[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]; datCredit_valid[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
 
 # - Transform categorical variables to factor
 # Payment method
@@ -116,19 +116,20 @@ datCredit <- subset(datCredit, Counter>0)
 
 # --- 1.4 Predict survival quantities using survival tree
 # - Get training data from survival tree
-datCredit_train_smp_cross <- SurvTree_CTree$datTrain
+datCredit_train_SurvTree <- SurvTree_CTree$datTrain
 
 # - Get node predictions from tree
 datCredit[,Node:=predict(SurvTree_CTree$survTree, datCredit, type="node")]
-datCredit_train_smp_cross[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_smp_cross, type="node")]
+datCredit_train_SurvTree[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_SurvTree, type="node")]
 
 # - Fit a survival object for each node | Using the training data only to align with how the tree was fitted
-datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_smp_cross,
+datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_SurvTree,
                    fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event")
 
 # - Join hazards back to main dataset
-datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, EventRate_survtree=EventRate)],
-                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T)
+datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, Hazard_survtree=Hazard,
+                                            EventRate_survtree=EventRate)],
+                   by.x=c("Node", "TimeInDefSpell"), by.y=c("Node", "Time"), all.x=T)
 
 # - Ensure order of data is correct
 setorder(datCredit, LoanID, Date)
@@ -146,7 +147,7 @@ datCredit[, LossSeverity:=predict(modGLM_Severity_CPG, newdata=datCredit, type="
 # - Interact write-off probabilities with severities
 datCredit[, `:=`(LossRate_est_bas=LossSeverity*EventRate_bas, # Basic discrete time hazard model
                  LossRate_est_adv=LossSeverity*EventRate_adv, # Advanced discrete time hazard model
-                 LossRate_est_classic=LossSeverity*EventRate_classic, # Classical logistic regression model
+                 LossRate_est_classic=LossSeverity*Hazard_classic, # Classical logistic regression model
                  LossRate_est_survtree=LossSeverity*EventRate_survtree)] # Survival tree
 
 
@@ -167,10 +168,6 @@ datCredit[, LossRate_est_survtree:=ifelse(LossRate_est_survtree<0 | LossRate_est
 
 
 # --- 1.7 Subset data
-# - Filter to maximum spell counter
-# datCredit <- subset(datCredit, DefSpell_Counter==1)
-datCredit <- datCredit[, .SD[which.max(DefSpell_Counter)], by=DefSpell_Key]
-
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
 
@@ -258,25 +255,25 @@ p4 <- make_panel("Spearmans_rho", bquote("Spearman's "~symbol(rho)), lower_bette
 
 # - Save plot
 dpi <- 300
-ggsave(LGD_metric, file=paste0(genFigPath,"/LGD_metrics.png"),width=30, height=18,dpi=dpi, bg="white")
+ggsave(LGD_metric, file=paste0(genFigPath,"/LGD_metrics_ReportingTime.png"),width=30, height=18,dpi=dpi, bg="white")
 
 
 
 
-# ============ 3. LGDs over time ============
+# ============ 3. LGDs over time | Default cohort start ============
 
 # --- 3.1 Aggregate loss rates
 # - Aggregate loss rates
 # Actuals
-ActLoss_Rate <- datCredit[, mean(LossRate_Real, na.rm=T), by=list(Date)]
+ActLoss_Rate <- datCredit[TimeInDefSpell==1, mean(LossRate_Real, na.rm=T), by=list(Date)]
 # One-stage
-Gaussian_Loss_Rate <- datCredit[,mean(LossRate_Gaussian, na.rm=T), by=list(Date)]
-Tweedie_Loss_Rate <- datCredit[, mean(LossRate_Tweedie, na.rm=T), by=list(Date)]
+Gaussian_Loss_Rate <- datCredit[TimeInDefSpell==1,mean(LossRate_Gaussian, na.rm=T), by=list(Date)]
+Tweedie_Loss_Rate <- datCredit[TimeInDefSpell==1, mean(LossRate_Tweedie, na.rm=T), by=list(Date)]
 # Two stage
-Two_stage_bas_Loss_Rate <- datCredit[, mean(LossRate_est_bas, na.rm=T), by=list(Date)]
-Two_stage_adv_Loss_Rate <- datCredit[, mean(LossRate_est_adv, na.rm=T), by=list(Date)]
-Two_stage_classic_Loss_Rate <- datCredit[, mean(LossRate_est_classic, na.rm=T), by=list(Date)]
-Two_stage_survtree_Loss_Rate <- datCredit[, mean(LossRate_est_survtree, na.rm=T), by=list(Date)]
+Two_stage_bas_Loss_Rate <- datCredit[TimeInDefSpell==1, mean(LossRate_est_bas, na.rm=T), by=list(Date)]
+Two_stage_adv_Loss_Rate <- datCredit[TimeInDefSpell==1, mean(LossRate_est_adv, na.rm=T), by=list(Date)]
+Two_stage_classic_Loss_Rate <- datCredit[TimeInDefSpell==1, mean(LossRate_est_classic, na.rm=T), by=list(Date)]
+Two_stage_survtree_Loss_Rate <- datCredit[TimeInDefSpell==1, mean(LossRate_est_survtree, na.rm=T), by=list(Date)]
 
 
 # --- 3.2 Preparations for plotting
@@ -318,7 +315,7 @@ lines(x=datPlot[Dataset=="G",Date],y=datPlot[Dataset=="G",LossRate], col="purple
 datPlot_OneStage <- subset(datPlot, Dataset %in% c("A", "B", "C"))
 
 # - Location of annotations
-start_y <- 0.275
+start_y <- 0.225
 space <- 0.02
 y_vals <- c(start_y,start_y-space,start_y-space*2)
 
@@ -336,9 +333,9 @@ vEventRates_Mean <- c(mean(datPlot_OneStage[Dataset=="A",LossRate],na.rm=T),
 
 # - Estimate standard errors
 vEventRates_stErr <- c(
-  sd(datPlot_OneStage[Dataset=="A",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_OneStage[Dataset=="A",LossRate], na.rm=T)),
-  sd(datPlot_OneStage[Dataset=="B",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_OneStage[Dataset=="B",LossRate], na.rm=T)),
-  sd(datPlot_OneStage[Dataset=="C",LossRate], na.rm = TRUE) / sqrt(sum(datPlot_OneStage[Dataset=="C",LossRate], na.rm=T))
+  sd(datPlot_OneStage[Dataset=="A",LossRate], na.rm=T)/sqrt(sum(datPlot_OneStage[Dataset=="A",LossRate], na.rm=T)),
+  sd(datPlot_OneStage[Dataset=="B",LossRate], na.rm=T)/sqrt(sum(datPlot_OneStage[Dataset=="B",LossRate], na.rm=T)),
+  sd(datPlot_OneStage[Dataset=="C",LossRate], na.rm=T)/sqrt(sum(datPlot_OneStage[Dataset=="C",LossRate], na.rm=T))
   
 )
 vMargin <- qnorm(1-(1-confLevel)/2) * vEventRates_stErr
@@ -357,7 +354,7 @@ datAnnotate[, Label:=vLabel]
 
 # -- 3.3.2 Creating an annotation dataset for MAEs
 # - Set y-positions
-start_y_mae <- 0.2
+start_y_mae <- 0.15
 space_mae <- 0.02
 y_vals_mae <- c(start_y_mae,
                 start_y_mae - space_mae)
@@ -406,21 +403,17 @@ vShape <- c(17,20,4)
     geom_text(data=datAnnotate_mae, aes(x=x, y=y, label=Label),
               family=chosenFont, size=3.5, hjust=0, parse=T) +
     # Facets & scale options
-    scale_colour_manual(name="Model", values=vCol, labels=vLabel, 
-                        guide=guide_legend(nrow = 1, byrow=T)) +
-    scale_fill_manual(name="Model", values=vCol, labels=vLabel, 
-                      guide=guide_legend(nrow=1, byrow=T)) +
-    scale_shape_manual(name="Model", values=vShape, labels=vLabel, 
-                       guide=guide_legend(nrow=1, byrow=T)) +
-    scale_linetype_discrete(name="Model", labels=vLabel, 
-                            guide=guide_legend(nrow=1, byrow=T)) +
+    scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=1, byrow=T)) +
+    scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=1, byrow=T)) +
+    scale_shape_manual(name="Model", values=vShape, labels=vLabel, guide=guide_legend(nrow=1, byrow=T)) +
+    scale_linetype_discrete(name="Model", labels=vLabel, guide=guide_legend(nrow=1, byrow=T)) +
     scale_x_date(date_breaks="6 month", date_labels="%b %Y") +
-    scale_y_continuous(breaks=pretty_breaks(), labels=percent)
-)
+    scale_y_continuous(breaks=pretty_breaks(), labels=percent))
 
 # - Save graph
 dpi <-180
-ggsave(g3, file=paste0(genFigPath, "LossRate-time_onestage__DefaultCohort_StopTime.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
+ggsave(g3, file=paste0(genFigPath, "LossRate-time_onestage_DefaultCohort_StartTime.png"),
+       width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
 # --- 3.4 Loss rates for two-stage models
@@ -429,8 +422,8 @@ ggsave(g3, file=paste0(genFigPath, "LossRate-time_onestage__DefaultCohort_StopTi
 datPlot_TwoStage <- subset(datPlot, Dataset %in% c("A", "D", "E", "F", "G"))
 
 # - Location of annotations
-start_y <- 0.3
-space <- 0.02
+start_y <- 0.2
+space <- 0.01
 y_vals <- c(start_y, start_y-space, start_y-space*2, start_y-space*3, start_y-space*4)
 
 
@@ -468,8 +461,8 @@ datAnnotate[, Label:=vLabel]
 
 # -- 3.4.3 Creating an annotation dataset for MAEs
 # - Set y-positions
-start_y_mae <- 0.3
-space_mae <- 0.02
+start_y_mae <- 0.2
+space_mae <- 0.01
 y_vals_mae <- c(start_y_mae, start_y_mae-space_mae,
                 start_y_mae-space_mae*2, start_y_mae-space_mae*3)
 
@@ -530,21 +523,7 @@ vShape <- c(17,20,4,15,12)
 
 # - Save graph
 dpi <-180
-ggsave(g4, file=paste0(genFigPath, "LossRate-time_twostage_DefaultCohort_StopTime.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
-
-
-# --- 3.6 Clean-up
-suppressWarnings(rm(datAdd, datAnnotate, datAnnotate_mae,
-                    datCredit_train, datCredit_valid, datCredit,
-                    datComp, datPlot, datPlot_OneStage, datPlot_TwoStage,
-                    datPlot_TwoStage_B, df, g3, g4 ,g5,
-                    Gaussian_Loss_Rate, LGD_metric, modGLM_OneStage_CPG,
-                    modGLM_OneStage_Gaus, modGLM_Severity_CPG, modLR_Bas,
-                    modLR_Adv, modLR_Classic, p1, p2, p3, p4, thresh_lst, ActLoss_Rate,
-                    Tweedie_Loss_Rate, Two_stage_adv_A_Loss_Rate, Two_stage_adv_B_Loss_Rate,
-                    Two_stage_bas_A_Loss_Rate, Two_stage_bas_B_Loss_Rate, Two_stage_classic_A_Loss_Rate,
-                    Two_stage_classic_B_Loss_Rate, vLabel))
-gc()
+ggsave(g4, file=paste0(genFigPath, "LossRate-time_twostage_DefaultCohort_StartTime.png"), width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
 

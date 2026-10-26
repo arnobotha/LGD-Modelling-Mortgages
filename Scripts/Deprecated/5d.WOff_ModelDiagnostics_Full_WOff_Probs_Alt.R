@@ -144,10 +144,10 @@ datCredit[, `:=`(CoxPH_Bas=predict(modCoxPH_Bas, newdata=.SD, type="lp"),
                  CoxPH_Adv=predict(modCoxPH_Adv, newdata=.SD, type="lp"))]
 
 # - Get survival rates
-datCredit[, `:=`(Survival_CoxPH_Bas=exp(-Cum_Hazard_base*CoxPH_Bas),
-                 Survival_CoxPH_Bas_Lag_1=exp(-Cum_Hazard_base_Lag_1*CoxPH_Bas),
-                 Survival_CoxPH_Adv=exp(-Cum_Hazard_base*CoxPH_Adv),
-                 Survival_CoxPH_Adv_Lag_1=exp(-Cum_Hazard_base_Lag_1*CoxPH_Adv))]
+datCredit[, `:=`(Survival_CoxPH_Bas=exp(-Cum_Hazard_base*exp(CoxPH_Bas)),
+                 Survival_CoxPH_Bas_Lag_1=exp(-Cum_Hazard_base_Lag_1*exp(CoxPH_Bas)),
+                 Survival_CoxPH_Adv=exp(-Cum_Hazard_base*exp(CoxPH_Adv)),
+                 Survival_CoxPH_Adv_Lag_1=exp(-Cum_Hazard_base_Lag_1*exp(CoxPH_Adv)))]
 
 # - Get event rates
 datCredit[order(DefSpell_Key, DefSpell_Counter),
@@ -161,7 +161,6 @@ datCredit <- subset(datCredit, Counter>0)
 
 # -- 1.3.3 Create a spell-level target variable for write-off instance
 datCredit[, DefSpell_Event2:=DefSpell_Event]; datCredit[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
-
 
 
 # --- 1.4 Predict survival quantities using survival tree
@@ -183,7 +182,7 @@ datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, 
 
 
 # --- 1.5 Full write-off probabilities
-# -- 1.5.1 Discrete-teim quantitites
+# -- 1.5.1 Discrete-time quantitites
 # - Calculate rolling cumulative write-off predictions over the default spell
 datCredit[order(DefSpell_Key, DefSpell_Counter),
           `:=`(WOff_Prob_adv=rev(cumsum(rev(replace(EventRate_adv, is.na(EventRate_adv), 0))))/
@@ -215,19 +214,23 @@ datCredit[WOff_Prob_classic>1, .N]; datCredit[WOff_Prob_survtree>1, .N]
 datCredit[order(DefSpell_Key, DefSpell_Counter),
           `:=`(WOff_Prob_CoxPH_Bas=rev(cumsum(rev(replace(EventRate_CoxPH_Bas, is.na(EventRate_CoxPH_Bas), 0))))/
                  ifelse(DefSpell_Counter==1,1,Survival_CoxPH_Bas_Lag_1),
+               WOff_Prob_CoxPH_Bas_Alt=(1-Survival_CoxPH_Bas)/Survival_CoxPH_Bas_Lag_1,
                WOff_Prob_CoxPH_Adv=rev(cumsum(rev(replace(EventRate_CoxPH_Adv, is.na(EventRate_CoxPH_Adv), 0))))/
-                 ifelse(DefSpell_Counter==1,1,Survival_CoxPH_Adv_Lag_1)),
+                 ifelse(DefSpell_Counter==1,1,Survival_CoxPH_Adv_Lag_1),
+               WOff_Prob_CoxPH_Adv_Alt=(1-Survival_CoxPH_Adv)/Survival_CoxPH_Adv_Lag_1),
           by=list(DefSpell_Key)]
 
 # - Investigate full write-off probabilities
 datCredit[WOff_Prob_CoxPH_Bas>1, .N]; datCredit[WOff_Prob_CoxPH_Adv>1, .N]
-### RESULTS: No unintuitive probabilities detected
+datCredit[WOff_Prob_CoxPH_Bas_Alt>1, .N]; datCredit[WOff_Prob_CoxPH_Adv_Alt>1, .N]
+### RESULTS: Both the advanced and Cox PH advanced have problematic probabilities
 
 
 # -- 1.5.3 Create a look-up as a sanity check
-lookuup <- datCredit[LoanID==datCredit[DefSpell_Age>=60 & DefSpellResol_Type_Hist=="WOFF", LoanID][10000],
-                     .(LoanID, Date, Counter, DefSpell_Key, TimeInDefSpell, DefSpellResol_Type_Hist, WOff_Prob_bas, WOff_Prob_adv,
-                       WOff_Prob_classic, WOff_Prob_survtree, WOff_Prob_CoxPH_Bas, WOff_Prob_CoxPH_Adv)]
+lookup <- datCredit[LoanID==datCredit[DefSpell_Age>=60 & DefSpellResol_Type_Hist=="WOFF", LoanID][10000],
+                    .(LoanID, Date, Counter, DefSpell_Key, TimeInDefSpell, DefSpellResol_Type_Hist, WOff_Prob_bas, WOff_Prob_adv,
+                      WOff_Prob_classic, WOff_Prob_survtree, WOff_Prob_CoxPH_Bas, WOff_Prob_CoxPH_Adv,
+                      WOff_Prob_CoxPH_Bas_Alt, WOff_Prob_CoxPH_Adv_Alt)]
 
 
 
