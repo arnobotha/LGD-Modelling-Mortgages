@@ -11,6 +11,11 @@
 # -- Script dependencies:
 #   - 0.Setup.R
 #   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Date_Prepare_Credit_Advanced1.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
+#   - 2e.Data_Prepare_Macro.R
 #   - 2f.Data_Fusion1.R
 
 # -- Inputs:
@@ -131,9 +136,9 @@ maxPeriod <- 120
 
 # - Save graphs
 dpi <- 190
-ggsave(gsurv_Ft$plot, file=paste0(genFigPath, "Kaplan-Meier/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc.png"), width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
+ggsave(gsurv_Ft$plot, file=paste0(genFigPath, "SurvivalAnalysis/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc.png"), width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
 dpi <- 185 # need to decrease size for risk tables' text
-ggsave(print(gsurv_Ft,newpage=F), file=paste0(genFigPath,"Kaplan-Meier/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_RiskTable.png"),width=1200/dpi, height=1200/dpi,dpi=dpi, bg="white")
+ggsave(print(gsurv_Ft,newpage=F), file=paste0(genFigPath,"SurvivalAnalysis/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_RiskTable.png"),width=1200/dpi, height=1200/dpi,dpi=dpi, bg="white")
 
 
 # -- 2.3.3 Graphing logic: Limited domain of time to event [maxPeriod]
@@ -169,9 +174,9 @@ gsurv_Ft2$plot <- gsurv_Ft2$plot  +
 
 # - Save graphs
 dpi <- 190
-ggsave(gsurv_Ft2$plot, file=paste0(genFigPath,"Kaplan-Meier/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_LimPeriod.png"),width=1200/dpi, height=1200/dpi,dpi=dpi, bg="white")
+ggsave(gsurv_Ft2$plot, file=paste0(genFigPath,"SurvivalAnalysis/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_LimPeriod.png"),width=1200/dpi, height=1200/dpi,dpi=dpi, bg="white")
 dpi <- 185
-ggsave(print(gsurv_Ft2,newpage=F), file=paste0(genFigPath,"Kaplan-Meier/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_RiskTable_LimPeriod.png"),width=1200/dpi, height=1200/dpi,dpi=dpi, bg="white")
+ggsave(print(gsurv_Ft2,newpage=F), file=paste0(genFigPath,"SurvivalAnalysis/CumulLifetimeProb_", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_RiskTable_LimPeriod.png"),width=1200/dpi, height=1200/dpi,dpi=dpi, bg="white")
 
 
 # --- 2.4 Create data and graphing objects
@@ -261,7 +266,7 @@ datSurv[, Group := "1"] # only necessary for aesthetics when using geom_smooth()
 
 # - Save plot
 dpi <- 180 # reset
-ggsave(gsurv_ht, file=paste0(genFigPath, "Kaplan-Meier/DiscreteHazard_", mainEventName,"_SpellLevel_MultiSpell-LatentComp_InclLeftTrunc-AG.png"),
+ggsave(gsurv_ht, file=paste0(genFigPath, "SurvivalAnalysis/DiscreteHazard_", mainEventName,"_SpellLevel_MultiSpell-LatentComp_InclLeftTrunc-AG.png"),
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
@@ -309,7 +314,7 @@ vlabel <- c(bquote('LOESS-smoothed [span: '*.(sSpan)*'] estimate'*~italic(f(t))*
 
 # - Save plot
 dpi <- 180 # reset
-ggsave(gsurv_ft, file=paste0(genFigPath, "Kaplan-Meier/EventProb-", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc.png"),
+ggsave(gsurv_ft, file=paste0(genFigPath, "SurvivalAnalysis/EventProb-", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc.png"),
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
@@ -425,7 +430,7 @@ vLabel <- c("Classical"=bquote("Write-off Probability (Kaplan-Meier) "*italic(f(
 
 # - Save plot
 dpi <- 175 # reset
-ggsave(gsurv_ft_1, file=paste0(genFigPath, "Kaplan-Meier/EventProb-", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_CompRisks.png"),
+ggsave(gsurv_ft_1, file=paste0(genFigPath, "SurvivalAnalysis/EventProb-", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_CompRisks.png"),
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 # - Housekeeping
