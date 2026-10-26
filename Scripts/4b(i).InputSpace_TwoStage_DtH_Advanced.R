@@ -24,7 +24,7 @@
 # ------------------------------------------------------------------------------
 
 
-# ------ 1. Preliminaries
+# ------ 1. Preliminaries ------ 
 
 # --- 1.1 Load and subset data
 # - Confirm prepared datasets are loaded into memory
@@ -57,7 +57,7 @@ modLR_base2 <- glm(DefSpell_Event ~ log(TimeInDefSpell)*DefSpell_Num_binned,
 
 
 
-# ------ 2. Embedding the baseline hazard h_0(t) | Part I
+# ------ 2. Embedding the baseline hazard h_0(t) | Part I ------ 
 # Which of the following methods is the best to embed the baseline hazard
 # The are done in order from least onerous to most onerous
 
@@ -121,7 +121,7 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 
 
 
-# ------ 3. Embedding the baseline hazard h_0(t) | Part II
+# ------ 3. Embedding the baseline hazard h_0(t) | Part II ------ 
 ### NOTE: Here an interaction between [TimeInDefSpell] and [Defspell_num] is enforced
 ###       such that each spell will have its own baseline and slope
 
@@ -158,15 +158,16 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 ### RESULTS: AIC: 213 488; McFadden R^2: 3.74%; AUC: 67.52%
 ### CONCLUSION: Splines improve the performance as shown in 2.3
 
-### OVERALL CONCLUSION: 
+### OVERALL CONCLUSION: Use Time_Binned + log(TimeInDefSpell):DefSpell_Num_binned as it balances
+# model performance against model parsimony and complexity.
 
 
 
 
-# ------ 4. Delinquency-themed variables
+# ------ 4. Delinquency-themed variables ------ 
 
 # --- 4.1 Selection of the best version of delinquency-volatility variables
-### NOTE: These variables are calcualted using various time time window lengths.
+### NOTE: These variables are calculated using various time time window lengths.
 ###       E.g., [g0_Delinq_SD_4] is the volatility of a loan's delinquency on a 4-month
 ###       rolling window
 
@@ -313,7 +314,7 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 
 
 
-# ------ 5. Other portfolio-level variables
+# ------ 5. Other portfolio-level variables ------ 
 
 # --- 5.1 Median portfolio-level interest rates
 # - Initialize variables to be tested
@@ -383,7 +384,7 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 
 
 
-# ------ 6. Account-level variables
+# ------ 6. Account-level variables ------ 
 
 # --- 6.1 How do various non-delinquency account-level variables fare as single-factor models?
 # - Initialise variables to be tested
@@ -433,7 +434,7 @@ concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefS
 
 
 
-# ------ 7. Macroeconomic variables
+# ------ 7. Macroeconomic variables ------ 
 
 # --- 7.1 Which lag order is the best for: [M_Repo_Rate]
 # - Initialize variables to be tested
@@ -575,7 +576,7 @@ proc.time() - ptm # IGNORE: elapsed runtime; 140 minutes
 
 
 
-# ------ 8. Combine variables from all themes
+# ------ 8. Combine variables from all themes ------ 
 
 # --- 8.1 Run an automated selection procedure on the entire set
 # - Initialise set of variables
@@ -678,7 +679,7 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 
 
 
-# ------ 9. Final model
+# ------ 9. Final model ------ 
 
 # --- 9.1 Preliminaries
 # - Confirm prepared datasets are loaded into memory
@@ -691,9 +692,6 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 # remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
-# - Weigh default cases (assuming 1 in this instance for simplicity)
-datCredit_train[, Weight := ifelse(DefSpell_Event==1,1,1)]
-
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
 modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
@@ -702,7 +700,7 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 # - Final variables
 vars <- c("Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
           "InterestRate_Nom", "pmnt_method_grp",
-          "Principal_Real",
+          "Principal_Real", "Balance_Real_1",
           "M_Repo_Rate_12", "NewLoans_Aggr_Prop",
           "DefaultStatus1_Aggr_Prop_Lag_12",
           "g0_Delinq_Ave", "M_Inflation_Growth_12",
