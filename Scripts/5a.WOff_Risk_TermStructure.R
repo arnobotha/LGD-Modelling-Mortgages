@@ -6,6 +6,13 @@
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
+#   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Data_Prepare_Credit_Advanced.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
+#   - 2f.Data_Fusion1.R
+#   - 2g.Data_Fusion2.R
 #   - 4b(i).InputSpace_DiscreteCox.R
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
@@ -39,9 +46,9 @@ setorder(datCredit_valid_CDH, LoanID, Date)
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
-# - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
-datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
-datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
+# - Create a spell-level target variable for write-off instance
+datCredit_train[, DefSpell_Event2:=DefSpell_Event]; datCredit_valid[, DefSpell_Event2:=DefSpell_Event]
+datCredit_train[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]; datCredit_valid[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
 
 # - Transform categorical variables to factor
 # Payment method
@@ -103,19 +110,20 @@ datCredit <- subset(datCredit, Counter>0)
 
 # --- 1.4 Predict survival quantities using survival tree
 # - Get training data from survival tree
-datCredit_train_smp_cross <- SurvTree_CTree$datTrain
+datCredit_train_SurvTree <- SurvTree_CTree$datTrain
 
 # - Get node predictions from tree
 datCredit[,Node:=predict(SurvTree_CTree$survTree, datCredit, type="node")]
-datCredit_train_smp_cross[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_smp_cross, type="node")]
+datCredit_train_SurvTree[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_SurvTree, type="node")]
 
 # - Fit a survival object for each node | Using the training data only to align with how the tree was fitted
-datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_smp_cross,
+datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_SurvTree,
                    fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event")
 
 # - Join hazards back to main dataset
-datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, EventRate_survtree=EventRate)],
-                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T)
+datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, Hazard_survtree=Hazard,
+                                            EventRate_survtree=EventRate)],
+                   by.x=c("Node", "TimeInDefSpell"), by.y=c("Node", "Time"), all.x=T)
 
 
 
@@ -125,7 +133,7 @@ datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, 
 # --- 2.1 Constructing the empirical term-structure of write-off using a Kaplan-Meier estimator
 ### NOTE: Estimate survival rate of the main event S(t) = P(T >=t) for time-to-event variable T
 # - Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
-km_Default <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=DefSpell_Event==1, type="counting") ~ 1, 
+km_Default <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=DefSpell_Event2==1, type="counting") ~ 1, 
                       id=DefSpell_Key, data=datCredit)
 
 # - Create survival table
@@ -166,7 +174,7 @@ datSurv_exp <- datCredit[,.(
   # Survival tree
   EventRate_survtree=mean(EventRate_survtree, na.rm=T),
   # Empirical estimates
-  EventRate_Emp=sum(DefSpell_Event)/.N),
+  EventRate_Emp=sum(DefSpell_Event2)/.N),
   by=list(TimeInDefSpell)]
 
 # - Ensure order of fields is correct
@@ -175,7 +183,7 @@ setorder(datSurv_exp, TimeInDefSpell)
 
 # --- 2.4 [SANITY CHECK] Graphing survival quantities
 # - Comparing the event rate and hazard rate of the actuals
-plot(datSurv_exp[TimeInDefSpell<=120, EventRate_Emp], type="b", col="green") ### MM: Event rate as calculated by d(t)/n(t) -> EventRate_Emp=sum(DefSpell_Event)/.N)
+plot(datSurv_exp[TimeInDefSpell<=120, EventRate_Emp], type="b", col="green") ### MM: Event rate as calculated by d(t)/n(t) -> EventRate_Emp=sum(DefSpell_Event2)/.N)
 lines(datSurv_act[Time<=120, EventRate], type="b", col="red") ### MM: Event rate as calculated by KM-estimator (S(t-1)*h(t))
 lines(datSurv_act[Time<=120, Hazard_Actual], type="b", col="blue") ### MM: Hazard rate as calculated by KM-estimator
 all(datSurv_exp[TimeInDefSpell<=120, EventRate_Emp]==datSurv_act[Time<=120, Hazard_Actual]) # should be TRUE
