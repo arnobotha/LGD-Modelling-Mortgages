@@ -70,6 +70,11 @@ datCredit_train[, DefSpell_EventType :=
 datCredit_valid[, DefSpell_EventType := 
                   factor(DefSpell_EventType, levels=c("Censored", "Write-off", "Cured"))]
 
+# - Bin time in default spell | TEMPORARY IN CURATING BINNING SCHEMA.
+# Once done, remember to propagate to DtH-model.
+datCredit_train[, Time_Binned := timeBinning((TimeInDefSpell))]
+datCredit_valid[, Time_Binned := timeBinning((TimeInDefSpell))]
+
 
 # --- 1.2 Fit preliminary models
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
@@ -111,7 +116,13 @@ table(datCredit_train$Time_Binned) %>% prop.table()
 modMLR <- multinom(DefSpell_EventType ~  Time_Binned,
                    data = datCredit_train, family="binomial", maxit=1000)
 evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", predClass=1, predType="probs")
-### RESULTS: AIC: 771,286; McFadden R^2: 3.71%; AUC: 63.85%
+### RESULTS: AIC: 764,819; McFadden R^2: 4.53%; AUC: 65.27%
+
+# - Statistical significance: Likelihood Ratio Test
+ptm <- proc.time() # for runtime calculations (ignore)
+modMLR_Result_int  <- dropterm(modMLR, trace=F, test="Chisq", maxit=50)
+proc.time() - ptm # IGNORE: elapsed runtime; 4.3h
+### RESULTS: All variables are significant
 
 
 
@@ -130,26 +141,21 @@ evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", pre
 modMLR <- multinom(DefSpell_EventType ~ Time_Binned + log(TimeInDefSpell):DefSpell_Num_binned,
                    data = datCredit_train, family="binomial", maxit=1000)
 evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", predClass=1, predType="probs")
-### RESULTS: AIC: 770,986; McFadden R^2: 3.75%; AUC: 63.69%
+### RESULTS: AIC: 764,105; McFadden R^2: 4.61%; AUC: 65.37%
 
 
 # --- 3.3 Single-factor models: Binned Variable plus interaction
 modMLR <- multinom(DefSpell_EventType ~ Time_Binned*DefSpell_Num_binned,
                    data = datCredit_train, family="binomial", maxit=1000)
 evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", predClass=1, predType="probs")
-### RESULTS: AIC: 769,855; McFadden R^2: 3.89%; AUC: 64.41%
+### RESULTS: AIC: 763,439; McFadden R^2: 4.71%; AUC: 65.49%
 
-# - Statistical significance: Likelihood Ratio Test
-ptm <- proc.time() # for runtime calculations (ignore)
-modLR_Result <- dropterm(modMLR, trace=F, test="Chisq", maxit=50)
-proc.time() - ptm # IGNORE: elapsed runtime; 3m
-### RESULTS: All variables are significant
-
-### CONCLUSION: Use Time_Binned*DefSpell_Num_binned given favourable model performance
+### CONCLUSION: Use Time_Binned + log(TimeInDefSpell):DefSpell_Num_binned given favourable model performance and 
+# balancing model parsimony
 
 
 
-# ------ 3 Final Model ------
+# ------ 3 Final Model | Expert Judgment ------
 
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
@@ -171,21 +177,26 @@ modMLR_base <- multinom(DefSpell_EventType ~  1, data = datCredit_train, maxit=1
 
 # - Final variables
 ### NOTE: Variable selection dependent on single-risk DtH-model for write-off
-vars <- c("Time_Binned", "DefSpell_Num_binned", 
-          "InterestRate_Nom", "pmnt_method_grp",
-          "Principal_Real",
-          "M_Repo_Rate_12", "NewLoans_Aggr_Prop",
-          "DefaultStatus1_Aggr_Prop_Lag_12",
-          "g0_Delinq_Ave", "M_Inflation_Growth_12",
-          "g0_Delinq_Lag_1", "InterestRate_Margin_Aggr_Med_2",
-          "M_DTI_Growth_12", "M_RealIncome_Growth_9", "Balance_Real_1"
+# Rebinned time to a finer grain
+# Removed g0_Delinq_Lag_1 due to adverse effect on term-structure
+# Inserted macroeconomic variables due to high AIC-gains in variable importance graph
+# other variables sequentially tested, though did not improve the term-structure diagnostic | Removed therefore
+vars <- c("Time_Binned", "DefSpell_Num_binned", "log(TimeInDefSpell):DefSpell_Num_binned",
+          "InterestRate_Nom", 
+          "M_Repo_Rate_12", "M_DTI_Growth_12", "M_RealIncome_Growth_9", "M_Inflation_Growth_12",
+          "NewLoans_Aggr_Prop"
+          # worsened term-structure
+          #""Principal_Real"", "Balance_Real_1", 
+          #"InterestRate_Margin_Aggr_Med_2", "slc_acct_roll_ever_24_imputed_mean", g0_Delinq_Lag_1, 
+          # "slc_acct_arr_dir_3", "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2",
+          #"DefaultStatus1_Aggr_Prop_Lag_12"
 )
 
 # - Fit model
 modMLR <- multinom(as.formula(paste("DefSpell_EventType ~", paste(vars, collapse = " + "))),
                    data = datCredit_train, family="binomial", maxit=1000)
 evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", predClass=1, predType="probs")
-### RESULTS: AIC: 465,824; McFadden R^2: 41.86%; AUC: 92.01%
+### RESULTS: AIC:   584,745; McFadden R^2: 27.01%; AUC: 81.55%
 
 # - Statistical significance: Likelihood Ratio Test
 ptm <- proc.time() # for runtime calculations (ignore)
@@ -212,3 +223,5 @@ ggplot(datResult, aes(x=reorder(rn,AIC), y=AIC)) + geom_col(fill="steelblue") + 
 # the (binned) spell time variable and its interaction are therefore ranked much lower, despite their
 # strategic importance in qualifying the MLR-model as a DtH-model.
 
+# - Cleanup
+rm(modMLR_Result_int, modMLR_Result, modMLR)

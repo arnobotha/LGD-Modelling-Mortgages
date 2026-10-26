@@ -294,7 +294,6 @@ datGraph_main <- subset(datGraph, Type %in% c("a_Actual", "b_Actual_spline",
 
 # - Graphing parameters
 vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,2,9,10)]
-length(vCol)
 vLabel2 <- c("a_Actual"="Empirical", "c_Expected_bas"="DtH-Basic", "e_Expected_adv"="DtH-Advanced",
              "i_Expected_SurvTree"="ST",
              "b_Actual_spline"="Spline: Empirical", "d_Expected_spline_bas"="Spline: DtH-Basic",

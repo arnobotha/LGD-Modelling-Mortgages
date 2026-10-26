@@ -700,7 +700,7 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 # - Final variables
 vars <- c("Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
           "InterestRate_Nom", "pmnt_method_grp",
-          "Principal_Real",
+          "Principal_Real", "Balance_Real_1",
           "M_Repo_Rate_12", "NewLoans_Aggr_Prop",
           "DefaultStatus1_Aggr_Prop_Lag_12",
           "g0_Delinq_Ave", "M_Inflation_Growth_12",

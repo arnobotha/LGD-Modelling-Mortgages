@@ -214,6 +214,12 @@ plot(datSurv$EventRate, type="b")
 ### RESULTS: Somewhat of a U-shape is seen
 ### the values increase till roughly 24 months and from that they decrease
 ### This is intuitive and what is to be expected
+
+# - Save snapshots to disk (zip) for quick disk-based retrieval later
+pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), datSurv)
+
+
+
 # --- Graphing the hazard rate h(t)
 
 # Fitting Locally Estimated Scatterplot Smoothing (LOESS)
@@ -311,9 +317,6 @@ dpi <- 180 # reset
 ggsave(gsurv_ft, file=paste0(genFigPath, "Kaplan-Meier/EventProb-", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc.png"),
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
-# - Save snapshots to disk (zip) for quick disk-based retrieval later
-pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), datSurv)
-
 
 
 
@@ -322,17 +325,18 @@ pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), datSurv)
 
 # - Create multinomial event type variable
 ### NOTE: Semantically, the spell periods preceding the last record are not "censored", even though they are
-# labelled as such. This is merely to fit the paradigm of the counting-process Surv() function 
-# within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "cesnored")
+# labelled as such. This is merely to fit the paradigm of the counting-process of the Surv() function 
+# within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "censored")
 # indicates zero events during said interval.
 datCredit_real[, DefSpell_EventType := 
                  case_when(TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "WOFF" ~ "Write-off",
                            TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Cured" ~ "Cured",
                            TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Censored" ~ "Censored",
-                           TimeInDefSpell<DefSpell_Age ~ "Censored",
+                           TimeInDefSpell<DefSpell_Age | DefSpellResol_Type_Hist == "Censored" ~ "Censored",
                            T ~ NA), by=.(DefSpell_Key)]
+describe(datCredit_real[!is.na(DefSpell_Key), DefSpell_EventType])
 
-# Recreate event type as a factor in preparation for Surv() function
+# - Recreate event type as a factor in preparation for Surv() function
 datCredit_real[, DefSpell_EventType := 
                  factor(DefSpell_EventType, levels=c("Censored", "Write-off", "Cured"))]
 
@@ -353,7 +357,7 @@ datSurv2 <- data.table(Time = aj_All$time, AtRisk_n = aj_All$n.risk[,"(s0)"],
 datSurv2[, EventRate_WriteOff := CIF_WriteOff - shift(CIF_WriteOff, n=1, fill=0) ]
 datSurv2[, EventRate_Cured := CIF_Cured - shift(CIF_Cured, n=1, fill=0) ]
 
-# - Create other survival quantities: cause-specific sub-hazard functions h_1(t) and h_2(t)
+# - Create cause-specific sub-hazard functions h_1(t) and h_2(t)
 datSurv2[, Hazard_WriteOff := Event_n_WriteOff / AtRisk_n]
 datSurv2[, Hazard_Cured := Event_n_Cured / AtRisk_n]
 datSurv2[, SurvivalProb_Overall := cumprod(1 - Hazard_WriteOff - Hazard_Cured)] # S(t) = 1 - h_1(t) - h_2(t)
@@ -376,10 +380,10 @@ all.equal(datSurv2$EventRate_WriteOff + datSurv2$EventRate_Cured, datSurv2$Event
 # Write-off event rate
 plot(datSurv2$EventRate_WriteOff, type="b")
 # Overall survival probability vs cause-specific survival probabilities
-plot(datSurv2$SurvivalProb_AJ,)
+plot(datSurv2$SurvivalProb_AJ,type="b")
 lines(datSurv2$SurvivalProb_WriteOff, type="b", col="red")
 lines(datSurv2$SurvivalProb_Cured, type="b", col="blue")
-# Overall event rate
+# Overall event rate vs cause-specific event rate (write-off)
 plot(datSurv$EventRate, type="b")
 lines(datSurv2$EventRate_WriteOff, type="b", col="red")
 
@@ -392,10 +396,15 @@ pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompRisks"), datSurv2)
 # Comparison between KM-based classical write-off probability f(t) and f_g(t) for cause g (write-off)
 
 # - Compile data for graphing purposes
-datGraph <- rbind(data.table(Time=datSurv$Time, EventRate = datSurv$EventRate, Type="Classical"),
-                  data.table(Time=datSurv2$Time, EventRate = datSurv2$EventRate_WriteOff, Type="CompRisks"))
+datGraph <- rbind(data.table(Time=datSurv$Time, EventRate=datSurv$EventRate, Type="Classical"),
+                  data.table(Time=datSurv2$Time, EventRate=datSurv2$EventRate_WriteOff, Type="CompRisks"))
 
-# - C
+# - Calculate MAE between event rates
+datMAE <- datGraph %>%
+  subset(Time<=sMaxSpellAge, select=c("Time", "Type", "EventRate")) %>%
+  pivot_wider(names_from=Type, values_from=EventRate) %>% as.data.table()
+(MAE_eventProbs <- mean(abs(datMAE$Classical - datMAE$CompRisks), na.rm=T))
+
 # - Graphing parameters
 vCol4 <- brewer.pal(10, "Paired")[c(4,6)]
 vLabel <- c("Classical"=bquote("Write-off Probability (Kaplan-Meier) "*italic(f(t))),
@@ -404,10 +413,13 @@ vLabel <- c("Classical"=bquote("Write-off Probability (Kaplan-Meier) "*italic(f(
 # - Create main graph 
 (gsurv_ft_1 <- ggplot(datGraph[Time <= maxPeriod,], aes(x = Time, y = EventRate)) + theme_minimal() +
     theme(text = element_text(family = chosenFont),legend.position = "bottom") +
-    labs(y = paste0(mainEventName, " event probabilities (incl. left-truncation)"),
+    labs(y = paste0("Write-off probabilities (incl. left-truncation)"),
          x = bquote(Discrete~time~italic(t)*" (months) in spell: Multi-spell")) +
-    geom_point(aes(colour = Type, shape=Type), size = 1, show.legend = FALSE) +
+    geom_point(aes(colour = Type, shape=Type), size = 1) +
     geom_line(aes(colour = Type, linetype = Type)) +  
+    # Annotations
+    annotate("text", y=0.008,x=75, label=paste0("MAE: ", percent(MAE_eventProbs, accuracy=0.0001)), 
+             family=chosenFont, size=3) + 
     scale_colour_manual(name="", values=vCol4, labels=vLabel) + 
     scale_linetype_discrete(name="", labels=vLabel) + 
     scale_shape_discrete(name="", labels=vLabel) + 

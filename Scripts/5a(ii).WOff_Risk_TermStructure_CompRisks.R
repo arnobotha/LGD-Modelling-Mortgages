@@ -99,11 +99,15 @@ setorder(datSurv_exp, TimeInDefSpell)
 
 # - Preliminaries
 # - Cut-offs for analysis and graphs 
-sMaxSpellAge <- 120 # Max for [DefSpell_Age], as determined in earlier analyses (script 3c)
+sMaxSpellAge <- 84 # Max for [DefSpell_Age], as determined in earlier analyses (script 3c)
 
-# - Plotting event rates for actuals and all expecteds
-plot(datSurv2[Time<=120, EventRate_WriteOff], type="b")
-lines(datSurv_exp[TimeInDefSpell<=120, EventRate_WriteOff], type="b", col="red")
+# - Plotting event rates for actuals and all expected values
+plot(datSurv2[Time<=sMaxSpellAge, EventRate_WriteOff], type="b")
+lines(datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_WriteOff], type="b", col="red")
+
+# - Plotting at risk volumes over spell timed
+plot(y=datSurv2[Time<=120, AtRisk_n], x = datSurv2[Time<=120, Time], type="b",
+     xlab="Spell time", ylab="Volume")
 
 # - Initialise graphing data
 datGraph <- rbind(datSurv2[,.(Time=Time, EventRate=EventRate_WriteOff, Type="a_Actual")],
@@ -116,8 +120,7 @@ datGraph[, FacetLabel:="Competing Risks Term-structure"]
 # - Calculate MAE between event rates
 datMAE <- datGraph %>%
   subset(Time<=sMaxSpellAge, select=c("Time", "Type", "EventRate")) %>%
-  pivot_wider(names_from=Type, values_from=EventRate) %>%
-  as.data.table()
+  pivot_wider(names_from=Type, values_from=EventRate) %>% as.data.table()
 # Basic model
 (MAE_eventProb_MLR <- mean(abs(datMAE$a_Actual-datMAE$b_Expected_MLR_DtH), na.rm=T))
 
@@ -128,7 +131,7 @@ length(vCol)
 vLabel <- c("a_Actual"="Empirical", "b_Expected_MLR_DtH"="MLR-DtH")
 chosenFont <- "Cambria"
 
-(gsurv_ft <- ggplot(datGraph[Time <= sMaxSpellAge_graph,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
+(gsurv_ft <- ggplot(datGraph[Time <= sMaxSpellAge,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
     labs(y=bquote(plain("Cause-specific write-off probability  "*italic(f[1](t)))), 
          x=bquote("Spell time (months)"*~italic(t))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",
@@ -137,7 +140,7 @@ chosenFont <- "Cambria"
     geom_line(aes(colour=Type, linetype=Type)) + 
     geom_point(aes(colour=Type, shape=Type)) + 
     # Annotations
-    annotate("text", y=0.017,x=75, label=paste0("MAE (MLR-DtH): ", percent(MAE_eventProb_MLR, accuracy=0.0001)), 
+    annotate("text", y=0.006,x=75, label=paste0("MAE (MLR-DtH): ", percent(MAE_eventProb_MLR, accuracy=0.0001)), 
              family=chosenFont, size=3) + 
     # Scales and options
     facet_grid(FacetLabel~.) + 
@@ -154,3 +157,6 @@ dpi <- 335 # reset
 ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_ActVsExp_CompRisks.png"),
        width=2400/dpi, height=1800/dpi,dpi=dpi, bg="white")
 
+# - Cleanup
+rm(datCredit, datCredit_train, datCredit_valid, modMLR, datSurv2, datGraph, datAdd,
+   gsurv_ft, gsurv_ft_1, datSurv_exp)
