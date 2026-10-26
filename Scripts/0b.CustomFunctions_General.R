@@ -966,22 +966,27 @@ coefDeter_glm <- function(model, model_base = NA, weightsGiven=F) {
 
 
 # --- Evaluation function for glm-based objects
-evalLR <- function(model, model_base=NA, datGiven, targetFld, predClass) {
+evalLR <- function(model, model_base=NA, datGiven, targetFld, predClass, predType="response") {
   require(data.table); require(scales)
   # - Test conditions
   # model <- modLR; model_base <- modLR_base; datGiven <- datCredit_train
   # targetFld = "PerfSpell_Event"; predClass <- 1
   result1 <- AIC(model) # 1164537 
   result2 <- coefDeter_glm(model, model_base) # 0.29%
-  matPred <- predict(model, newdata=datGiven, type="response")
-  actuals <- ifelse(datGiven[[targetFld]] == predClass, 1,0)
-  result3 <- roc(response=actuals, predictor = matPred)
+  matPred <- predict(model, newdata=datGiven, type=predType)
+  actuals <- ifelse( as.integer(datGiven[[targetFld]]) == predClass, 1,0)
+  # cater for MLR-objects as well
+  if (any(class(matPred) %in% c("matrix"))) {
+    result3 <- roc(response=actuals, predictor = matPred[, predClass])
+  } else {
+    result3 <- roc(response=actuals, predictor = matPred)
+  } 
   objResults <- data.table(AIC=comma(result1), result2, AUC=percent(result3$auc,accuracy=0.01))
   return(objResults)
   # - Cleanup, if run interactively
-  rm(result1, result2, matPred, actuals, result3, objResults, model, model_base, datGiven, targetFld, predClass)
+  rm(result1, result2, matPred, actuals, result3, objResults, model, model_base, datGiven, 
+     targetFld, predClass, predType)
 }
-
 
 
 # --- AUC By Date Function 

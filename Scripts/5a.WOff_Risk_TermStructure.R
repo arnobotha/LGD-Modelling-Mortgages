@@ -6,6 +6,13 @@
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
+#   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Data_Prepare_Credit_Advanced.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
+#   - 2f.Data_Fusion1.R
+#   - 2g.Data_Fusion2.R
 #   - 4b(i).InputSpace_DiscreteCox.R
 #   - 4b(ii).InputSpace_DiscreteCox_Basic.R
 #   - 4c.InputSpace_LogisticRegression.R
@@ -295,7 +302,6 @@ datGraph_main <- subset(datGraph, Type %in% c("a_Actual", "b_Actual_spline",
 
 # - Graphing parameters
 vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,2,9,10)]
-length(vCol)
 vLabel2 <- c("a_Actual"="Empirical", "c_Expected_bas"="DtH-Basic", "e_Expected_adv"="DtH-Advanced",
              "i_Expected_SurvTree"="ST",
              "b_Actual_spline"="Spline: Empirical", "d_Expected_spline_bas"="Spline: DtH-Basic",
