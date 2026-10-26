@@ -81,11 +81,9 @@ set.seed(1, kind="Mersenne-Twister")
 if (all(is.na(stratifiers))){ # No stratifiers
   # Get unique subject IDs or keys from the full dataset
   datKeys <- unique(datCredit_real[!is.na(get(clusVar_Spell)), mget(c(clusVar))])
-
 } else { # Stratifiers
   # Get unique subject IDs or keys from the full dataset
   datKeys <- unique(datCredit_real[!is.na(get(clusVar_Spell)), mget(c(clusVar, stratifiers))])
-
 }
 
 # - Save intermediary snapshots to disk (zip) for quick disk-based retrieval later
@@ -153,30 +151,7 @@ rm(datInput.raw, data_grain_check, data_grain_check_merge); gc()
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1a"), tempPath)
 
 
-# --- 3.1. Missing value indicators for the input space variables
-# NOTE: There are a lot of missing values for these variables because of system changes, data migrations, etc.
-datCredit_prep[, value_ind_slc_pmnt_method := ifelse(is.na(slc_pmnt_method) | slc_pmnt_method == "", 1, 0)]
-datCredit_prep[, value_ind_slc_days_excess := ifelse(is.na(slc_days_excess) | slc_days_excess == "", 1, 0)]
-datCredit_prep[, value_ind_slc_acct_pre_lim_perc := ifelse(is.na(slc_acct_pre_lim_perc) | slc_acct_pre_lim_perc == "", 1, 0)]
-datCredit_prep[, value_ind_slc_acct_roll_ever_24 := ifelse(is.na(slc_acct_roll_ever_24) | slc_acct_roll_ever_24 == "", 1, 0)]
-datCredit_prep[, value_ind_slc_acct_arr_dir_3 := ifelse(is.na(slc_acct_arr_dir_3) | slc_acct_arr_dir_3 == "", 1, 0)]
-datCredit_prep[, value_ind_slc_acct_prepaid_perc_dir_12 := ifelse(is.na(slc_acct_prepaid_perc_dir_12) | slc_acct_prepaid_perc_dir_12 == "", 1, 0)]
-datCredit_prep[, value_ind_slc_past_due_amt := ifelse(is.na(slc_past_due_amt) | slc_past_due_amt == "", 1, 0)]
-
-# - Check the missingness of the variables
-# If they are more than 50% missing - remove
-table(datCredit_prep$value_ind_slc_pmnt_method) %>% prop.table()              # missingness: 11.6% - keep the variable (categorical)
-table(datCredit_prep$value_ind_slc_days_excess) %>% prop.table()              # missingness: 74.4% - discard the variable
-table(datCredit_prep$value_ind_slc_acct_pre_lim_perc) %>% prop.table()        # missingness: 11.6% - keep the variable (numeric) 
-table(datCredit_prep$value_ind_slc_acct_roll_ever_24) %>% prop.table()        # missingness: 11.6% - keep the variable (numeric + delinquency theme)     
-table(datCredit_prep$value_ind_slc_acct_arr_dir_3) %>% prop.table()           # missingness: 11.6% - keep the variable (categorical + delinquency theme)        
-table(datCredit_prep$value_ind_slc_acct_prepaid_perc_dir_12) %>% prop.table() # missingness: 11.6% - keep the variable (numeric)
-
-# - Remove the variables that have missingness > 50%
-suppressWarnings( datCredit_prep[, `:=`(value_ind_slc_days_excess = NULL, slc_days_excess = NULL)]); gc()
-
-
-# --- 3.2. Missing value treatment (categorical variables)
+# --- 3.1. Missing value treatment (categorical variables)
 ### NOTE: Treatment: create "missing"-bin for all N/A values
 
 # - Payment method
@@ -220,8 +195,7 @@ cat( ( sum(datCredit_prep$slc_curing_ind == "" | is.na(datCredit_prep$slc_curing
 pack.ffdf(paste0(genPath, "creditdata_final_CDH_smp1b"), datCredit_prep); gc()
 
 
-# --- 3.3 Missing value treatment (numeric variables)
-### NOTE: Analyse whether to use mean or median value imputation
+# --- 3.2 Missing value treatment (numeric variables)
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1b"), tempPath)
@@ -382,7 +356,7 @@ cat( ( datCredit_prep[is.na(g0_Delinq_SD_12), .N] == 0) %?%
 pack.ffdf(paste0(genPath, "creditdata_final_CDH_smp1c"), datCredit_prep); gc()
 
 
-# --- 3.4. Feature Engineering: ratio-type variables (Period-level)
+# --- 3.3. Feature Engineering: ratio-type variables (Period-level)
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1c"), tempPath)
 
@@ -407,7 +381,7 @@ if (doDescribe) describe(datCredit_prep$BalanceToPrincipal); hist(datCredit_prep
 ###          bounded by [~0, 1] for 5%-95% percentiles; no outliers
 
 
-# --- 3.5. Feature Engineering: Binning and factorisation
+# --- 3.4. Feature Engineering: Binning and factorisation
 # - Condense the payment group
 datCredit_prep[, pmnt_method_grp := 
                 case_when(slc_pmnt_method == "Debit Order FNB account" | slc_pmnt_method == "Debit Order other bank" ~ "Debit Order",
@@ -459,7 +433,7 @@ datCredit_prep[, slc_acct_arr_dir_3_Change_Ind := ifelse(slc_acct_arr_dir_3 != "
 datCredit_prep[, DefSpell_Num_binned := ifelse(DefSpell_Num <= 3, DefSpell_Num, 4)]
 
 
-# --- 3.6. Feature Engineering: Inflating time-sensitive monetary variables to the latest date
+# --- 3.5. Feature Engineering: Inflating time-sensitive monetary variables to the latest date
 # - Confirm that required data objects are loaded into memory
 if (!exists('datMV')) unpack.ffdf(paste0(genPath,"datMV"), tempPath)
 
@@ -493,7 +467,7 @@ if (doDescribe) describe(datCredit_prep$Instalment_Real); hist(datCredit_prep$In
 #                 bounded by [497, 21k] for 5%-95% percentiles; severe outliers to the right: 20m; left: 0
 
 
-# --- 3.7. Featuring Engineering: Lagged [Balance] to deal with 0 values on Write-off
+# --- 3.6. Featuring Engineering: Lagged [Balance] to deal with 0 values on Write-off
 # - Investigate field
 if (doDescribe) describe(datCredit_prep$Balance); hist(datCredit_prep$Balance)
 ### RESULTS: Highly right-skewed distribution as expected
@@ -533,7 +507,7 @@ pack.ffdf(paste0(genPath, "creditdata_final_CDH_smp1d"), datCredit_prep); gc()
 rm(datMV, date_range, datInflation)
 
 
-# --- 3.8. Featuring Engineering: Portfolio-level information
+# --- 3.7. Featuring Engineering: Portfolio-level information
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1d"), tempPath)
 
@@ -710,7 +684,7 @@ if (doDescribe) describe(datCredit_prep$InterestRate_Margin_Aggr_Med); plot(datC
 ###          bounded by [-0.012, -0.0040] for 5%-95% percentiles; no outliers
 
 # - Save final snapshot to disk (zip) for quick disk-based retrieval later
-pack.ffdf(paste0(genPath,"creditdata_final_CDH_prep1e"), datCredit_prep)
+pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1e"), datCredit_prep)
 
 # - Clean up
 suppressWarnings(rm(dat_IRM_Aggr, dat_IRM_Aggr_Check1, list_merge_variables, results_missingness, output, lags, ColNames,varSLC_Info_Cat, 
@@ -718,7 +692,7 @@ suppressWarnings(rm(dat_IRM_Aggr, dat_IRM_Aggr_Check1, list_merge_variables, res
                     Covariate_Info, lookup, lookup2, dat_g0_Delinq_Aggr, dat_DefaultRate, dat_Aggr)); gc()
 
 
-# --- 3.9 Macroeconomic feature engineering
+# --- 3.8 Macroeconomic feature engineering
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp1e"), tempPath)
 if (!exists('datMV')) unpack.ffdf(paste0(genPath,"datMV"), tempPath)
@@ -780,7 +754,7 @@ cat( (length(which(results_missingness > 0)) == 0) %?% "SAFE: No missingness, fu
 rm(datMV, list_merge_variables, results_missingness, datMV_Check1, datMV_Check2); gc()
 
 
-# --- 3.10 Model-based feature engineering
+# --- 3.9 Model-based feature engineering
 # See script 0h for function definition
 datCredit_prep[, Time_Binned := timeBinning(TimeInDefSpell)]
 table(datCredit_prep$Time_Binned) %>% prop.table()
@@ -792,6 +766,20 @@ datCredit_prep[, g0_Delinq_Lag_1 := shift(g0_Delinq,fill=0),by=LoanID]
 # - Create start point variable
 datCredit_prep[, Start := TimeInDefSpell - 1]
 
+# - Create multinomial event type variable
+### NOTE: Semantically, the spell periods preceding the last record are not "censored", even though they are
+# labelled as such. This is merely to fit the paradigm of the counting-process Surv() function 
+# within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "cesnored")
+# indicates zero events during said interval.
+datCredit_prep[, DefSpell_EventType := 
+                  case_when(TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "WOFF" ~ "Write-off",
+                            TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Cured" ~ "Cured",
+                            TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Censored" ~ "Censored",
+                            TimeInDefSpell<DefSpell_Age | DefSpellResol_Type_Hist == "Censored" ~ "Censored",
+                            T ~ NA), by=.(DefSpell_Key)]
+# Recreate event type as a factor in preparation for Surv() function
+datCredit_prep[, DefSpell_EventType := 
+                  factor(DefSpell_EventType, levels=c("Censored", "Write-off", "Cured"))]
 
 # --- 3.11 Save fused- and enriched subsampled dataset for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), datCredit_prep)

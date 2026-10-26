@@ -43,38 +43,6 @@ datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 # - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
-# -------- TEMP --------
-### NOTE: Move this to Fusion2 script if modelling efforts prove fruitful
-
-# - Create multinomial event type variable
-### NOTE: Semantically, the spell periods preceding the last record are not "censored", even though they are
-# labelled as such. This is merely to fit the paradigm of the counting-process Surv() function 
-# within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "cesnored")
-# indicates zero events during said interval.
-datCredit_train[, DefSpell_EventType := 
-                 case_when(TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "WOFF" ~ "Write-off",
-                           TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Cured" ~ "Cured",
-                           TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Censored" ~ "Censored",
-                           TimeInDefSpell<DefSpell_Age ~ "Censored",
-                           T ~ NA), by=.(DefSpell_Key)]
-datCredit_valid[, DefSpell_EventType := 
-                  case_when(TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "WOFF" ~ "Write-off",
-                            TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Cured" ~ "Cured",
-                            TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Censored" ~ "Censored",
-                            TimeInDefSpell<DefSpell_Age ~ "Censored",
-                            T ~ NA), by=.(DefSpell_Key)]
-
-# Recreate event type as a factor in preparation for Surv() function
-datCredit_train[, DefSpell_EventType := 
-                 factor(DefSpell_EventType, levels=c("Censored", "Write-off", "Cured"))]
-datCredit_valid[, DefSpell_EventType := 
-                  factor(DefSpell_EventType, levels=c("Censored", "Write-off", "Cured"))]
-
-# - Bin time in default spell | TEMPORARY IN CURATING BINNING SCHEMA.
-# Once done, remember to propagate to DtH-model.
-datCredit_train[, Time_Binned := timeBinning((TimeInDefSpell))]
-datCredit_valid[, Time_Binned := timeBinning((TimeInDefSpell))]
-
 
 # --- 1.2 Fit preliminary models
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
