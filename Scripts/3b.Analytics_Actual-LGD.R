@@ -6,12 +6,6 @@
 # ---------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 1.Data_Import.R
-#   - 2a.Data_Prepare_Credit_Basic.R
-#   - 2b.Date_Prepare_Credit_Advanced1.R
-#   - 2c.Data_Prepare_Credit_Advanced2.R
-#   - 2d.Data_Enrich.R
-#   - 2e.Data_Prepare_Macro.R
 #   - 2f.Data_Fusion1.R
 #
 # -- Inputs:
@@ -20,21 +14,22 @@
 # -- Outputs:
 #   - <analytics>
 # =======================================================================================
-# Note: This script design is partly inspired by the TruEnd-codebase (Botha2025)
+### Note: This script design is partly inspired by the TruEnd-codebase (Botha2025)
 
 
 
-# ------ 1. Preliminaries
+# ============ 1. Preliminaries ============
 
-# --- 0. General
+# --- 1.1 General parameters
 chosenFont <- "Cambria"
 
-# --- 1. Load TruEnd-treated data
 
+# --- 1.2 Load & prepare data
+# - Load data
 if (!exists('datCredit_real')) unpack.ffdf(paste0(genPath,"creditdata_final4a"), tempPath)
 
 # - Sample accordingly | First record per default spell, itself resolved
-datCredit_TruEnd <- subset(datCredit_real, !is.na(DefSpell_Num) & DefSpellResol_Type_Hist != "Censored" & DefSpell_Counter==1, 
+datCredit <- subset(datCredit_real, !is.na(DefSpell_Num) & DefSpellResol_Type_Hist != "Censored" & DefSpell_Counter==1, 
                          select=c("LoanID", "Date", "DefSpell_Key", "DefSpell_Num", "TimeInDefSpell","DefSpell_Age", 
                                   "DefSpellResol_Type_Hist", "Principal", "Balance", "InterestRate_Nom", "LossRate_Real")); gc()
 
@@ -47,15 +42,16 @@ datCreditAggr_TruEnd <- datCredit_real[, list(DefSpells_Num = max(DefSpell_Num, 
                                        by=list(LoanID)]
 
 # - Identify out-of-bounds (OOB) loss rates
-(diag.oob.lossrate_TruEnd <- datCredit_TruEnd[LossRate_Real < 0 | LossRate_Real > 1, .N] / 
-    datCredit_TruEnd[DefSpellResol_Type_Hist  == "WOFF",.N] * 100)
-datCredit_TruEnd[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+# Prevalence
+(diag.oob.lossrate_TruEnd <- datCredit[LossRate_Real<0 | LossRate_Real>1, .N]/datCredit[DefSpellResol_Type_Hist =="WOFF",.N] * 100)
+### RESULTS: 24.12559% of loss rates are OOB
+# Mark OOB loss rates
+datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1, 1, 0)]
 
 
 
 
-
-# ------ 2. Analysis: Account-level summaries
+# ============ 2. Account-level summaries ============
 
 # - General
 describe(datCreditAggr_TruEnd$LoanAge); hist(datCreditAggr_TruEnd$LoanAge, breaks="FD") # Mean: 97.9
@@ -63,22 +59,21 @@ describe(datCreditAggr_TruEnd$MaxCount); hist(datCreditAggr_TruEnd$MaxCount, bre
 describe(datCreditAggr_TruEnd$DefSpells_Num); hist(datCreditAggr_TruEnd$DefSpells_Num, breaks="FD")
 ### RESULTS: majority (84.1%) have 0 default spells, 12.3% have a single default spells, while the rest (3.6%) have multi spells
 describe(datCreditAggr_TruEnd$Event_Type)
-### RESULTS: Majority (54.3%) is settled, then 38.8% is still active, 4.8% is written-off, 2.1% is paid-up
+### RESULTS: Majority (54.3%) are settled, then 38.8% are still active, 4.8% are written-off, 2.1% are paid-up
 
 # - Loan Age
 describe(datCreditAggr_TruEnd[DefSpells_Num>0, LoanAge]) # Mean loan age (defaults): 127.4
 describe(datCreditAggr_TruEnd[DefSpells_Num>0 & WOff==1, LoanAge]) # Mean loan age (write-offs): 95.87
-hist(datCreditAggr_TruEnd[DefSpells_Num>0 & WOff==1, LoanAge], breaks="FD")
+hist(datCreditAggr_TruEnd[DefSpells_Num>0 & WOff==1, LoanAge], breaks="FD") # Highly right-skewed
 
 
 
 
-
-# ------ 3. Analysis: LGD-Densities
-# Graph the realised LGD statistical distributions of the two credit datasets, 
+# ============ 3. LGD-Densities ============
+### NOTE: Graph the realised LGD statistical distributions of the two credit datasets, 
 
 # - Filter out OOB-cases, purely for graphing purposes
-datCredit_TruEnd_NOOB <- subset(datCredit_TruEnd, OOB_Ind == 0)
+datCredit_TruEnd_NOOB <- subset(datCredit, OOB_Ind == 0)
 
 # - assign explicit resolution outcomes
 datCredit_TruEnd_NOOB[, Event := ifelse(DefSpellResol_Type_Hist == "Cured", "Cure", "Write-off")]
@@ -140,7 +135,7 @@ ymin <- diff(ggplot_build(g1)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(g1)$layout$panel_params[[1]]$y.range) * 0.95
 (plot.full <- g1 + annotation_custom(grob = ggplotGrob(g2), xmin=0.1, xmax=0.9, ymin=ymin, ymax=ymax))
 
-# - save plot
+# - Save plot
 dpi <- 180
 ggsave(plot.full, file=paste0(genFigPath,"/LGD-Density_ResolvedDefaults.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
@@ -148,8 +143,8 @@ ggsave(plot.full, file=paste0(genFigPath,"/LGD-Density_ResolvedDefaults.png"),wi
 
 
 
-# ------ 4. Analysis: Account Age Densities
-# Graph the statistical distributions of account age for the two credit datasets, 
+# ============ 4. Account Age Densities ============
+### NOTE: Graph the statistical distributions of account age for the two credit datasets, 
 
 # - subset for miniplot
 datCreditAggr_TruEnd_W <- subset(datCreditAggr_TruEnd, WOff  == 1)
@@ -164,7 +159,7 @@ meanAge_TruEnd_W <- mean(datCreditAggr_TruEnd_W$LoanAge, na.rm=T)
 maxDensAge_TruEnd_W <- max(density(datCreditAggr_TruEnd_W$LoanAge)$y)
 mix_WOff_TruEnd <- datCreditAggr_TruEnd_W[, .N] / datCreditAggr_TruEnd[, .N] # overall write-off probability of 5%
 
-# - main graphs a) Overall age distribution
+# - Main graphs a) Overall age distribution
 (g1 <- ggplot(datCreditAggr_TruEnd[LoanAge <= xLimit,], aes(x=LoanAge)) + theme_bw() +
     geom_histogram(aes(y=after_stat(density)), alpha=0.4, #bins=round(2*datCreditAggr_TruEnd[,.N]^(1/3)),
                    position="identity", fill=vCol[1], colour=vCol[1]) + 
@@ -181,7 +176,7 @@ mix_WOff_TruEnd <- datCreditAggr_TruEnd_W[, .N] / datCreditAggr_TruEnd[, .N] # o
     scale_x_continuous(breaks=pretty_breaks(), label=comma)
 )
 
-# - miniplot for main graph | Write-offs only
+# - Miniplot for main graph | Write-offs only
 (g2 <- ggplot(datCreditAggr_TruEnd_W[LoanAge <= xLimit,], aes(x=LoanAge)) + theme_bw() +
     geom_histogram(aes(y=after_stat(density)), alpha=0.4, #bins=round(2*datCredit_TruEnd_W[,.N]^(1/3)), 
                    position="identity", fill=vCol[2], colour=vCol[2]) + 
@@ -208,7 +203,16 @@ ymin <- diff(ggplot_build(g1)$layout$panel_params[[1]]$y.range) * 0.4
 ymax <- max(ggplot_build(g1)$layout$panel_params[[1]]$y.range) * 0.975
 (plot.full <- g1 + annotation_custom(grob = ggplotGrob(g2), xmin=100, xmax=xLimit, ymin=ymin, ymax=ymax))
 
-# - save plot
+# - Save plot
 dpi <- 180
 ggsave(plot.full, file=paste0(genFigPath,"/AccountAge-Density.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+
+
+
+
+# ============ 5. Housekeeping ============
+
+cleanEnviron()
+
+
 

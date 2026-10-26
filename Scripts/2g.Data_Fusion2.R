@@ -799,7 +799,7 @@ pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), datCredit_prep)
 
 
 
-# ============ 4. Apply a basic cross-validation clustered resampling scheme with possible n-way stratification ============
+# ============ 4. Apply a cross-validation clustered resampling scheme | Using all spell observaitons ============
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), tempPath)
@@ -876,7 +876,7 @@ pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
 
 
 
-# ============ 5. Apply a basic cross-validation clustered resampling scheme with possible n-way stratification | Selecting random spell observations ============
+# ============ 5. Apply a cross-validation clustered resampling scheme | Selecting random spell observations ============
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
@@ -896,10 +896,15 @@ datCredit_train_CS <- datCredit_train_CS[, .SD[sample(.N, 1)], by=list(DefSpell_
 datCredit_valid_CS <- datCredit_valid_CS[, .SD[sample(.N, 1)], by=list(DefSpell_Key)]
 
 # - [SANITY CHECKS]
+# Cardinality of training and validation sets
 check1 <- datCredit_train_CS[,.N]==uniqueN(datCredit_train_CDH$DefSpell_Key, na.rm=T) & datCredit_valid_CS[,.N]==uniqueN(datCredit_valid_CDH$DefSpell_Key, na.rm=T)
-cat((check1 %?% "SAFE: Training and validation datasets succcessfully by selecting a random row from each default spell. \n" %:% 
-       'WARNING: Training and validation datasets do not reconstitue the subsampled dataset. \n' ))
-
+cat((check1 %?% "SAFE: Training and validation datasets created succcessfully by selecting a random row from each default spell. \n" %:% 
+       'WARNING: Training and validation datasets created unsucccessfully by selecting a random row from each default spell. \n' ))
+# Total write-off instances
+check2a <- datCredit_train_CS[DefSpellResol_Type_Hist=="WOFF",.N]==datCredit_train_CDH[DefSpell_Counter==1 & DefSpellResol_Type_Hist=="WOFF", .N]
+check2b <- datCredit_valid_CS[DefSpellResol_Type_Hist=="WOFF",.N]==datCredit_valid_CDH[DefSpell_Counter==1 & DefSpellResol_Type_Hist=="WOFF", .N]
+cat(((check2a & check2b) %?% "SAFE: Training and validation datasets contain all write-off instances of the larger sets. \n" %:% 
+       'WARNING: Training and validation datasets do not contain all write-off instances of the larger sets. \n' ))
 
 # --- 5.2 Saving the cross-validation scheme
 # - Training dataset

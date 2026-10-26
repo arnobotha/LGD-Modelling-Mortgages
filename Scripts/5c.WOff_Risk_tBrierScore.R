@@ -33,7 +33,7 @@
 
 # ============ 1. Preliminaries ============
 
-# --- 1.1 Load & prepare data for analysis
+# --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
@@ -46,9 +46,9 @@ setorder(datCredit_valid_CDH, LoanID, Date)
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
 
-# - Score data using classic model for each instance of [TimeInDefSpell] as [DefSpell_Age]
-datCredit_train[, DefSpell_Age2:=DefSpell_Age]; datCredit_train[, DefSpell_Age:=TimeInDefSpell]
-datCredit_valid[, DefSpell_Age2:=DefSpell_Age]; datCredit_valid[, DefSpell_Age:=TimeInDefSpell]
+# - Create a spell-level target variable for write-off instance
+datCredit_train[, DefSpell_Event2:=DefSpell_Event]; datCredit_valid[, DefSpell_Event2:=DefSpell_Event]
+datCredit_train[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]; datCredit_valid[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
 
 # - Transform categorical variables to factor
 # Payment method
@@ -90,8 +90,8 @@ SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 
 # --- 1.3 Estimate event rates
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type="response")]
-datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type="response")]
+datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
+datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
 datCredit[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
 # - Derive survival probability S(t) = prod(1 - hazard)
@@ -110,20 +110,21 @@ datCredit <- subset(datCredit, Counter>0)
 
 # --- 1.4 Predict survival quantities using survival tree
 # - Get training data from survival tree
-datCredit_train_smp_cross <- SurvTree_CTree$datTrain
+datCredit_train_SurvTree <- SurvTree_CTree$datTrain
 
 # - Get node predictions from tree
 datCredit[,Node:=predict(SurvTree_CTree$survTree, datCredit, type="node")]
-datCredit_train_smp_cross[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_smp_cross, type="node")]
+datCredit_train_SurvTree[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_SurvTree, type="node")]
 
 # - Fit a survival object for each node | Using the training data only to align with how the tree was fitted
-datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_smp_cross,
+datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_SurvTree,
                    fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event")
 
 # - Join hazards back to main dataset
-datCredit <- merge(datCredit, datHaz[, list(Node, Time, Hazard_survtree=Hazard,
-                                            Survival_survtree=Surv, EventRate_survtree=EventRate)],
-                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T)
+datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, Hazard_survtree=Hazard,
+                                            EventRate_survtree=EventRate)],
+                   by.x=c("Node", "TimeInDefSpell"), by.y=c("Node", "Time"), all.x=T)
+
 
 
 

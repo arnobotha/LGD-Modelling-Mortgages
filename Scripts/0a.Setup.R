@@ -185,9 +185,9 @@ if (Sys.getenv("USERNAME") == "arnos") { # Kralkatorrik-machine
 # - Load all custom functions defined in a separate R-script
 source(paste0(path_cust,"0b.CustomFunctions_General.R"))
 source(paste0(path_cust,"0c.FunkySurv.R"))
-source(paste0(path_cust,"0d.Custom_Functions_tROC.R"))
-source(paste0(path_cust,"0e.Custom_Functions_tBrierScore.R"))
-source(paste0(path_cust,"0f.Custom_Function_GoF.R"))
+source(paste0(path_cust,"0d.FunkySurv_tROC.R"))
+source(paste0(path_cust,"0e.FunkySurv_tBrierScore.R"))
+source(paste0(path_cust,"0f.FunkySurv_GoF.R"))
 source(paste0(path_cust,"0g.Custom_Functions_LossSeverity.R"))
 source(paste0(path_cust,"0h.Custom_Functions_Analysis.R"))
 
