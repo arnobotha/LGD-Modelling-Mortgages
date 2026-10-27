@@ -505,6 +505,8 @@ vars <- c("PrevDefaults", "Arrears", "pmnt_method_grp", "g0_Delinq_Lag_1",
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
               data=datCredit_train_CS, family="binomial")
 summary(modLR)
+evalLR(modLR, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 67 272; McFadden R^2: 32.78%; AUC: 86.72%
 
 # - Test significance of variables
 # Robust (sandwich) standard errors
@@ -512,10 +514,6 @@ robust_se <- vcovHC(modLR, type="HC0")
 # Summary with robust SEs
 coeftest(modLR, vcov.=robust_se)
 ### RESULTS: All variables are significant
-
-# - Other diagnostics
-evalLR(modLR, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 67 272; McFadden R^2: 32.78%; AUC: 86.72%
 
 # - Test goodness-of-fit using AIC-measure over single-factor models
 (aicTable_LR <- aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
@@ -540,12 +538,5 @@ pack.ffdf(paste0(genObjPath,"LR_fits"), Table_LR)
 # Modeling object
 saveRDS(modLR, file=paste0(genObjPath,"LR_Model.rds"))
 
-
-
-
-# ============ 8. Housekeeping ============
-
+# - Cleanup
 cleanEnviron()
-
-
-

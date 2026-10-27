@@ -749,4 +749,4 @@ modLR_Adv <- copy(modLR); rm(modLR); gc()
 saveRDS(modLR_Adv, file=paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
 # - Cleanup
-rm(datCredit_train, datCredit_valid, modLR, modLR_base); gc()
+cleanEnviron()

@@ -544,8 +544,6 @@ vars <- c("pmnt_method_grp", "Principal_Real",
 # - Fit model
 modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
                data=datCredit_train)
-
-# - Evaluate model
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ### RESULTS: AIC: 398.49; R^2: 22.45%; RMSE: 27.45%; MAE: 22.34%
@@ -555,6 +553,5 @@ evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 modGLM_Severity_CPG <- copy(modGLM); rm(modGLM); gc()
 saveRDS(modGLM_Severity_CPG, file=paste0(genObjPath,"Severity_CPH_Model.rds"))
 
-
-
-
+# - Cleanup
+cleanEnviron()

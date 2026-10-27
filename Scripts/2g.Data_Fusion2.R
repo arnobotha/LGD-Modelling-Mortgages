@@ -855,10 +855,7 @@ suppressWarnings(rm(smp_perc, datKeys, datKeys_sampled, dat_train_keys, check.2,
 
 
 # --- 4.2 Saving the cross-validation scheme
-# - Training dataset
 pack.ffdf(paste0(genPath,"creditdata_train_CDH"), datCredit_train_CDH)
-
-# - Validation dataset
 pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
 
 
