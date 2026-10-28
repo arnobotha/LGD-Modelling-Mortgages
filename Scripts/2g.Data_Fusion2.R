@@ -891,6 +891,7 @@ check2b <- datCredit_valid_CS[DefSpellResol_Type_Hist=="WOFF",.N]==datCredit_val
 cat(((check2a & check2b) %?% "SAFE: Training and validation datasets contain all write-off instances of the larger sets. \n" %:% 
        'WARNING: Training and validation datasets do not contain all write-off instances of the larger sets. \n' ))
 
+
 # --- 5.2 Saving the cross-validation scheme
 # - Training dataset
 pack.ffdf(paste0(genPath,"creditdata_train_CS"), datCredit_train_CS)

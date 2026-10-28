@@ -31,9 +31,9 @@
 # ==============================================================================
 
 
+
 # ============ 1. Preliminaries ============
 
-# --- 1.1 Load & prepare data for analysis
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
@@ -89,21 +89,18 @@ modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 
 
-# --- 1.3 Estimate event rates
-# - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
+# --- 1.3 Estimate survival quantities
+# - Predict hazard h(t) = P(T=t | T>=t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
-datCredit[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
 # - Derive survival probability S(t) = prod(1 - hazard)
 datCredit[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
 datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
-datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
 # - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
 datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
 datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
-datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
 
 # - Remove added rows
 datCredit <- subset(datCredit, Counter>0)
@@ -117,6 +114,10 @@ datCredit_train_SurvTree <- SurvTree_CTree$datTrain
 datCredit[,Node:=predict(SurvTree_CTree$survTree, datCredit, type="node")]
 datCredit_train_SurvTree[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_SurvTree, type="node")]
 
+# - Lag node-values
+datCredit[, Node_Lag_1:=shift(Node, type="lag", n=1), by=list(DefSpell_Key)]; datCredit[is.na(Node_Lag_1), Node_Lag_1:=Node]
+datCredit_train_SurvTree[, Node_Lag_1:=shift(Node, type="lag", n=1), by=list(DefSpell_Key)]; datCredit_train_SurvTree[is.na(Node_Lag_1), Node_Lag_1:=Node]
+
 # - Fit a survival object for each node | Using the training data only to align with how the tree was fitted
 datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_SurvTree,
                    fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event")
@@ -125,6 +126,26 @@ datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_Su
 datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, Hazard_survtree=Hazard,
                                             EventRate_survtree=EventRate)],
                    by.x=c("Node", "TimeInDefSpell"), by.y=c("Node", "Time"), all.x=T)
+
+
+# --- 1.5 Estimate residual hazards
+# - Survival models
+### NOTE: - We sum the M residual event rates and condition them on an account having survived to t
+###       - Here, M is selected as the mean restriced survival time for each t
+datCredit[order(DefSpell_Key, DefSpell_Counter),
+          `:=`(Hazard_adv_res=rev(cumsum(rev(replace(EventRate_adv, is.na(EventRate_adv), 0))))/
+                 ifelse(DefSpell_Counter==1,1,shift(Survival_adv, type="lag", n=1)),
+               Hazard_bas_res=rev(cumsum(rev(replace(EventRate_bas, is.na(EventRate_bas), 0))))/
+                 ifelse(DefSpell_Counter==1,1,shift(Survival_bas, type="lag", n=1)),
+               WOff_Prob_survtree=rev(cumsum(rev(replace(EventRate_survtree, is.na(EventRate_survtree), 0))))/
+                 ifelse(DefSpell_Counter==1,1,shift(Survival_survtree, type="lag", n=1))),
+          by=list(DefSpell_Key)]
+
+# - Classical model
+### NOTE: Te prediction from the classical model is inherently the residual hazard since it
+###       is trained to give the spell-level probability of defaulting given an account survived untill t
+datCredit[, Hazard_classic_res:=predict(modLR_Classic, newdata=.SD[], type="response")]
+
 
 
 

@@ -124,7 +124,6 @@ if (Sys.getenv("USERNAME") == "arnos") { # Kralkatorrik-machine
   
 }  else if (Sys.getenv("USERNAME") == "R5667372") {
   # - Custom path where R-scripts are saved
-  
   path_cust <- "C:/Repo/LGD-Modelling-Mortgages/Scripts/"
   
   # - Common path for storing important R-objects as back-up

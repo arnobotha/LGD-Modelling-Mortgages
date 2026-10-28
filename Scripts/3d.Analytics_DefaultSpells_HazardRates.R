@@ -45,16 +45,18 @@ if (!exists('datCredit_real')) unpack.ffdf(paste0(genPath,"creditdata_final4a"),
 
 # --- 2.1 Fit Kaplan-Meier (KM) nonparametric model
 # - Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
+datKM<-datCredit_real[!is.na(DefSpell_Key),]
 km_All <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=WOff_Ind==1, type="counting") ~ 1, 
-                  id=DefSpell_Key, data=datCredit_real[!is.na(DefSpell_Key),])
+                  id=DefSpell_Key, data=datKM)
 summary(km_All)$table # overall summary statistics
-plot(km_All, conf.int = T) # survival curve
+plot(km_All, conf.int=T) # survival curve
+
 
 # --- 2.2 Calculate various summary statistics
 # - Chosen percentile of survival times, used later as a prediction time, e.g., 75%
 # NOTE: Median would also work, though sample sizes typically dwindle at that point, which can complicate analyses
 survPercentile <- 0.75
-cat(paste0("Kaplan-Meier: Survival time at the xth percentile of the distribution of unique survival times: \n\t",
+cat(paste0("Kaplan-Meier: Survival time at the ", survPercentile*100, "th percentile of the distribution of unique survival times: \n\t",
            percTimepoint <- min(km_All$time[km_All$surv <= survPercentile],na.rm=T)))
 
 # - Calculate the Truncated Mean (or "Restricted Mean Survival Time" [RMST]) of survival times
@@ -64,15 +66,15 @@ cat(paste0("Kaplan-Meier: Survival time at the xth percentile of the distributio
 ###       - RMST: What is the average survival time (time-to-event) over a window lf length \tau?
 ###         Up to how long does an individual survive during a time span of \tau units?
 tau <- max(km_All$time) # if max, then RMST = "mean follow-up time"
-rmst <- calcRMST(km_All, tau)
+rmst <- calcRMST(km_All, tau, t=1)
 cat(paste0("Kaplan-Meier: Restricted Mean Survival Time [RMST] during window of length tau = ", tau, ": \t", round(rmst,digits=2),
            " months. \nWhat is the average survival time during study window?"))
 ### RESULTS: 61.18 months
 tau <- 60
-rmst <- calcRMST(km_All, tau)
+rmst <- calcRMST(km_All, tau, t=1)
 cat(paste0("Kaplan-Meier: Restricted Mean Survival Time [RMST] during window of length tau = ", tau, ": \t", round(rmst,digits=2),
            " months. \nWhat is the average survival time during study window?"))
-### RESULTS: 18.89 months
+### RESULTS: 40.2 months
 
 # - Calculate naive estimator of time-to-event by taking mean of spell ages
 round(mean(datCredit_real[DefSpell_Counter==1, DefSpell_Age], na.rm=T), digits=2)
@@ -204,12 +206,12 @@ datSurv[, c("SurvivalProb_KM_Disc","CHaz2", "Hazard_Actual2") := NULL]
 
 # - Distributional analyses
 # Hazard rate
-describe(datSurv$Hazard_Actual); hist(datSurv$Hazard_Actual, breaks="FD")
+describe2(datSurv$Hazard_Actual); hist(datSurv$Hazard_Actual, breaks=250)
 plot(datSurv$Hazard_Actual, type="b")
 # No real difference here only as the x-axis values increase it is seen that this difference becomes greater
 # So less attention should be placed on these values
 # Event rate
-describe(datSurv$EventRate); hist(datSurv$EventRate, breaks="FD")
+describe2(datSurv$EventRate); hist(datSurv$EventRate, breaks=250)
 plot(datSurv$EventRate, type="b")
 ### RESULTS: Somewhat of a U-shape is seen
 ### the values increase till roughly 24 months and from that they decrease
@@ -218,9 +220,6 @@ plot(datSurv$EventRate, type="b")
 # - Save snapshots to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), datSurv)
 
-
-
-# --- Graphing the hazard rate h(t)
 
 # --- 2.5 Graphing the hazard rate h(t)
 # - Fitting Locally Estimated Scatterplot Smoothing (LOESS)
@@ -268,7 +267,6 @@ datSurv[, Group := "1"] # only necessary for aesthetics when using geom_smooth()
 dpi <- 180 # reset
 ggsave(gsurv_ht, file=paste0(genFigPath, "SurvivalAnalysis/DiscreteHazard_", mainEventName,"_SpellLevel_MultiSpell-LatentComp_InclLeftTrunc-AG.png"),
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
-
 
 
 # --- 2.6 Graphing the event density / probability mass function f(t)
@@ -322,12 +320,11 @@ ggsave(gsurv_ft, file=paste0(genFigPath, "SurvivalAnalysis/EventProb-", mainEven
 
 # ============ 3. Fit competing risks non-parametric survival model using Aalen-Johansen estimator of S(t) ============
 
-# -------- 2. Fit competing risks non-parametric survival model using Aalen-Johansen estimator of S(t)
-
 # - Create multinomial event type variable
-### NOTE: Semantically, the spell periods preceding the last record are not "censored", even though they are
-# labelled as such. This is merely to fit the paradigm of the counting-process of the Surv() function 
-# within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "censored")
+### NOTE: - Semantically, the spell periods preceding the last record are not "censored", even though they are
+###         labelled as such.
+###       - This is merely to fit the paradigm of the counting-process of the Surv() function 
+###         within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "censored")
 # indicates zero events during said interval.
 datCredit_real[, DefSpell_EventType := 
                  case_when(TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "WOFF" ~ "Write-off",
@@ -335,7 +332,9 @@ datCredit_real[, DefSpell_EventType :=
                            TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Censored" ~ "Censored",
                            TimeInDefSpell<DefSpell_Age | DefSpellResol_Type_Hist == "Censored" ~ "Censored",
                            T ~ NA), by=.(DefSpell_Key)]
-describe(datCredit_real[!is.na(DefSpell_Key), DefSpell_EventType])
+datCredit_real[!is.na(DefSpell_Key), DefSpell_EventType] %>% table() %>% prop.table()
+### RESULTS:  Censored   Cured      Write-off 
+###           0.94779966 0.04024039 0.01195995
 
 # - Recreate event type as a factor in preparation for Surv() function
 datCredit_real[, DefSpell_EventType := 
@@ -391,8 +390,12 @@ lines(datSurv2$EventRate_WriteOff, type="b", col="red")
 # - Save snapshots to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompRisks"), datSurv2)
 
+
 # --- 3.2 Graphing the event density / probability mass function f(t)
 ### NOTE: Comparison between KM-based classical write-off probability f(t) and f_g(t) for cause g (write-off)
+
+# - Set maximum spell age
+sMaxSpellAge<-120
 
 # - Compile data for graphing purposes
 datGraph <- rbind(data.table(Time=datSurv$Time, EventRate=datSurv$EventRate, Type="Classical"),
@@ -433,7 +436,61 @@ dpi <- 175 # reset
 ggsave(gsurv_ft_1, file=paste0(genFigPath, "SurvivalAnalysis/EventProb-", mainEventName,"_SpellLevel_MultiSpell_LatentComp_InclLeftTrunc_CompRisks.png"),
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
-# - Housekeeping
-rm(gsurv_Ft, gsurv_Ft2, gsurv_ht, gsurv_ft, km_All, median_survival, datSurv, vlabel, 
-   smthEventRate_Act, smthHazard_Act, vPredSmth, datCredit_real, datGraph, datSurv2, gsurv_ft_1,
-   vLabel, aj_All)
+
+
+
+# ============ 4. Restricted mean survival times ============
+
+# --- 4.1 Calculate quantities
+# - Set M to maximum observed spell age
+M <- max(km_All$time)
+
+# - Initialise data
+datRMST <- data.table(t=1:M, RMST=NA_real_)
+
+# - Calculate all RMSTs at all periods
+datRMST[, RMST:=mapply(function(tt, MM) calcRMST(km_All, t=tt, tau=MM), t, M)]
+
+# - Ensure integer values
+datRMST[, RMST:=ceiling(RMST)]
+
+# - Populate NA-values
+datRMST[, RMST:=nafill(RMST, type="locf")]
+
+
+# --- 4.2 Create plot
+# - Set maximum period for graphing purposes
+maxPeriod <- 120
+
+# - Graphing parameters
+vCol<-brewer.pal(10, "Paired")[c(4)]
+vShape<-1 ; vLineType<-1
+vAlpha<-0.75
+chosenFont<-"cambria"
+
+# - Plot
+(gsurv_RMST <- ggplot(datRMST[t<=maxPeriod], aes(x=t, y=RMST)) + theme_minimal() +
+    theme(text=element_text(family=chosenFont),legend.position="bottom") +
+    labs(y=paste0("Conditional expected survival time"),
+         x=bquote(Discrete~time~italic(t)*" (months) in spell")) +
+    # Main graph
+    geom_point(colour=vCol, shape=vShape, size=1) +
+    geom_line(colour=vCol, linetype=vLineType) +  
+    # Facets & scales
+    scale_y_continuous(breaks=scales::breaks_pretty(), labels=scales::comma) +
+    scale_x_continuous(breaks=scales::breaks_pretty(n=8), labels=scales::comma))
+
+# - Save plot
+dpi <- 175 # reset
+ggsave(gsurv_RMST, file=paste0(genFigPath, "SurvivalAnalysis/Conditional_Expected_Survival_Time.png"),
+       width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
+
+
+
+
+# ============ 5. Housekeeping ============
+
+cleanEnviron()
+
+
+
