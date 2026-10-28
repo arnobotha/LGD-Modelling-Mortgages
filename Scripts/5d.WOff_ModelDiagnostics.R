@@ -123,9 +123,15 @@ datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_Su
                    fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event")
 
 # - Join hazards back to main dataset
+### MM: Work on this join, we need to get the previous survival probability given the current node of the spell
+# Join quantities at current node
 datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, Hazard_survtree=Hazard,
                                             EventRate_survtree=EventRate)],
                    by.x=c("Node", "TimeInDefSpell"), by.y=c("Node", "Time"), all.x=T)
+# Join quantities of current node for the previous period
+datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree_Lag_1=Surv, Hazard_survtree_Lag_1=Hazard,
+                                            EventRate_survtree_Lag_1=EventRate)],
+                   by.x=c("Node_Lag_1", "TimeInDefSpell"), by.y=c("Node", "Time"), all.x=T)
 
 
 # --- 1.5 Estimate residual hazards
