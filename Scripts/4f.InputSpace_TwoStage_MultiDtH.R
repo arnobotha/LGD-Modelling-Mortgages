@@ -53,7 +53,7 @@ modMLR_base <- multinom(DefSpell_EventType ~  1, data = datCredit_train, maxit=1
 
 # ------ 2a. Embedding the baseline hazard h_0(t) | Part I ------
 # Which of the following methods is the best to embed the baseline hazard
-# The are done in order from least onerous to most onerous
+# They are done in order from least onerous to most onerous
 
 # --- 2.1 Single time variable (raw duration time)
 modMLR <- multinom(DefSpell_EventType ~  TimeInDefSpell, 
@@ -76,7 +76,7 @@ evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", pre
 ### RESULTS: AIC: 769,818; McFadden R^2: 3.89%; AUC: 64.23%
 
 
-# --- 2.5 Single time variable: binned
+# --- 2.4 Single time variable: binned
 # - Analyse data to inform on model inputs
 table(datCredit_train$Time_Binned) %>% prop.table()
 ### RESULTS: Between 1% and 15% of observations in each bin; deemed appropriate, particularly in

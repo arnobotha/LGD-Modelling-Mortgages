@@ -162,7 +162,7 @@ evalLS <- function(model_full, dat_train, targetFld, model_base = NULL) {
 #                      Set to the number of observations in the training dataset by default
 #         [trace]: Optional parameter for tracing errors
 # Output: <GLM model with a Tweedie link function>
-stepwise_cpglm_both <- function(base_model, full_model, data, threshold = log(nrow(data)), trace = TRUE) {
+stepAIC_cpglm <- function(base_model, full_model, data, threshold = log(nrow(data)), trace = TRUE) {
   # - Unit test conditions | Internal
   # base_model<-modGLM_base; full_model<-modGLM_full; data<-datCredit_train
   # threshold<-log(nrow(data)); trace<-T

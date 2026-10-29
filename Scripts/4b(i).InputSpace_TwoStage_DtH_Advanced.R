@@ -59,7 +59,7 @@ modLR_base2 <- glm(DefSpell_Event ~ log(TimeInDefSpell)*DefSpell_Num_binned,
 
 # ------ 2. Embedding the baseline hazard h_0(t) | Part I ------ 
 # Which of the following methods is the best to embed the baseline hazard
-# The are done in order from least onerous to most onerous
+# They are done in order from least onerous to most onerous
 
 # --- 2.1 Single time variable (raw duration time)
 # - Fit model
@@ -686,9 +686,13 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
+# Sampling window start for model fitting purposes
+sDateStr <- as.Date("2008-01-31")
+sDateStp <- as.Date("2019-12-31")
+
 # - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
+datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp,]
+datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp,]
 # remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
@@ -697,25 +701,25 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 
 # --- 9.2 Fit and evaluate final model
-# - Final variables
-vars <- c("Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
+# - Initialize and curate final list variables
+# Removed intercept to qualify fully as a DtH-model
+# Removed M_DTI_Growth_12 since it proved insignificant once restricted sampling window is imposed
+vars <- c("-1", "Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
           "InterestRate_Nom", "pmnt_method_grp",
           "Principal_Real", "Balance_Real_1",
           "M_Repo_Rate_12", "NewLoans_Aggr_Prop",
           "DefaultStatus1_Aggr_Prop_Lag_12",
           "g0_Delinq_Ave", "M_Inflation_Growth_12",
           "g0_Delinq_Lag_1", "InterestRate_Margin_Aggr_Med_2",
-          "M_DTI_Growth_12", "M_RealIncome_Growth_9", "Balance_Real_1"
+          "M_RealIncome_Growth_9", "Balance_Real_1"
 )
 
 # - Fit model
 modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
              data=datCredit_train, family="binomial")
-
-# - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 79 024; McFadden R^2: 64.39%; AUC: 98.58%
+### RESULTS: AIC: 91,794; McFadden R^2: 66.13%; AUC: 98.56%
 
 # - Summary with robust SEs
 robust_se <- vcovHC(modLR, type="HC0")
@@ -724,7 +728,8 @@ coeftest(modLR, vcov.=robust_se)
 
 # - Test goodness-of-fit using AIC-measure from single-factor models
 (aicTable_CoxDisc <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [log(TimeInDefSpell)*DefSpell_Num_binned]; [g0_Delinq_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12];
+### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [g0_Delinq_Lag_1]
+###     [log(TimeInDefSpell)*DefSpell_Num_binned]; ; [DefaultStatus1_Aggr_Prop_Lag_12];
 ###                         [g0_Delinq_Ave]; [InterestRate_Margin_Aggr_Med_2]
 
 # - Test accuracy using c-statistic from single-factor models

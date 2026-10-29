@@ -66,6 +66,7 @@ datCredit <- rbind(datCredit_train, datCredit_valid)
 # Create an additional record for each default spell
 datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Time_Binned := timeBinning(TimeInDefSpell)]
 datAdd[, Counter:=0]
 # Add record to main dataset
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
@@ -159,7 +160,7 @@ setorder(datSurv_act, Time)
 datSurv_act[,AtRisk_perc:=AtRisk_n/max(AtRisk_n, na.rm=T)]
 
 # - Ensure order of fields is correct
-setorder(datSurv_exp, TimeInDefSpell)
+setorder(datSurv_act, Time)
 
 
 # --- 2.3 Aggregate event rates to period-level
@@ -272,7 +273,7 @@ datGraph[Type %in% c("b_Actual_spline", "d_Expected_spline_bas", "f_Expected_spl
          EventRateLine:=EventRate]
 
 # - Set facet label
-datGraph[, FacetLabel:="Term-structure of write-off risk"]
+datGraph[, FacetLabel:="Classical term-structure of write-off risk"]
 
 # - Calculate MAE between event rates
 datMAE <- datGraph %>%
@@ -302,7 +303,7 @@ datGraph_main <- subset(datGraph, Type %in% c("a_Actual", "b_Actual_spline",
 
 # - Graphing parameters
 vCol <- brewer.pal(12, "Paired")[c(3,4,5,6,1,2,9,10)]
-vLabel2 <- c("a_Actual"="Empirical", "c_Expected_bas"="DtH-Basic", "e_Expected_adv"="DtH-Advanced",
+vLabel2 <- c("a_Actual"="Empirical (KM)", "c_Expected_bas"="DtH-Basic", "e_Expected_adv"="DtH-Advanced",
              "i_Expected_SurvTree"="ST",
              "b_Actual_spline"="Spline: Empirical", "d_Expected_spline_bas"="Spline: DtH-Basic",
              "f_Expected_spline_adv"="Spline: DtH-Advanced",
@@ -311,13 +312,11 @@ vSize <- rep(c(0.2,0.3), length(vLabel2)/2)
 vLineType <- rep(c("dashed", "solid"), length(vLabel2)/2)
 vShapeType <- c(15,NA,16,NA,17,NA,0,NA,1,NA)
 chosenFont <- "Cambria"
-mainEventName <- "Write-off"
-
 
 # --- 4.2 Create & save graph
 # - Graph
 (gsurv_ft <- ggplot(datGraph_main[Time <= sMaxSpellAge_graph,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
-    labs(y=bquote(plain(Event~probability~~italic(w(t))*" ["*.(mainEventName)*"]"*"")), 
+    labs(y=bquote(plain("Write-off "*probability~~italic(w(t)))), 
          x=bquote("Spell time (months)"*~italic(t))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -327,8 +326,8 @@ mainEventName <- "Write-off"
     geom_point(aes(y=EventRatePoint, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type, linewidth=Type)) + 
     # Annotations
-    annotate("text", y=0.017,x=75, label=paste0("MAE (DtH-Basic A): ", percent(MAE_eventProb_bas, accuracy=0.0001)), family=chosenFont, size=3) + 
-    annotate("text", y=0.0155,x=75, label=paste0("MAE (DtH-Advanced A): ", percent(MAE_eventProb_adv, accuracy=0.0001)), family=chosenFont, size=3) + 
+    annotate("text", y=0.017,x=75, label=paste0("MAE (DtH-Basic): ", percent(MAE_eventProb_bas, accuracy=0.0001)), family=chosenFont, size=3) + 
+    annotate("text", y=0.0155,x=75, label=paste0("MAE (DtH-Advanced): ", percent(MAE_eventProb_adv, accuracy=0.0001)), family=chosenFont, size=3) + 
     annotate("text", y=0.0140,x=75, label=paste0("MAE (ST): ", percent(MAE_eventProb_SurvTree, accuracy=0.0001)), family=chosenFont, size=3) +    
     # Scales and options
     facet_grid(FacetLabel~.) + 
@@ -343,7 +342,7 @@ mainEventName <- "Write-off"
 
 # - Save plot
 dpi <- 335 # reset
-ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_CoxDisc.png"),
+ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_Write-Off_ActVsExp_CoxDisc.png"),
        width=2400/dpi, height=1800/dpi,dpi=dpi, bg="white")
 
 
@@ -356,14 +355,14 @@ ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_
 datGraph_OOB <- datGraph %>% subset(Type %in% c("a_Actual", "b_Actual_spline", "g_Expected_classic"))
 
 # - Facet label
-datGraph_OOB[, FacetLabel:="Term-structure of write-off risk"]
+datGraph_OOB[, FacetLabel:="Classical term-structure of write-off risk"]
 
 
 # --- 5.2 Graph of worst fitting models
 # - Graphing parameters
 vCol <- brewer.pal(12, "Paired")[c(3,4,7)]
-vLabel2 <- c("b_Actual_spline"="Spline: Empirical", "a_Actual"="Empirical",
-             "g_Expected_classic"="LR")
+vLabel2 <- c("b_Actual_spline"="Spline: Empirical", "a_Actual"="Empirical (KM)",
+             "g_Expected_classic"="CS-LR")
 vSize <- c(0.2, 0.3, 0.2)
 vLineType <- c("dashed", "solid", "dashed")
 vShapeType <- c(15, NA, 16)
@@ -372,7 +371,7 @@ mainEventName <- "Write-off"
 
 # - Create main graph 
 (gsurv_ft <- ggplot(datGraph_OOB[Time<=sMaxSpellAge_graph,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
-    labs(y=bquote(plain(Event~probability~~italic(w(t))*" ["*.(mainEventName)*"]"*"")), 
+    labs(y=bquote(plain("Write-off probability "*italic(w(t)))), 
          x=bquote("Spelll time (months)"*~italic(t))) + 
     theme(text=element_text(family=chosenFont),legend.position="bottom",
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -422,20 +421,87 @@ mainEventName <- "Write-off"
 )
 
 # - Combine graphs
-(plot.full <- gsurv_ft + annotation_custom(grob = ggplotGrob(gsurv_ft2), xmin=10, xmax=90, ymin=0.02, ymax=0.175))
+(plot.full <- gsurv_ft + annotation_custom(grob = ggplotGrob(gsurv_ft2), xmin=10, xmax=90, 
+                                           ymin=0.05, ymax=0.125))
 
 # - Save plot
 dpi <- 335 # reset
-ggsave(plot.full, file=paste0(genFigPath, "EventProb_", mainEventName,"_ActVsExp_CoxDisc_OOB.png"),
+ggsave(plot.full, file=paste0(genFigPath, "EventProb_Write-off_ActVsExp_CoxDisc_OOB.png"),
        width=2400/dpi, height=1800/dpi,dpi=dpi, bg="white")
 
 
 
 
-# ============ 6. Housekeeping ============
 
+# ============ 5. Graphing the event density / probability mass function f(t) | No splines
+
+# --- 3.1 Preliminaries
+sMaxSpellAge_graph <- 84 # Max for [DefSpell_Age] for graphing purposes
+
+# --- 3.2 Create graphing data
+# - Initialise graphing data
+datGraph2 <- rbind(datSurv_act[,list(Time=Time, EventRate=EventRate, Type="a_Actual")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_bas, Type="b_Expected_bas")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_adv, Type="c_Expected_adv")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_classic, Type="d_Expected_classic")],
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_survtree, Type="e_Expected_SurvTree")]
+)
+
+# - Set facet label
+datGraph2[, FacetLabel:="Classical term-structure of write-off risk"]
+
+# - Calculate MAE between event rates
+datMAE <- datGraph2 %>%
+  subset(Time<=sMaxSpellAge_graph, select=c("Time", "Type", "EventRate")) %>%
+  pivot_wider(names_from=Type, values_from=EventRate) %>%
+  as.data.table()
+# Basic model
+(MAE_eventProb_bas <- mean(abs(datMAE$a_Actual-datMAE$b_Expected_bas), na.rm=T))
+# Advanced model
+(MAE_eventProb_adv <- mean(abs(datMAE$a_Actual-datMAE$c_Expected_adv), na.rm=T))
+# Classical model
+(MAE_eventProb_classic <- mean(abs(datMAE$a_Actual-datMAE$d_Expected_classic), na.rm=T))
+# Survival tree
+(MAE_eventProb_SurvTree <- mean(abs(datMAE$a_Actual-datMAE$e_Expected_SurvTree), na.rm=T))
+
+
+# - Graphing parameters
+vCol <- brewer.pal(8, "Dark2")
+vLabel2 <- c("a_Actual"="Empirical (KM)", "b_Expected_bas"="DtH-Basic", "c_Expected_adv"="DtH-Advanced",
+             "d_Expected_classic"="CS-LR", "e_Expected_SurvTree"="ST")
+chosenFont <- "Cambria"
+
+# --- 4.2 Create & save graph
+# - Graph
+(gsurv_ft2 <- ggplot(datGraph2[Time <= sMaxSpellAge_graph,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
+    labs(y=bquote(plain("Write-off probability "*italic(w(t)))), 
+         x=bquote("Spell time (months)"*~italic(t))) + 
+    theme(text=element_text(family=chosenFont),legend.position = "bottom",
+          strip.background=element_rect(fill="snow2", colour="snow2"),
+          strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
+    coord_cartesian(ylim=c(0,0.018)) +
+    # Main graph
+    geom_point(aes(y=EventRate, colour=Type, shape=Type), size=0.6) + 
+    geom_line(aes(y=EventRate, colour=Type, linetype=Type)) + 
+    # Annotations
+    annotate("text", y=0.017,x=75, label=paste0("MAE (DtH-Basic): ", percent(MAE_eventProb_bas, accuracy=0.0001)), family=chosenFont, size=3) + 
+    annotate("text", y=0.0155,x=75, label=paste0("MAE (DtH-Advanced): ", percent(MAE_eventProb_adv, accuracy=0.0001)), family=chosenFont, size=3) + 
+    annotate("text", y=0.0140,x=75, label=paste0("MAE (CS-LR): ", percent(MAE_eventProb_classic, accuracy=0.0001)), family=chosenFont, size=3) +    
+    annotate("text", y=0.0125,x=75, label=paste0("MAE (ST): ", percent(MAE_eventProb_SurvTree, accuracy=0.0001)), family=chosenFont, size=3) +    
+    # Scales and options
+    facet_grid(FacetLabel~.) + 
+    scale_colour_manual(name="", values=vCol, labels=vLabel2) + 
+    scale_linetype_discrete(name="", labels=vLabel2) + 
+    scale_shape_discrete(name="", labels=vLabel2) + 
+    scale_y_continuous(breaks=breaks_pretty(), label=percent) + 
+    scale_x_continuous(breaks=breaks_pretty(n=8), label=comma)
+)
+
+# - Save plot
+dpi <- 335 # reset
+ggsave(gsurv_ft2, file=paste0(genFigPath, "EventProb_Write-Off_ActVsExp_CoxDisc_NoSplines.png"),
+       width=2400/dpi, height=1800/dpi,dpi=dpi, bg="white")
+
+# - Cleanup
 cleanEnviron()
-
-
-
 

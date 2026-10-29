@@ -27,27 +27,23 @@
 
 
 
-# ------ 1. Preliminaries
+# ------ 1. Preliminaries ------
 
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
-
-# - Filter data for default spells and first default observations
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1)
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1)
+if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath);gc()
+if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath);gc()
 
 # - Identify where the loss rate is out of bounds and not feasible
-datCredit_train <- datCredit_train[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
-datCredit_valid <- datCredit_valid[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_train_CS[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_valid_CS[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
 
 # - Subset to exclude nonsensical loss-rates
-datCredit_train <- subset(datCredit_train, OOB_Ind == 0)
-datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
+datCredit_train <- subset(datCredit_train_CS, OOB_Ind == 0)
+datCredit_valid <- subset(datCredit_valid_CS, OOB_Ind == 0)
 ### NOTE: The training- and validation datasets are reduced by ~14% due to these out-of-bound observations
 
 # - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+rm(datCredit_train_CS, datCredit_valid_CS); gc()
 
 # - Fit an empty model to use for analyses
 modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
@@ -55,7 +51,7 @@ modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
 
 
 
-# ------ 2. Delinquency-themed variables
+# ------ 2. Delinquency-themed variables ------
 
 # --- 2.1 Selection of delinquency volatility variables
 # - Initialize variables to be tested
@@ -65,13 +61,13 @@ vars <- c("g0_Delinq_SD_4", "g0_Delinq_SD_5", "g0_Delinq_SD_6", "g0_Delinq_SD_9"
 table_Assess <- aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
 # Goodness-of-fit
 table_Assess[order(AIC)]
-### RESULTS: Best AIC-results: [g0_Delinq_SD_5]; [g0_Delinq_SD_4]; [g0_Delinq_SD_6]
+### RESULTS: Best AIC-results: g0_Delinq_SD_6 ; g0_Delinq_SD_9 ; g0_Delinq_SD_5
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-statistics: [g0_Delinq_SD_6]; [g0_Delinq_SD_5]; [g0_Delinq_SD_4]
+### RESULTS: Best C-statistics: g0_Delinq_SD_6 ; g0_Delinq_SD_5 ; g0_Delinq_SD_4 
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
-###               [g0_Delinq_SD_6]; [g0_Delinq_SD_5]; [g0_Delinq_SD_4]
+# g0_Delinq_SD_6 ; g0_Delinq_SD_5 ; g0_Delinq_SD_4 
 
 
 # --- 2.2 Selection of portfolio-level variables indicating the prevalence of delinquent accounts
@@ -84,13 +80,13 @@ vars <- c("g0_Delinq_Any_Aggr_Prop", "g0_Delinq_Any_Aggr_Prop_Lag_1", "g0_Delinq
 table_Assess <- aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
 # Goodness-of-fit
 table_Assess[order(AIC)]
-### RESULTS: Best AIC-results: [g0_Delinq_Any_Aggr_Prop_Lag_4]; [g0_Delinq_Any_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_12]
+### RESULTS: Best AIC-results: g0_Delinq_Any_Aggr_Prop_Lag_9 ; g0_Delinq_Any_Aggr_Prop_Lag_12 ; g0_Delinq_Any_Aggr_Prop_Lag_6 
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-statistics: [g0_Delinq_Any_Aggr_Prop_Lag_12]; [g0_Delinq_Any_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_5]
+### RESULTS: Best C-statistics: g0_Delinq_Any_Aggr_Prop_Lag_12 ; g0_Delinq_Any_Aggr_Prop_Lag_9 ; g0_Delinq_Any_Aggr_Prop_Lag_6 
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
-###               [g0_Delinq_Any_Aggr_Prop_Lag_12]; [g0_Delinq_Any_Aggr_Prop_Lag_9]; [g0_Delinq_Any_Aggr_Prop_Lag_5]
+# g0_Delinq_Any_Aggr_Prop_Lag_12 ; g0_Delinq_Any_Aggr_Prop_Lag_9 ; g0_Delinq_Any_Aggr_Prop_Lag_6 
 
 
 # --- 2.3 Selection of portfolio-level variables indicating the prevalence of defaulted accounts
@@ -103,13 +99,13 @@ vars <- c("DefaultStatus1_Aggr_Prop", "DefaultStatus1_Aggr_Prop_Lag_1", "Default
 table_Assess <- aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
 # Goodness-of-fit
 table_Assess[order(AIC)]
-### RESULTS: Best AIC-results: [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_2]
+### RESULTS: Best AIC-results: DefaultStatus1_Aggr_Prop ; DefaultStatus1_Aggr_Prop_Lag_1 ; DefaultStatus1_Aggr_Prop_Lag_2 
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-statistics: [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_2]
+### RESULTS: Best C-statistics: DefaultStatus1_Aggr_Prop ; DefaultStatus1_Aggr_Prop_Lag_1 ; DefaultStatus1_Aggr_Prop_Lag_2 
 
 ### CONCLUSION: Select the top 3 variables:
-###               [DefaultStatus1_Aggr_Prop]; [DefaultStatus1_Aggr_Prop_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_2]
+# DefaultStatus1_Aggr_Prop ; DefaultStatus1_Aggr_Prop_Lag_1 ; DefaultStatus1_Aggr_Prop_Lag_2 
 
 
 # --- 2.4 Selection of other portfolio-level delinquency-themed variables
@@ -120,13 +116,13 @@ vars <- c("g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop", "CuringEvents_Aggr_Prop
 table_Assess <- aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
 # Goodness-of-fit
 table_Assess[order(AIC)]
-### RESULTS: Best AIC-results: [g0_Delinq_Ave]; [CuringEvents_Aggr_Prop]; [ArrearsToBalance_Aggr_Prop]
+### RESULTS: Best AIC-results: g0_Delinq_Ave ; ArrearsToBalance_Aggr_Prop ; CuringEvents_Aggr_Prop 
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-statistics: [g0_Delinq_Ave]; [CuringEvents_Aggr_Prop]; [ArrearsToBalance_Aggr_Prop]
+### RESULTS: Best C-statistics: g0_Delinq_Ave ; ArrearsToBalance_Aggr_Prop ; CuringEvents_Aggr_Prop 
 
 ### CONCLUSION: Select the top 3 variables:
-###               [g0_Delinq_Ave]; [CuringEvents_Aggr_Prop]; [ArrearsToBalance_Aggr_Prop]
+#g0_Delinq_Ave ; ArrearsToBalance_Aggr_Prop ; CuringEvents_Aggr_Prop 
 
 
 # --- 2.5 Selection of account-level delinquency-themed variables
@@ -134,53 +130,63 @@ table_Assess[order(C, decreasing=T)]
 vars <- c("g0_Delinq_Lag_1", "slc_acct_arr_dir_3_Change_Ind",
           "g0_Delinq_Num", "slc_acct_arr_dir_3", "slc_acct_roll_ever_24_imputed_mean",
           "Arrears", "PrevDefaults","TimeInDelinqState",
-          "slc_past_due_amt_imputed_med", "slc_curing_ind","DefSpell_Age")
+          "slc_past_due_amt_imputed_med", "slc_curing_ind","TimeInDefSpell")
 
 # - Single-factor modelling results
 table_Assess <- aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
 # Goodness-of-fit
 table_Assess[order(AIC)]
-### RESULTS: Best AIC-results: [PrevDefaults]; [g0_Delinq_Num]; [g0_Delinq_Lag_1]; [slc_acct_arr_dir_3]; [slc_acct_arr_dir_Change_Ind]
+### RESULTS: Best AIC-results: PrevDefaults ; g0_Delinq_Lag_1 ; slc_curing_ind ; slc_acct_arr_dir_3 ; 
+# slc_acct_arr_dir_3_Change_Ind ; TimeInDelinqState ; slc_past_due_amt_imputed_med ; Arrears 
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-statistics: [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num]; [Arrears]; [slc_past_due_amt_imputed_med]
+### RESULTS: Best C-statistics (>60%): PrevDefaults ; Arrears ; slc_past_due_amt_imputed_med ;
+# TimeInDelinqState ; g0_Delinq_Lag_1 ; slc_acct_arr_dir_3 ; slc_curing_ind ; slc_acct_arr_dir_3_Change_Ind 
+# g0_Delinq_Num 
 
 ### CONCLUSION: Select the top 5 variables (preference given to C-statistic rankings):
-###               [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num]; [Arrears]; [slc_past_due_amt_imputed_med]
+# PrevDefaults ; slc_past_due_amt_imputed_med ; TimeInDelinqState ; g0_Delinq_Lag_1 
+# slc_acct_arr_dir_3 ; slc_curing_ind ; slc_acct_arr_dir_3_Change_Ind ; g0_Delinq_Num 
 
 
 # --- 2.6 Combining insights
 # - Initialize variables to be tested
 vars <- c("g0_Delinq_SD_6", "g0_Delinq_SD_5", "g0_Delinq_SD_4",
-          "g0_Delinq_Any_Aggr_Prop_Lag_12", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Any_Aggr_Prop_Lag_5",
+          "g0_Delinq_Any_Aggr_Prop_Lag_12", "g0_Delinq_Any_Aggr_Prop_Lag_9", "g0_Delinq_Any_Aggr_Prop_Lag_6",
           "DefaultStatus1_Aggr_Prop", "DefaultStatus1_Aggr_Prop_Lag_1", "DefaultStatus1_Aggr_Prop_Lag_2",
           "g0_Delinq_Ave", "ArrearsToBalance_Aggr_Prop", "CuringEvents_Aggr_Prop",
-          "PrevDefaults", "DefSpell_Age", "g0_Delinq_Num", "Arrears", "slc_past_due_amt_imputed_med")
+          "PrevDefaults", "slc_past_due_amt_imputed_med", "TimeInDelinqState", "g0_Delinq_Lag_1",
+          "slc_acct_arr_dir_3", "slc_curing_ind", "slc_acct_arr_dir_3_Change_Ind", "g0_Delinq_Num")
 
 # - Full model
 modGLM_full <- cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
                      data=datCredit_train)
 summary(modGLM_full)
 evalLS(modGLM_full, datCredit_train, targetFld="LossRate_Real", modGLM_base)
-### RESULTS: AIC: 69893; R^2: 12.62%; RMSE:  19.47%; MAE:  11.35%
+### RESULTS: AIC: 67511.06; R^2: 14.50%; RMSE:  19.26%; MAE:  9.71%
 
-# - Stepwise forward selection using BIC
+# - Stepwise forward selection using AIC
 ptm <- proc.time() # for runtime calculations (ignore)
-modGLM_step <- stepwise_cpglm_both(modGLM_base, modGLM_full,datCredit_train)
+modGLM_step <- stepAIC_cpglm(modGLM_base, modGLM_full,datCredit_train)
 summary(modGLM_step)
 evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-proc.time() - ptm # IGNORE: elapsed runtime; 70m
-### RESULTS: AIC: 5341.1; Pseudo R^2:  29.80%; RMSE:  28.59%; MAE:  22.99%
+proc.time() - ptm # IGNORE: elapsed runtime; 16.5h
+### RESULTS: AIC: 67515.1; R^2:  14.41%; RMSE:  19.27%; MAE:  9.73%
 
 ### CONCLUSION: Select variables from automated selection procedure:
-###               [g0_Delinq_SD_12]; [DefaultStatus1_Aggr_Prop_Lag_12];
-###               [CuringEvents_Aggr_Prop]; [g0_Delinq_Ave]; [ArrearsToBalance_1_Aggr_Prop];
-###               [PrevDefaults]; [DefSpell_Age]; [g0_Delinq_Num] [Arrears]; [DefSpell_Num_binned]
+# PrevDefaults, slc_curing_ind, g0_Delinq_Lag_1, g0_Delinq_Num, g0_Delinq_SD_4, g0_Delinq_SD_6, 
+# slc_acct_arr_dir_3, TimeInDelinqState, 
+# DefaultStatus1_Aggr_Prop, DefaultStatus1_Aggr_Prop_Lag_2, g0_Delinq_Any_Aggr_Prop_Lag_6, g0_Delinq_Any_Aggr_Prop_Lag_9,
+# ArrearsToBalance_Aggr_Prop, CuringEvents_Aggr_Prop, 
+### NOTE: Can remove one of g0_Delinq_SD_4 or g0_Delinq_SD_6 (preferred) since they contain the same type of information.
+# Similarly, can remove one of g0_Delinq_Any_Aggr_Prop_Lag_6 and g0_Delinq_Any_Aggr_Prop_Lag_9 (preferred).
+# Similarly, can remove one of DefaultStatus1_Aggr_Prop (preferred) and DefaultStatus1_Aggr_Prop_Lag_2
+# Can remove CuringEvents_Aggr_Prop due to statistical insignificance
 
 
 
 
-# ------ 3. Other portfolio-level variables
+# ------ 3. Other portfolio-level variables ------
 
 # --- 3.1 Median portfolio-level interest rates
 # - Initialize variables to be tested
@@ -191,13 +197,13 @@ vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "Int
 table_Assess <- aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
 # Goodness-of-fit
 table_Assess[order(AIC)]
-### RESULTS: Best AIC-results: [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2]
+### RESULTS: Best AIC-results: InterestRate_Margin_Aggr_Med_2 ; InterestRate_Margin_Aggr_Med_3 ; InterestRate_Margin_Aggr_Med_1 
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-statistics: [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2]
+### RESULTS: Best C-statistics: InterestRate_Margin_Aggr_Med_3 ; InterestRate_Margin_Aggr_Med_2 ; InterestRate_Margin_Aggr_Med_1 
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
-###               [InterestRate_Margin_Aggr_Med]; [InterestRate_Margin_Aggr_Med_1]; [InterestRate_Margin_Aggr_Med_2]
+# InterestRate_Margin_Aggr_Med_3 ; InterestRate_Margin_Aggr_Med_2 ; InterestRate_Margin_Aggr_Med_1 
 
 
 # --- 3.2 Other portfolio-level (non-delinquency) variables
@@ -208,36 +214,34 @@ vars <- c("InstalmentToBalance_Aggr_Prop", "AgeToTerm_Aggr_Mean", "DefSpell_Matu
 table_Assess <- aicTable_LS(datCredit_train, vars, TimeDef=c("Cox_Discrete","LossRate_Real"), genPath=genObjPath, modelType="tweedie")
 # Goodness-of-fit
 table_Assess[order(AIC)]
-### RESULTS: Best AIC-results: [NewLoans_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]; [AgeToTerm_Aggr_Mean]
+### RESULTS: Best AIC-results: NewLoans_Aggr_Prop ; DefSpell_Maturity_Aggr_Mean ; InstalmentToBalance_Aggr_Prop ; AgeToTerm_Aggr_Mean 
 # Discriminatory power (in-sample)
 table_Assess[order(C, decreasing=T)]
-### RESULTS: Best C-statistics: [AgeToTerm_Aggr_Mean]; [NewLoans_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]
+### RESULTS: Best C-statistics (>56%): NewLoans_Aggr_Prop ; DefSpell_Maturity_Aggr_Mean ; AgeToTerm_Aggr_Mean 
 
 ### CONCLUSION: Select the top 3 variables (preference given to C-statistic rankings):
-###               [AgeToTerm_Aggr_Mean]; [NewLoans_Aggr_Prop]; [DefSpell_Maturity_Aggr_Mean]
+# NewLoans_Aggr_Prop ; DefSpell_Maturity_Aggr_Mean ; AgeToTerm_Aggr_Mean 
 
 
 # --- 3.3 Combining insights
 # - Initialize variables to be tested
-vars <- c("InterestRate_Margin_Aggr_Med", "InterestRate_Margin_Aggr_Med_1", "InterestRate_Margin_Aggr_Med_2",
-          "AgeToTerm_Aggr_Mean", "NewLoans_Aggr_Prop", "DefSpell_Maturity_Aggr_Mean")
+vars <- c("InterestRate_Margin_Aggr_Med_3", "InterestRate_Margin_Aggr_Med_2", "InterestRate_Margin_Aggr_Med_1",
+          "NewLoans_Aggr_Prop", "DefSpell_Maturity_Aggr_Mean", "AgeToTerm_Aggr_Mean")
 
 # - Full model
 modGLM_full <-cpglm( as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
                      data=datCredit_train)
 summary(modGLM_full)
 evalLS(modGLM_full,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 79 618; Pseudo R^2: 1.95%; RMSE: 20.62%; MAE: 11.97%
+### RESULTS: AIC: 79956.41; R^2: 1.78%; RMSE: 20.64%; MAE: 12.06%
 
 # - Stepwise forward selection using BIC
 ptm <- proc.time() # for runtime calculations (ignore)
-modGLM_step <- stepwise_cpglm_both(modGLM_base, modGLM_full,datCredit_train)
-proc.time() - ptm # IGNORE: elapsed runtime; 21m
-
-# - Evaluate model
+modGLM_step <- stepAIC_cpglm(modGLM_base, modGLM_full,datCredit_train)
 summary(modGLM_step)
 evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 79 619; Pseudo R^2: 1.94%; RMSE: 20.62%; MAE: 11.98%
+proc.time() - ptm # IGNORE: elapsed runtime; 21m
+### RESULTS: AIC: 79 619; R^2: 1.94%; RMSE: 20.62%; MAE: 11.98%
 
 ### CONCLUSION: Select variables from automated variable selection procedure:
 ###             [InterestRate_Margin_Aggr_Med]; [DefSpell_Maturity_Aggr_Mean]; [AgeToTerm_Aggr_Mean]
@@ -265,7 +269,7 @@ evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 
 
-# ------ 4. Account-level variables
+# ------ 4. Account-level variables ------
 
 # --- 4.1 How do various non-delinquency account-level variables fare as single-factor models?
 # - Initialize variables to be tested
@@ -315,7 +319,7 @@ table_Assess[order(C, decreasing=T)]
 
 
 
-# ------ 5. Macroeconomic variables
+# ------ 5. Macroeconomic variables ------
 
 # --- 5.1 Which lag order is the best for: M_Repo_Rate
 # - Initialize variables to be tested
@@ -445,7 +449,7 @@ evalLS(modGLM_full,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 # - Stepwise forward selection using AIC
 ptm <- proc.time() # for runtime calculations (ignore)
-modGLM_step <- stepwise_cpglm_both(modGLM_base, modGLM_full,datCredit_train)
+modGLM_step <- stepAIC_cpglm(modGLM_base, modGLM_full,datCredit_train)
 proc.time() - ptm # IGNORE: elapsed runtime; 140m
 
 # - Evaluate model
@@ -479,7 +483,7 @@ evalLS(modGLM, datCredit_train,targetFld="LossRate_Real", modGLM_base)
 
 
 
-# ------ 6. Combine variables from all themes
+# ------ 6. Combine variables from all themes ------
 
 # --- 6.1 Run an automated selection procedure on the entire set
 # - Initialise set of variables
@@ -502,7 +506,7 @@ evalLS(modGLM_full,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 # - Stepwise forward selection using AIC
 ptm <- proc.time() # for runtime calculations (ignore)
-modGLM_step <- stepwise_cpglm_both(modGLM_base, modGLM_full,datCredit_train)
+modGLM_step <- stepAIC_cpglm(modGLM_base, modGLM_full,datCredit_train)
 proc.time() - ptm # IGNORE: elapsed runtime; 140m
 
 # - Evaluate model
@@ -523,7 +527,12 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ###             Refit model without these variables
 
 
-# --- 6.2 Model refinements | Adjusting the input space based on expert judgement
+
+
+
+# ------ 7. Model refinements  ------
+# Adjusting the input space based on expert judgement
+
 ### NOTE: The following changes have been made:
 ###       Removed:  1) [M_RealIncome_Growth_6]
 ###                 2) [M_DTI_Growth_12]
@@ -566,9 +575,15 @@ evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
+# Sampling window start for model fitting purposes
+sDateStr <- as.Date("2008-01-31")
+sDateStp <- as.Date("2019-12-31")
+
 # - Filter data for default spells and first default observations
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1)
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1)
+datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1 & 
+                            Date >= sDateStr & Date <= sDateStp)
+datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1 & 
+                            Date >= sDateStr & Date <= sDateStp)
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit_train <- datCredit_train[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
@@ -587,29 +602,28 @@ modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
 
 
 # --- 9.2 Fit and evaluate final model
-# - Initialize variables to be tested
-vars <- c("PrevDefaults", "DefSpell_Num_binned", "NewLoans_Aggr_Prop",
+# - Initialize and curate final list variables
+# Removed Balance_Real_1 since it proved insignificant once restricted sampling window is imposed
+# Removed NewLoans_Aggr_Prop since it proved insignificant once restricted sampling window is imposed
+vars <- c("PrevDefaults", "DefSpell_Num_binned",
           "InterestRate_Nom", "DefSpell_Age", "g0_Delinq_Num", "slc_past_due_amt_imputed_med",
           "DefaultStatus1_Aggr_Prop_Lag_12",
           "ArrearsToBalance_1_Aggr_Prop", "g0_Delinq_Ave",
           "M_Repo_Rate_9", "M_RealGDP_Growth_12",
-          "M_RealIncome_Growth_9", "AgeToTerm", "Balance_Real_1"
+          "M_RealIncome_Growth_9", "AgeToTerm"
 )
 
-# - Fit model
+# - Fit and evaluate model
 modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
                data=datCredit_train)
-
-# - Evaluate model
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 67 338; R^2: 11.35; RMSE: 19.61%; MAE: 10.00%
+### RESULTS: AIC: 80827.92; R^2: 9.2; RMSE: 20.77%; MAE: 10.83%
 
 
 # --- 9.3 Save objects
 modGLM_OneStage_CPG <- copy(modGLM); rm(modGLM); gc()
 saveRDS(modGLM_OneStage_CPG, file=paste0(genObjPath,"OneStage_CPH_Model.rds"))
-
 
 # - Cleanup
 cleanEnviron()

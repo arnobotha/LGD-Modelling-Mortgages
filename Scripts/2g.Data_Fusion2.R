@@ -757,9 +757,11 @@ rm(datMV, list_merge_variables, results_missingness, datMV_Check1, datMV_Check2)
 # --- 3.9 Model-based feature engineering
 # See script 0h for function definition
 datCredit_prep[, Time_Binned := timeBinning(TimeInDefSpell)]
-table(datCredit_prep$Time_Binned) %>% prop.table()
+datCredit_prep[, Time_Binned_Coarser := timeBinning_coarser(TimeInDefSpell)]
+table(datCredit_prep[!is.na(DefSpell_Key), Time_Binned]) %>% prop.table()
 ### RESULTS: Between 1% and 15% of observations in each bin; deemed appropriate, particulalarly in
 # as the earlier bins cover a vast majority of the data
+
 # Lag g0-delinq with appropriate period for discrete-time hazard model
 datCredit_prep[, g0_Delinq_Lag_1 := shift(g0_Delinq,fill=0),by=LoanID]
 
@@ -769,7 +771,7 @@ datCredit_prep[, Start := TimeInDefSpell - 1]
 # - Create multinomial event type variable
 ### NOTE: Semantically, the spell periods preceding the last record are not "censored", even though they are
 # labelled as such. This is merely to fit the paradigm of the counting-process Surv() function 
-# within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "cesnored")
+# within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "censored")
 # indicates zero events during said interval.
 datCredit_prep[, DefSpell_EventType := 
                   case_when(TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "WOFF" ~ "Write-off",
@@ -787,11 +789,15 @@ pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), datCredit_prep)
 
 
 
-# ============ 4. Apply a cross-validation clustered resampling scheme | Using all spell observaitons ============
+# ============ 4. Apply a cross-validation clustered resampling scheme | Using all spell observations ============
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), tempPath)
 if (!exists('datKeys')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_keys"), tempPath)
+
+# Set sampling parameters
+clusVar <- "LoanID"
+smp_frac <- 0.7
 
 # - Implement the clustered (possibly stratified) resampling scheme by first randomly selecting loan IDs 
 ### NOTE: The specified sampling fraction in section 1 is referenced here
@@ -822,8 +828,7 @@ all_ids <- unique(datKeys[[clusVar]])
 valid_ids <- setdiff(all_ids, train_ids)
 
 # - Filter full dataset to get validation set
-datCredit_valid_CDH <- copy(datCredit_prep[get(clusVar) %in% valid_ids, ])
-gc()
+datCredit_valid_CDH <- copy(datCredit_prep[get(clusVar) %in% valid_ids, ]); gc()
 
 # - [SANITY CHECKS]
 if (timeDef_TFD) {

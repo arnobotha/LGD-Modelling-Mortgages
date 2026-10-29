@@ -154,7 +154,7 @@ chosenFont <- "Cambria"
 
 # - Save plot
 dpi <- 335 # reset
-ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_ActVsExp_CompRisks.png"),
+ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_Write-Off_ActVsExp_CompRisks.png"),
        width=2400/dpi, height=1800/dpi,dpi=dpi, bg="white")
 
 # - Cleanup

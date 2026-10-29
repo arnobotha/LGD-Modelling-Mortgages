@@ -966,13 +966,13 @@ coefDeter_glm <- function(model, model_base = NA, weightsGiven=F) {
 
 
 # --- Evaluation function for glm-based objects
-evalLR <- function(model, model_base=NA, datGiven, targetFld, predClass, predType="response") {
+evalLR <- function(model, model_base=NA, datGiven, targetFld, predClass, weightsGiven=F, predType="response") {
   require(data.table); require(scales)
   # - Test conditions
   # model <- modLR; model_base <- modLR_base; datGiven <- datCredit_train
   # targetFld = "PerfSpell_Event"; predClass <- 1
   result1 <- AIC(model) # 1164537 
-  result2 <- coefDeter_glm(model, model_base) # 0.29%
+  result2 <- coefDeter_glm(model, model_base, weightsGiven=weightsGiven) # 0.29%
   matPred <- predict(model, newdata=datGiven, type=predType)
   actuals <- ifelse( as.integer(datGiven[[targetFld]]) == predClass, 1,0)
   # cater for MLR-objects as well
