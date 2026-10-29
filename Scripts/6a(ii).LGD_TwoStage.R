@@ -142,7 +142,7 @@ datCredit[, `:=`(LossRate_est_bas=LossSeverity*EventRate_bas, # Basic discrete t
                  LossRate_est_survtree=LossSeverity*EventRate_survtree)] # Survival tree
 
 # - Get a lookup to check predictions
-lookup <- datCredit[DefSpell_Key==unique(datCredit[DefSpell_Age>=30 & LossRate_Real>0, DefSpell_Key])[3000],
+lookup <- datCredit[DefSpell_Key==unique(datCredit[DefSpellResol_Type_Hist=="WOFF" & DefSpell_Age>=30 & LossRate_Real>0, DefSpell_Key])[3000],
                     c("DefSpell_Key", "TimeInDefSpell", "Date",
                       "EventRate_adv", "LossSeverity", "LossRate_est_adv", "LossRate_Real",
                       "EventRate_bas", "LossSeverity", "LossRate_est_bas", "LossRate_Real",

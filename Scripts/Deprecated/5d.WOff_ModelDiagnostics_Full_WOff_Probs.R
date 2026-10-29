@@ -131,6 +131,7 @@ datCredit[order(DefSpell_Key, DefSpell_Counter),
                WOff_Prob_survtree=rev(cumsum(rev(replace(EventRate_survtree, is.na(EventRate_survtree), 0))))/
                  ifelse(DefSpell_Counter==1,1,shift(Survival_survtree, type="lag", n=1))),
           by=list(DefSpell_Key)]
+### MM: Simplify this code to make it more readable and ensure its correctness
 
 # - Investigate full write-off probabilities
 datCredit[WOff_Prob_bas>1, .N]; datCredit[WOff_Prob_adv>1, .N]
