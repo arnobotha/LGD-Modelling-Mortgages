@@ -25,18 +25,16 @@
 
 # --- 1.1 Load and prepare datasets
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath);gc()
+if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath);gc()
 
 # Sampling window start for model fitting purposes
 sDateStr <- as.Date("2008-01-31")
 sDateStp <- as.Date("2019-12-31")
 
 # - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1 & 
-                            Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1 & 
-                            Date >= sDateStr & Date <= sDateStp)
+datCredit_train <- subset(datCredit_train_CS, Date >= sDateStr & Date <= sDateStp)
+datCredit_valid <- subset(datCredit_valid_CS, Date >= sDateStr & Date <= sDateStp)
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
@@ -47,7 +45,7 @@ datCredit_train <- subset(datCredit_train, OOB_Ind==0)
 datCredit_valid <- subset(datCredit_valid, OOB_Ind==0)
 
 # - Remove unfiltered data
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+rm(datCredit_train_CS, datCredit_valid_CS); gc()
 
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)

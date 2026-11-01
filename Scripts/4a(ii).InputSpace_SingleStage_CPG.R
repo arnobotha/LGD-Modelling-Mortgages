@@ -498,18 +498,16 @@ evalLS(modGLM_step, datCredit_train, targetFld="LossRate_Real", modGLM_base)
 
 # --- 9.1 Preliminaries
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath);gc()
+if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath);gc()
 
 # Sampling window start for model fitting purposes
 sDateStr <- as.Date("2008-01-31")
 sDateStp <- as.Date("2019-12-31")
 
 # - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1 & 
-                            Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1 & 
-                            Date >= sDateStr & Date <= sDateStp)
+datCredit_train <- subset(datCredit_train_CS, Date >= sDateStr & Date <= sDateStp)
+datCredit_valid <- subset(datCredit_valid_CS, Date >= sDateStr & Date <= sDateStp)
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit_train <- datCredit_train[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
@@ -521,7 +519,7 @@ datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
 ### NOTE: The training- and validation datasets are reduced by ~14% due to these out-of-bound observations
 
 # - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+rm(datCredit_train_CS, datCredit_valid_CS); gc()
 
 # - Fit an empty model to use for analyses
 modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
@@ -535,9 +533,10 @@ modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
 # Removed TimeInDefSpell since it proved insignificant once restricted sampling window is imposed
 # Removed slc_acct_arr_dir_3 since it proved insignificant once restricted sampling window is imposed
 # Removed InterestRate_Margin_Aggr_Med_2 since it proved insignificant once restricted sampling window is imposed 
+# Removed M_Repo_Rate_12 since it proved insignificant once restricted sampling window is imposed 
 vars <- c("PrevDefaults", "slc_curing_ind", "g0_Delinq_Lag_1", "g0_Delinq_Num",
           "AgeToTerm", "Principal_Real", "InterestRate_Margin_imputed_mean", "DefSpell_Maturity_Aggr_Mean",
-          "M_DTI_Growth_12", "M_Emp_Growth_1", "M_Repo_Rate_12", "M_Inflation_Growth_9"
+          "M_DTI_Growth_12", "M_Emp_Growth_1", "M_Inflation_Growth_9"
 )
 
 # - Fit and evaluate model
@@ -545,7 +544,7 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
                data=datCredit_train)
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 59954.88; R^2: 11.47%; RMSE: 20.48%; MAE: 11.16%
+### RESULTS: AIC: 58326.09; R^2: 12.09%; RMSE: 20.37%; MAE: 10.75%
 
 ### AB: Rerun modGLM_base
 
