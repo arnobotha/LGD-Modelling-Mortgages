@@ -438,7 +438,7 @@ summary(modGLM_step)
 evalLS(modGLM_step, datCredit_train,targetFld="LossRate_Real", modGLM_base)
 ### RESULTS: AIC: -27155.92; R^2: 2.02%; RMSE: 20.61%; MAE: 12.03%
 
-### CONCLUSION: Select variables from automated variable selection procedure:
+### CONCLUSION: Selected variables from automated variable selection procedure:
 # M_Repo_Rate_12, M_DTI_Growth_12, M_DTI_Growth_6, M_Repo_Rate_6, M_RealGDP_Growth_12,
 # M_Emp_Growth, M_RealIncome_Growth, M_RealGDP_Growth, M_RealIncome_Growth_2
 ### NOTE: M_Repo_Rate_6 and M_DTI_Growth_6 and M_RealIncome_Growth_2 and M_RealGDP_Growth_12
@@ -523,7 +523,7 @@ if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_
 sDateStr <- as.Date("2008-01-31")
 sDateStp <- as.Date("2019-12-31")
 
-# - Filter data for default spells and first default observations
+# - Filter data for default spells and date selections
 datCredit_train <- subset(datCredit_train_CS, Date >= sDateStr & Date <= sDateStp )
 datCredit_valid <- subset(datCredit_valid_CS, Date >= sDateStr & Date <= sDateStp)
 
@@ -547,9 +547,6 @@ modGLM_base <- glm(LossRate_Real~1, data=datCredit_train, family=gaussian(link="
 # - Initialize and curate final list variables
 # Removed AgeToTerm_Aggr_Mean since it proved insignificant once restricted sampling window is imposed
 # Removed M_RealGDP_Growth since it proved insignificant once restricted sampling window is imposed
-
-### AB: Test following
-# Added TimeInDefSpell
 vars <- c("PrevDefaults", "slc_acct_arr_dir_3", "slc_past_due_amt_imputed_med",
           "g0_Delinq_Ave", "g0_Delinq_Lag_1", "g0_Delinq_Num", "g0_Delinq_SD_6",
           "TimeInDelinqState", "InterestRate_Nom", "DefSpell_Maturity_Aggr_Mean", "Principal_Real", 
