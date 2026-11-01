@@ -524,7 +524,7 @@ sDateStr <- as.Date("2008-01-31")
 sDateStp <- as.Date("2019-12-31")
 
 # - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CS, Date >= sDateStr & Date <= sDateStp )
+datCredit_train <- subset(datCredit_train_CS, Date >= sDateStr & Date <= sDateStp)
 datCredit_valid <- subset(datCredit_valid_CS, Date >= sDateStr & Date <= sDateStp)
 
 # - Identify where the loss rate is out of bounds and not feasible

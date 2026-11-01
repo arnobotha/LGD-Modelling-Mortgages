@@ -492,8 +492,16 @@ evalLR(modLR, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predCl
 if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath);gc()
 if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath);gc()
 
+# Sampling window start for model fitting purposes
+sDateStr <- as.Date("2008-01-31")
+sDateStp <- as.Date("2019-12-31")
+
+# - Filter data for default spells and date selections
+datCredit_train <- subset(datCredit_train_CS, Date >= sDateStr & Date <= sDateStp)
+datCredit_valid <- subset(datCredit_valid_CS, Date >= sDateStr & Date <= sDateStp)
+
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
-modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train_CS, family="binomial")
+modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Final variables
 vars <- c("PrevDefaults", "Arrears", "pmnt_method_grp", "g0_Delinq_Lag_1",
@@ -503,10 +511,10 @@ vars <- c("PrevDefaults", "Arrears", "pmnt_method_grp", "g0_Delinq_Lag_1",
   
 # - Fit model
 modLR <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-              data=datCredit_train_CS, family="binomial")
+              data=datCredit_train, family="binomial")
 summary(modLR)
-evalLR(modLR, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 67 272; McFadden R^2: 32.78%; AUC: 86.72%
+evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 52,805; McFadden R^2: 35.20%; AUC: 87.79%
 
 # - Test significance of variables
 # Robust (sandwich) standard errors
@@ -516,21 +524,17 @@ coeftest(modLR, vcov.=robust_se)
 ### RESULTS: All variables are significant
 
 # - Test goodness-of-fit using AIC-measure over single-factor models
-(aicTable_LR <- aicTable(datCredit_train_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
+(aicTable_LR <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
 ### RESULTS: Top variables: [PrevDefaults]; [Arrears]; [slc_past_due_amt_imputed_med]; [g0_Delinq_Lag_1]; [pmnt_method_grp];
 ###                         [g0_Delinq_SD_6]; [Principal_Real]
 
 # - Test accuracy using c-statistic over single-factor models
-(concTable_LR <- concTable(datCredit_train_CS, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
+(concTable_LR <- concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
 ### RESULTS: Top variables: [PrevDefaults]; [Arrears]; [slc_past_due_amt_imputed_med]; [g0_Delinq_Lag_1]; [g0_Delinq_SD_6]
 ###                         [pmnt_method_grp]; [Principal_Real]
 
 # - Combine results into a single object
 Table_LR <- merge(concTable_LR[,1:2], aicTable_LR, by="Variable")
-
-GoF_CoxSnell_KS(modLR, datCredit_train_CS, GraphInd=TRUE, ,legPos=c(0.6,0.4), panelTitle="Logistic Regression",
-                fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_LR", ".png"), dpi=280,fldLstRowInd="DefSpell_Counter")
-### RESULTS: KS-statistic=45%; Harell's c=86.719%; AIC=67 272
 
 # - Save objects
 # Model analytics

@@ -691,8 +691,9 @@ sDateStr <- as.Date("2008-01-31")
 sDateStp <- as.Date("2019-12-31")
 
 # - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp,]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp,]
+datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
+datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
+
 # remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
@@ -719,7 +720,7 @@ modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))
              data=datCredit_train, family="binomial")
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 91,794; McFadden R^2: 66.13%; AUC: 98.56%
+### RESULTS: AIC: 63,844; McFadden R^2: 66.20%; AUC: 98.62%
 
 # - Summary with robust SEs
 robust_se <- vcovHC(modLR, type="HC0")
@@ -739,11 +740,6 @@ coeftest(modLR, vcov.=robust_se)
 
 # - Combine results into a single object
 (Table_CoxDisc <- concTable_CoxDisc[,1:2] %>% left_join(aicTable_CoxDisc, by ="Variable"))
-
-# - Additional goodness of fit tests
-GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Advanced",
-                fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Adv", ".png"), dpi=280)
-### RESULTS: KS-statistic = 94%; Harrell's c = 98.578%; AIC = 79 024
 
 
 # --- 9.3 Save objects
