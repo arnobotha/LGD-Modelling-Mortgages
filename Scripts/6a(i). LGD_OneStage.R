@@ -28,9 +28,15 @@
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
 
-# - Filter to maximum spell counter
-datCredit_train <- datCredit_train_CDH # [DefSpell_Counter==1]
-datCredit_valid <- datCredit_valid_CDH # [DefSpell_Counter==1]
+# Sampling window start for model fitting purposes
+sDateStr <- as.Date("2008-01-31")
+sDateStp <- as.Date("2019-12-31")
+
+# - Filter data for default spells and date selections
+datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1 & 
+                            Date >= sDateStr & Date <= sDateStp)
+datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & DefSpell_Counter==1 & 
+                            Date >= sDateStr & Date <= sDateStp)
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
@@ -55,7 +61,7 @@ datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")
 modGLM_OneStage_Gaus <- readRDS(paste0(genObjPath,"OneStage_Gaus_Model.rds"))
 
 # - GLM with Tweedie (Compound Poisson Gaussian) link function
-modGLM_OneStage_CPG <- readRDS(paste0(genObjPath,"OneStage_CPH_Model.rds"))
+modGLM_OneStage_CPG <- readRDS(paste0(genObjPath,"OneStage_CPG_Model.rds"))
 
 
 
@@ -321,7 +327,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
       hjust=0, vjust=1, family=chosenFont,
       size=4, fill="white", colour="black", label.size=0.5) +
     geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp_W*0.7,  y=4.5, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_exp_W*0.6,  y=4.5, family=chosenFont,
              label = paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +   
     labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
@@ -338,12 +344,6 @@ ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
 # - Save plot
 dpi <- 240
 ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_tweedie.png"),width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
-
-
-# --- 4.4 Cleanup
-suppressWarnings(rm(datCredit, datCredit_WOFFs, datCredit_train, datCredit_valid, modGLM_OneStage_CPG, modGLM_OneStage_Gaus, 
-   plotData, g1, g2, gOverlay, gOverlay_WOFF, plot.full))
-gc()
 
 
 
