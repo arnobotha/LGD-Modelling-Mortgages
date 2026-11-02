@@ -126,19 +126,21 @@ datMAE <- datGraph %>%
 
 # - Graphing parameters
 vCol <- brewer.pal(8, "Dark2")
-vLabel <- c("a_Actual"="Empirical", "b_Expected_MLR_DtH"="MLR-DtH")
+vLabel <- c("a_Actual"="Empirical (Aalen-Johansen)", "b_Expected_MLR_DtH"="DtH-Multinomial")
 chosenFont <- "Cambria"
 
+# - Create graph
 (gsurv_ft <- ggplot(datGraph[Time <= sMaxSpellAge,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
     labs(y=bquote(plain("Cause-specific write-off probability  "*italic(f[1](t)))), 
-         x=bquote("Spell time (months)"*~italic(t))) + 
+         x=bquote("Spell time (months) "*~italic(t))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
     geom_line(aes(colour=Type, linetype=Type)) + 
     geom_point(aes(colour=Type, shape=Type)) + 
     # Annotations
-    annotate("text", y=0.006,x=75, label=paste0("MAE (MLR-DtH): ", percent(MAE_eventProb_MLR, accuracy=0.0001)), 
+    annotate("text", y=0.006,x=75, label=paste0("MAE (DtH-Multinomial): ", 
+                                                percent(MAE_eventProb_MLR, accuracy=0.0001)), 
              family=chosenFont, size=3) + 
     # Scales and options
     facet_grid(FacetLabel~.) + 
