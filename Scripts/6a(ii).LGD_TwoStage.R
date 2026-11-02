@@ -36,8 +36,9 @@
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
+if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
+if(!exists("datRMST")) unpack.ffdf(paste0(genPath,"datRMST"), tempPath); gc()
 
 # - Ensure order of data is correct
 setorder(datCredit_train_CDH, LoanID, Date)
@@ -67,6 +68,7 @@ datCredit <- rbind(datCredit_train, datCredit_valid)
 # Create an additional record for each default spell
 datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Time_Binned := timeBinning(TimeInDefSpell)]
 datAdd[, Counter:=0]
 # Add record to main dataset
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
@@ -96,18 +98,14 @@ modGLM_Severity_CPG <- readRDS(paste0(genObjPath,"Severity_CPH_Model.rds"))
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
-datCredit[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
-### MM: The logistic regression model does not produce a hazard rate, it produces the full probability of writing-off??
 
 # - Derive survival probability S(t) = prod(1 - hazard)
 datCredit[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
 datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
-datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
 # - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
 datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
 datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
-datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
 
 # - Remove added rows
 datCredit <- subset(datCredit, Counter>0)
@@ -122,6 +120,8 @@ datCredit[,Node:=predict(SurvTree_CTree$survTree, datCredit, type="node")]
 datCredit_train_SurvTree[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_SurvTree, type="node")]
 
 # - Fit a survival object for each node | Using the training data only to align with how the tree was fitted
+### NOTE: Event rates are calculated for each point in a spell's life based on only
+###       the node prediction at each point
 datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_SurvTree,
                    fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event")
 
@@ -131,25 +131,53 @@ datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, 
                    by.x=c("Node", "TimeInDefSpell"), by.y=c("Node", "Time"), all.x=T)
 
 
-# --- 1.5 Estimate loss severities & interact them with write-off probabilities
+# --- 1.5 Estimate conditional (residual) CIFs
+# - Join mean restricted survival times for each spell observation
+datCredit <- merge(datCredit, datRMST, by.x="TimeInDefSpell", by.y="t", all.x=T)
+
+# - Survival models
+### NOTE: - We sum the M residual event rates and condition them on an account having survived to t
+###       - Here, M is selected as the mean restricted survival time for each t
+datCredit[, `:=`(CIF_res_adv=calc_residual_CIF(EventRate_adv, Survival_adv, M=RMST),
+                 CIF_res_bas=calc_residual_CIF(EventRate_bas, Survival_bas, M=RMST),
+                 CIF_res_survtree=calc_residual_CIF(EventRate_survtree, Survival_survtree, M=RMST)),
+          by=list(DefSpell_Key)]
+
+# - Classical model
+### NOTE: Te prediction from the classical model is inherently the residual CIF since it
+###       is calibrated to give the spell-level probability of write-off given account survival until t
+datCredit[, CIF_res_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
+
+# - Correct unintuitive CIF-values by applying a ceiling of 1
+datCredit[, `:=`(CIF_res_adv=ifelse(CIF_res_adv>1,1,CIF_res_adv),
+                 CIF_res_survtree=ifelse(CIF_res_survtree>1 | is.na(CIF_res_survtree),1,CIF_res_survtree))]
+
+# - [SANITY CHECK] Are probabilities corrected?
+hist(datCredit$CIF_res_adv); describe2(datCredit$CIF_res_adv)
+hist(datCredit$CIF_res_survtree); describe2(datCredit$CIF_res_survtree)
+### RESULTS: Probabilities corrected successfully
+
+
+# --- 1.6 Estimate loss severities & interact them with write-off probabilities
 # - Forecast severities
 datCredit[, LossSeverity:=predict(modGLM_Severity_CPG, newdata=datCredit, type="response")]
 
 # - Interact write-off probabilities with severities
-datCredit[, `:=`(LossRate_est_bas=LossSeverity*EventRate_bas, # Basic discrete time hazard model
-                 LossRate_est_adv=LossSeverity*EventRate_adv, # Advanced discrete time hazard model
-                 LossRate_est_classic=LossSeverity*EventRate_classic, # Classical logistic regression model
-                 LossRate_est_survtree=LossSeverity*EventRate_survtree)] # Survival tree
+datCredit[, `:=`(LossRate_est_bas=LossSeverity*CIF_res_bas, # Basic discrete time hazard model
+                 LossRate_est_adv=LossSeverity*CIF_res_adv, # Advanced discrete time hazard model
+                 LossRate_est_classic=LossSeverity*CIF_res_classic, # Classical logistic regression model
+                 LossRate_est_survtree=LossSeverity*CIF_res_survtree)] # Survival tree
 
 # - Get a lookup to check predictions
 lookup <- datCredit[DefSpell_Key==unique(datCredit[DefSpellResol_Type_Hist=="WOFF" & DefSpell_Age>=30 & LossRate_Real>0, DefSpell_Key])[3000],
                     c("DefSpell_Key", "TimeInDefSpell", "Date",
-                      "EventRate_adv", "LossSeverity", "LossRate_est_adv", "LossRate_Real",
-                      "EventRate_bas", "LossSeverity", "LossRate_est_bas", "LossRate_Real",
-                      "EventRate_survtree", "LossSeverity", "LossRate_est_survtree", "LossRate_Real")]
+                      "CIF_res_adv", "LossSeverity", "LossRate_est_adv", "LossRate_Real",
+                      "CIF_res_bas", "LossSeverity", "LossRate_est_bas", "LossRate_Real",
+                      "CIF_res_classic", "LossSeverity", "LossRate_est_classic", "LossRate_Real",
+                      "CIF_res_survtree", "LossSeverity", "LossRate_est_survtree", "LossRate_Real")]
 
 
-# --- 1.6 Correct for non-sensical loss rates
+# --- 1.7 Correct for non-nonsensical loss rates
 # Severity model
 datCredit[, LossSeverity:=ifelse(LossSeverity<0 | LossSeverity>1, NA, LossSeverity)]
 # Basic discrete time hazard model
@@ -162,7 +190,7 @@ datCredit[, LossRate_est_classic:=ifelse(LossRate_est_classic<0 | LossRate_est_c
 datCredit[, LossRate_est_survtree:=ifelse(LossRate_est_survtree<0 | LossRate_est_survtree>1, NA, LossRate_est_survtree)]
 
 
-# --- 1.7 Subset data
+# --- 1.8 Subset data
 # - Filter to maximum spell counter
 # datCredit <- subset(datCredit, DefSpell_Counter==1)
 # datCredit <- datCredit[, .SD[which.max(DefSpell_Counter)], by=DefSpell_Key]
@@ -222,7 +250,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
     annotate(geom="text", x=MeanLoss_act*0.8, y=25, family=chosenFont,
              label = paste0(sprintf("%.1f", MeanLoss_act*100), "%"), size=3, colour=vCol[1], angle=90) +
     geom_vline(xintercept=MeanLoss_exp, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp*3, y=25, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_exp*0.9, y=25, family=chosenFont,
              label = paste0(sprintf("%.1f", MeanLoss_exp*100), "%"), size=3, colour=vCol[2], angle=90) +  
     # Facets & scales
     facet_grid(FacetLabel ~., scales="free") +
@@ -267,7 +295,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
     labs(x="", y="", title=paste0("Write-offs only")) +
     # Annotations
     geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp_W*5,  y=17.5, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_exp_W*1.1,  y=17.5, family=chosenFont,
              label = paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) + 
     geom_vline(xintercept=MeanLoss_act_W, linewidth=0.6, colour=vCol[1], linetype="dashed") + 
     annotate(geom="text", x=MeanLoss_act_W*0.9, y=17.5, family=chosenFont,
@@ -337,7 +365,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
     annotate(geom="text", x=MeanLoss_act*0.8,  y=25, family=chosenFont,
              label=paste0(sprintf("%.1f", MeanLoss_act*100), "%"), size=3, colour=vCol[1], angle=90) +
     geom_vline(xintercept=MeanLoss_exp, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp*5,  y=25, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_exp*1.15,  y=25, family=chosenFont,
              label = paste0(sprintf("%.1f", MeanLoss_exp*100), "%"), size=3, colour=vCol[2], angle=90) +
     # Facets & scales
     scale_x_continuous(breaks=pretty_breaks(), labels = scales::percent) +
@@ -382,10 +410,10 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
     labs(x="", y="", title=paste0("Write-offs only")) +
     # Annotations
     geom_vline(xintercept=MeanLoss_act_W, linewidth=0.6, colour=vCol[1], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_act_W*0.9, y=30, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_act_W*0.95, y=30, family=chosenFont,
              label=paste0(sprintf("%.1f", MeanLoss_act_W*100), "%"), size=3, colour=vCol[1], angle=90) +
     geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp_W*3, y=30, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_exp_W*0.95, y=30, family=chosenFont,
              label=paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +
     annotate("label", x=0.6, y=40, label=stats_text,
              hjust=0, vjust=1, family=chosenFont,
@@ -412,16 +440,11 @@ ggsave(plot.full, file=paste0(genFigPath,"ActvsExp_twostage_DtH_Adv_A.png"),widt
 # ============ 4. LGDs from classical logistic regression model and the severity model ============
 
 # --- 4.1 Compare overall expected LGDs with actuals
-# - Calculate alternative loss rate using full write-off prediction
-datCredit[, LossRate_est_classic_alt:=Hazard_classic*LossSeverity]
-datCredit_WOFFs[, LossRate_est_classic_alt:=Hazard_classic*LossSeverity]
-
 # - Mean expected loss
 (MeanLoss_act <- mean(datCredit$LossRate_Real, na.rm=T))
-(MeanLoss_exp <- mean(datCredit$LossRate_est_classic_alt, na.rm=T))
 
 # - Estimate statistics on distributional differences
-metrics<-evalModel_twostage(data_train=datCredit, actField="LossRate_Real", estField="LossRate_est_classic_alt")
+metrics<-evalModel_twostage(data_train=datCredit, actField="LossRate_Real", estField="LossRate_est_classic")
 
 # - Create plotting data
 stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
@@ -430,10 +453,10 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
                     sep = "")
 
 # - Create plotting dataset
-plotData <- melt(datCredit, measure.vars=c("LossRate_Real", "LossRate_est_classic_alt"),
+plotData <- melt(datCredit, measure.vars=c("LossRate_Real", "LossRate_est_classic"),
                  variable.name="Type", value.name="LossRate")
-plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_classic_alt"),
-                        labels=c("Empirical", "Logistic Regression"))]
+plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_classic"),
+                        labels=c("Empirical", "CS-LR"))]
 plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Graphing parameters
@@ -468,16 +491,16 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 
 # --- 4.2 Compare expected write-off LGDs with actuals
 # - Filter for non-sensical loss rates
-datCredit_WOFFs[, LossRate_est_classic_alt:=ifelse(LossRate_est_classic_alt<=1 & LossRate_est_classic_alt>=0, LossRate_est_classic_alt, NA)]
+datCredit_WOFFs[, LossRate_est_classic:=ifelse(LossRate_est_classic<=1 & LossRate_est_classic>=0, LossRate_est_classic, NA)]
 
 # - Mean expected loss
 (MeanLoss_act_W <- mean(datCredit_WOFFs$LossRate_Real, na.rm=T))
-(MeanLoss_exp_W <- mean(datCredit_WOFFs$LossRate_est_classic_alt, na.rm=T))
+(MeanLoss_exp_W <- mean(datCredit_WOFFs$LossRate_est_classic, na.rm=T))
 
 # - Create plotting data
-plotData <- melt(datCredit_WOFFs, measure.vars = c("LossRate_Real", "LossRate_est_classic_alt"), variable.name = "Type",value.name = "LossRate")
-plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_classic_alt"),
-                        labels=c("Actual loss rate", "Logistic Regression"))]
+plotData <- melt(datCredit_WOFFs, measure.vars = c("LossRate_Real", "LossRate_est_classic"), variable.name = "Type",value.name = "LossRate")
+plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_classic"),
+                        labels=c("Actual loss rate", "CS-LR"))]
 plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Plot
@@ -547,7 +570,7 @@ stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
 plotData <- melt(datCredit, measure.vars=c("LossRate_Real", "LossRate_est_survtree"),
                  variable.name="Type", value.name="LossRate")
 plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_survtree"),
-                        labels=c("Empirical", "ST"))]
+                        labels=c("Empirical", "CI-tree"))]
 plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Graphing parameters
@@ -570,7 +593,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
     annotate(geom="text", x=MeanLoss_act*0.8, y=25, family=chosenFont,
              label=paste0(sprintf("%.1f", MeanLoss_act*100), "%"), size=3, colour=vCol[1], angle=90) +
     geom_vline(xintercept=MeanLoss_exp, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp*4, y=25, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_exp*1.15, y=25, family=chosenFont,
              label=paste0(sprintf("%.1f", MeanLoss_exp*100), "%"), size=3, colour=vCol[2], angle=90) +
     # Facets & scales
     facet_grid(FacetLabel ~., scales="free") +
@@ -593,7 +616,7 @@ datCredit_WOFFs[, LossRate_est_survtree:=ifelse(LossRate_est_survtree<=1 & LossR
 plotData <- melt(datCredit_WOFFs, measure.vars = c("LossRate_Real", "LossRate_est_survtree"),
                  variable.name = "Type",value.name = "LossRate")
 plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_est_survtree"),
-                        labels=c("Actual loss rate", "ST"))]
+                        labels=c("Actual loss rate", "CI-tree"))]
 plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Plot
@@ -619,7 +642,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
     annotate(geom="text", x=MeanLoss_act_W*0.95, y=15, family=chosenFont,
              label=paste0(sprintf("%.1f", MeanLoss_act_W*100), "%"), size=3, colour=vCol[1], angle=90) + 
     geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp_W*4, y=15, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_exp_W*1.075, y=15, family=chosenFont,
              label=paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) + 
     annotate("label", x=0.6, y=20, label=stats_text, hjust=0, vjust=1, family=chosenFont,
              size=4, fill="white", colour="black", label.size=0.5) +
@@ -649,8 +672,9 @@ gc()
 
 
 
-# ============ 7. Housekeeping ============
+# ============ 6. Housekeeping ============
 
 cleanEnviron()
+
 
 

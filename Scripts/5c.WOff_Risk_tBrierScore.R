@@ -23,7 +23,7 @@
 #   - datCredit_valid_CDH | Prepared from script 2g
 #   - modLR_Bas | Basic discrete time model as fitted in script 4b(ii)
 #   - modLR_Adv | Advanced discrete time model as fitted in script 4b(i)
-#   - modLR_Classic | Classical logistic regression model as fitted in script 4c
+#   - modLR_Classic | Classical cross-sectional (CS) logistic regression (LR) model as fitted in script 4c
 #   - SurvTree_CTree | Survival tree as fitted in script 4e
 #
 # -- Outputs:
@@ -257,7 +257,7 @@ tBS_Classic <- objCoxDisc_classic$tBS; tBS_ST <- objCoxDisc_survtree$tBS
 (tBrier_ST <- as.numeric(tBS_ST[TimeInDefSpell==44,Brier]))
 
 # - Create a single table containing the three R^2 measures for each of the models
-(datBrier <- data.table(Model=c("DtH-Basic A","DtH-Advanced", "Logistic Regression", "ST"),
+(datBrier <- data.table(Model=c("DtH-Basic A","DtH-Advanced", "CS-LR", "ST"),
                         Brier=c(tBrier_Bas, tBrier_Adv, tBrier_Classic, tBrier_ST)))
 
 # - Save table to specified path
@@ -283,7 +283,7 @@ vCol2 <- vCol1
 vCol3 <- rep("white", 4)  
 vLabel <- list("a_Basic"="DtH-Basic",
                "b_Advanced"="DtH-Advanced",
-               "c_Logistic_Regression"="Logistic Regression",
+               "c_Logistic_Regression"="CS-LR",
                "d_ST"="ST")
 
 # - Plot

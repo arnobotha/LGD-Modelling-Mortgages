@@ -23,7 +23,7 @@
 #   - datCredit_valid_CDH | Prepared from script 2g
 #   - modLR_Bas | Basic discrete time model as fitted in script 4b(ii)
 #   - modLR_Adv | Advanced discrete time model as fitted in script 4b(i)
-#   - modLR_Classic | Classical logistic regression model as fitted in script 4c
+#   - modLR_Classic | Classical cross-sectional (CS) logistic regression (LR) model as fitted in script 4c
 #   - SurvTree_CTree | Survival tree as fitted in script 4e
 #
 # -- Outputs:
@@ -81,7 +81,7 @@ modLR_Bas <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
 # - Advanced discrete-time hazard model
 modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
-# - Classic logit model
+# - Classical cross sectional logistic regression model
 modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
 # - Tree model

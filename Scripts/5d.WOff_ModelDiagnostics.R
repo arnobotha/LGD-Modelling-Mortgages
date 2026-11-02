@@ -2,7 +2,7 @@
 # Conducting additional model diagnostics
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
+# SCRIPT AUTHOR(S): Marcel Muller (MM), Mohammed Gabru (MG), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
@@ -23,7 +23,7 @@
 #   - datCredit_valid_CDH | Prepared from script 2g
 #   - modLR_Bas | Basic discrete time model as fitted in script 4b(ii)
 #   - modLR_Adv | Advanced discrete time model as fitted in script 4b(i)
-#   - modLR_Classic | Classical logistic regression model as fitted in script 4c
+#   - modLR_Classic | Classical cross-sectional (CS) logistic regression (LR) model as fitted in script 4c
 #   - SurvTree_CTree | Survival tree as fitted in script 4e
 #
 # -- Outputs:
@@ -36,8 +36,9 @@
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
+if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
+if(!exists("datRMST")) unpack.ffdf(paste0(genPath,"datRMST"), tempPath); gc()
 
 # - Ensure order of data is correct
 setorder(datCredit_train_CDH, LoanID, Date)
@@ -67,6 +68,7 @@ datCredit <- rbind(datCredit_train, datCredit_valid)
 # Create an additional record for each default spell
 datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Time_Binned := timeBinning(TimeInDefSpell)]
 datAdd[, Counter:=0]
 # Add record to main dataset
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
@@ -82,15 +84,15 @@ modLR_Bas <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
 # - Advanced discrete-time hazard model
 modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
-# - Classic logit model
+# - Classical cross sectional logistic regression model
 modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
 
 # - Tree model
 SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 
 
-# --- 1.3 Estimate survival quantities
-# - Predict hazard h(t) = P(T=t | T>=t) in discrete-time
+# --- 1.3 Estimate event rates for DtH models
+# - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
 
@@ -106,7 +108,7 @@ datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Surviv
 datCredit <- subset(datCredit, Counter>0)
 
 
-# --- 1.4 Predict survival quantities using survival tree
+# --- 1.4 Get event rates from the survival tree
 # - Get training data from survival tree
 datCredit_train_SurvTree <- SurvTree_CTree$datTrain
 
@@ -114,44 +116,71 @@ datCredit_train_SurvTree <- SurvTree_CTree$datTrain
 datCredit[,Node:=predict(SurvTree_CTree$survTree, datCredit, type="node")]
 datCredit_train_SurvTree[,Node:=predict(SurvTree_CTree$survTree, datCredit_train_SurvTree, type="node")]
 
-# - Lag node-values
-datCredit[, Node_Lag_1:=shift(Node, type="lag", n=1), by=list(DefSpell_Key)]; datCredit[is.na(Node_Lag_1), Node_Lag_1:=Node]
-datCredit_train_SurvTree[, Node_Lag_1:=shift(Node, type="lag", n=1), by=list(DefSpell_Key)]; datCredit_train_SurvTree[is.na(Node_Lag_1), Node_Lag_1:=Node]
-
 # - Fit a survival object for each node | Using the training data only to align with how the tree was fitted
+### NOTE: Event rates are calculated for each point in a spell's life based on only
+###       the node prediction at each point
 datHaz <- predSurv(survTree=SurvTree_CTree$survTree, datGiven=datCredit_train_SurvTree,
                    fld_DefSpell_Age="DefSpell_Age", fld_DefSpell_Event="DefSpell_Event")
 
 # - Join hazards back to main dataset
-### MM: Work on this join, we need to get the previous survival probability given the current node of the spell
-# Join quantities at current node
 datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, Hazard_survtree=Hazard,
                                             EventRate_survtree=EventRate)],
                    by.x=c("Node", "TimeInDefSpell"), by.y=c("Node", "Time"), all.x=T)
-# Join quantities of current node for the previous period
-datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree_Lag_1=Surv, Hazard_survtree_Lag_1=Hazard,
-                                            EventRate_survtree_Lag_1=EventRate)],
-                   by.x=c("Node_Lag_1", "TimeInDefSpell"), by.y=c("Node", "Time"), all.x=T)
 
 
-# --- 1.5 Estimate residual hazards
+# --- 1.5 Estimate conditional (residual) CIFs
+# - Join mean restricted survival times for each spell observation
+datCredit <- merge(datCredit, datRMST, by.x="TimeInDefSpell", by.y="t", all.x=T)
+
 # - Survival models
 ### NOTE: - We sum the M residual event rates and condition them on an account having survived to t
-###       - Here, M is selected as the mean restriced survival time for each t
-datCredit[order(DefSpell_Key, DefSpell_Counter),
-          `:=`(Hazard_adv_res=rev(cumsum(rev(replace(EventRate_adv, is.na(EventRate_adv), 0))))/
-                 ifelse(DefSpell_Counter==1,1,shift(Survival_adv, type="lag", n=1)),
-               Hazard_bas_res=rev(cumsum(rev(replace(EventRate_bas, is.na(EventRate_bas), 0))))/
-                 ifelse(DefSpell_Counter==1,1,shift(Survival_bas, type="lag", n=1)),
-               WOff_Prob_survtree=rev(cumsum(rev(replace(EventRate_survtree, is.na(EventRate_survtree), 0))))/
-                 ifelse(DefSpell_Counter==1,1,shift(Survival_survtree, type="lag", n=1))),
+###       - Here, M is selected as the mean restricted survival time for each t
+datCredit[, `:=`(CIF_res_adv=calc_residual_CIF(EventRate_adv, Survival_adv, M=RMST),
+                 CIF_res_bas=calc_residual_CIF(EventRate_bas, Survival_bas, M=RMST),
+                 CIF_res_survtree=calc_residual_CIF(EventRate_survtree, Survival_survtree, M=RMST)),
           by=list(DefSpell_Key)]
+### MM: - For the survival tree we actually need to sum  over the hazards of the node that the account is at the current period
+###     - Except for using future information (which we do by necessity in the DtH models), we can also get probabilities>1 due to the
+####      the survival quantities being so different over nodes
 
 # - Classical model
-### NOTE: Te prediction from the classical model is inherently the residual hazard since it
-###       is trained to give the spell-level probability of defaulting given an account survived untill t
-datCredit[, Hazard_classic_res:=predict(modLR_Classic, newdata=.SD[], type="response")]
+### NOTE: Te prediction from the classical model is inherently the residual CIF since it
+###       is calibrated to give the spell-level probability of write-off given account survival until t
+datCredit[, CIF_res_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
+
+# --- 1.6 Sanity checks
+# - [SANITY CHECK] Lookup of survival quantities
+lookup_bas <- datCredit[DefSpell_Key==datCredit[DefSpellResol_Type_Hist=="WOFF" & TimeInDefSpell==50, DefSpell_Key][1000],
+                        c("DefSpell_Key", "Date", "Hazard_bas", "Survival_bas", "EventRate_bas", "RMST", "CIF_res_bas", "WOff_Ind")]
+lookup_adv <- datCredit[DefSpell_Key==datCredit[DefSpellResol_Type_Hist=="WOFF" & TimeInDefSpell==50, DefSpell_Key][1000],
+                        c("DefSpell_Key", "Date", "Hazard_adv", "Survival_adv", "EventRate_adv", "RMST", "CIF_res_adv", "WOff_Ind")]
+lookup_classic <- datCredit[DefSpell_Key==datCredit[DefSpellResol_Type_Hist=="WOFF" & TimeInDefSpell==50, DefSpell_Key][1000],
+                            c("DefSpell_Key", "Date", "CIF_res_classic", "WOff_Ind")]
+lookup_survtree <- datCredit[DefSpell_Key==datCredit[DefSpellResol_Type_Hist=="WOFF" & TimeInDefSpell==50, DefSpell_Key][1000],
+                             c("DefSpell_Key", "Date", "Node", "Hazard_survtree", "Survival_survtree", "EventRate_survtree", "RMST", "CIF_res_survtree", "WOff_Ind")]
+
+# - Distribution of predictions
+hist(datCredit$CIF_res_bas); describe2(datCredit$CIF_res_bas)
+hist(datCredit$CIF_res_adv); describe2(datCredit$CIF_res_adv)
+hist(datCredit$CIF_res_classic); describe2(datCredit$CIF_res_classic)
+hist(datCredit$CIF_res_survtree); describe2(datCredit$CIF_res_survtree)
+sum(is.na(datCredit$CIF_res_survtree)); sum(is.nan(datCredit$CIF_res_survtree)); sum(is.infinite(datCredit$CIF_res_survtree))
+lookup_check <-datCredit[DefSpell_Key==datCredit[is.na(CIF_res_survtree), DefSpell_Key][1],
+                          c("DefSpell_Key", "Date", "Node", "Hazard_survtree", "Survival_survtree", "EventRate_survtree", "RMST", "CIF_res_survtree", "WOff_Ind")]
+### RESULTS: - Basic DtH model & logistic regression model produce probabilities bounded by [0,1]
+###          - Advanced DtH model has one observation over 1 and all other observations are bounded by [0,1]
+###          - Survival has a few missing and infinite values, this happens at the end of certain spells when both the event rates and survival probabilities are zero
+### CONCLUSION Correct these rates by applying ceilings of 1
+
+# - Correct unintuitive CIF-values by applying a ceiling of 1
+datCredit[, `:=`(CIF_res_adv=ifelse(CIF_res_adv>1,1,CIF_res_adv),
+                 CIF_res_survtree=ifelse(CIF_res_survtree>1 | is.na(CIF_res_survtree),1,CIF_res_survtree))]
+
+# - [SANITY CHECK] Are probabilities corrected?
+hist(datCredit$CIF_res_adv); describe2(datCredit$CIF_res_adv)
+hist(datCredit$CIF_res_survtree); describe2(datCredit$CIF_res_survtree)
+### RESULTS: Probabilities corrected successfully
 
 
 
@@ -161,26 +190,26 @@ datCredit[, Hazard_classic_res:=predict(modLR_Classic, newdata=.SD[], type="resp
 # --- 2.1 Determine R^2-measures
 # - Basic model
 (coefDeter_Basic <- coefDeter_glm(modLR_Bas))
-### RESULTS: McFadden = 4.36%
+### RESULTS: McFadden = 4.08%
 ###          Cox Snell = 0.56%
-###          Nagelkerke = 4.63%
+###          Nagelkerke = 4.36%
 
 # - Advanced model
 (coefDeter_Adv <- coefDeter_glm(modLR_Adv))
-### RESULTS: McFadden = 64.39%
-###          Cox Snell = 7.97%
-###          Nagelkerke = 65.86%
+### RESULTS: McFadden = 66.20%
+###          Cox Snell = 8.70%
+###          Nagelkerke = 98.41%
 
 # - Classical model
 (coefDeter_LR <- coefDeter_glm(modLR_Classic))
-### RESULTS: McFadden = 62.37%
-###          Cox Snell = 10.23%
-###          Nagelkerke = 64.38%
+### RESULTS: McFadden = 37.05%
+###          Cox Snell = 33.53%
+###          Nagelkerke = 50.20%
 
 
 # --- 2.2 Combine and save R^2 measures
 # - Create a single table containing the three R^2 measures for each of the models
-(PseudoR2_Table<-data.table(Model=c("Survival Analysis (Basic)","Survival Analysis (Advanced)", "Logistic Regression"),
+(PseudoR2_Table<-data.table(Model=c("Survival Analysis (Basic)","Survival Analysis (Advanced)", "CS-LR"),
                             CoxSnell=c(coefDeter_Basic$CoxSnell, coefDeter_Adv$CoxSnell, coefDeter_LR$CoxSnell),
                             McFadden=c(coefDeter_Basic$McFadden, coefDeter_Adv$McFadden, coefDeter_LR$McFadden),
                             Nagelkerke=c(coefDeter_Basic$Nagelkerke,coefDeter_Adv$Nagelkerke, coefDeter_LR$Nagelkerke)))
@@ -207,19 +236,16 @@ datCredit[, `:=`(DefSpell_Min_Date=min(Date),
 datCredit[, DefSpell_Event2_Num:=as.numeric(DefSpell_Event2)]
 
 # - Calculate AUCs by default cohort start time
-### MM: As with my commentary on the LGD distributions and t-Brier Scores, this is not a valid comparison given
-###     that the hazard rate is not calculated correctly for the classical model
-BasAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date","DefSpell_Event2_Num","Hazard_bas")
-AdvAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date", "DefSpell_Event2_Num","Hazard_adv")
-LRAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date","DefSpell_Event2_Num","Hazard_classic")
-STAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date", "DefSpell_Event2_Num", "Hazard_survtree")
+BasAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date", "DefSpell_Event2_Num", "CIF_res_bas")
+AdvAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date", "DefSpell_Event2_Num", "CIF_res_adv")
+LRAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date", "DefSpell_Event2_Num", "CIF_res_classic")
+STAUC_start <- AUC_overTime(datCredit, "DefSpell_Min_Date", "DefSpell_Event2_Num", "CIF_res_survtree")
 
 # - Calculate AUCs by default cohort STOP time
-### MM: Same commentary as above
-BasAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date","DefSpell_Event2_Num","Hazard_bas")
-AdvAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date","DefSpell_Event2_Num","Hazard_adv")
-LRAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date","DefSpell_Event2_Num","Hazard_classic")
-STAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date", "DefSpell_Event2_Num", "Hazard_survtree")
+BasAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date", "DefSpell_Event2_Num", "CIF_res_bas")
+AdvAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date", "DefSpell_Event2_Num", "CIF_res_adv")
+LRAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date", "DefSpell_Event2_Num", "CIF_res_classic")
+STAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date", "DefSpell_Event2_Num", "CIF_res_survtree")
 
 
 # --- 3.2 Prepare datasets for graphing
@@ -227,7 +253,7 @@ STAUC_stop <- AUC_overTime(datCredit, "DefSpell_Max_Date", "DefSpell_Event2_Num"
 AdvAUC_start <- AdvAUC_start[!AUC_Val<70,]; AdvAUC_stop <- AdvAUC_stop[!AUC_Val<70,]
 BasAUC_start <- BasAUC_start[!AUC_LowerCI<30,]; BasAUC_stop <- BasAUC_stop[!AUC_LowerCI<30,]
 
-# - Convert valeus to percentages
+# - Convert values to percentages
 # Basic model
 BasAUC_start[,`:=`(AUC_Val=AUC_Val/100, AUC_LowerCI=AUC_LowerCI/100, AUC_UpperCI=AUC_UpperCI/100)]
 BasAUC_stop[,`:=`(AUC_Val=AUC_Val/100, AUC_LowerCI=AUC_LowerCI/100, AUC_UpperCI=AUC_UpperCI/100)]
@@ -283,8 +309,8 @@ datAnnotate[, Label:=vLabel]
 # - Graphing parameters
 chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2,1,3,5)]
-vLabel <- c("A"=bquote(italic(A[t])~": DtH-Basic"), "C"=bquote(italic(C[t])~": Logistic Regression"), 
-            "B"=bquote(italic(B[t])~": DtH-Advanced"), "D"=bquote(italic(D[t])~": ST"))
+vLabel <- c("A"=bquote(italic(A[t])~": DtH-Basic"), "C"=bquote(italic(C[t])~": CS-LR"), 
+            "B"=bquote(italic(B[t])~": DtH-Advanced"), "D"=bquote(italic(D[t])~": CI-tree"))
 vShape <- c(17,20,4,7) 
 
 # - Create graph
@@ -349,7 +375,7 @@ datAnnotate[, Label:=vLabel]
 # - Graphing parameters
 chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2,1,3,5)]
-vLabel <- c("A"=bquote(italic(A[t])~": DtH-Basic"), "C"=bquote(italic(C[t])~": Logistic Regression"), 
+vLabel <- c("A"=bquote(italic(A[t])~": DtH-Basic"), "C"=bquote(italic(C[t])~": CS-LR"), 
             "B"=bquote(italic(B[t])~": DtH-Advanced"), "D"=bquote(italic(D[t])~": ST"))
 vShape <- c(17,20,4,7) 
 
@@ -383,15 +409,15 @@ ggsave(g2_AUC, file=paste0(genFigPath, "AUC_DefaultCohort_StopTime.png"), width=
 
 # ============ 4. Write-off resolution rates ============
 
-# --- 4.1 Prepare data for plottiong
+# --- 4.1 Prepare data for plotting
 # -- 4.1.1 Plotting data
 # - Aggregate data at default start
 datPlot <- datCredit[TimeInDefSpell==1,
                      .(Empirical=mean(DefSpell_Event==1, na.rm=T),
-                       Basic_DtH=mean(EventRate_bas, na.rm=T),
-                       Advanced_DtH=mean(EventRate_adv, na.rm=T),
-                       Classic=mean(Hazard_classic, na.rm=T),
-                       SurvTree=mean(EventRate_survtree, na.rm=T)),
+                       Basic_DtH=mean(CIF_res_bas, na.rm=T),
+                       Advanced_DtH=mean(CIF_res_adv, na.rm=T),
+                       Classic=mean(CIF_res_classic, na.rm=T),
+                       SurvTree=mean(CIF_res_survtree, na.rm=T)),
                      by=list(Date)]
 
 # - Pivot data to facilitate grapging
@@ -412,8 +438,8 @@ datAnno <- data.table(MeanAUC=NULL, Dataset=c("A-B","A-C", "A-D", "A-E"),
 # - Estimate MAEs
 vEventRates_MAE <- c(mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="Basic_DtH", WOff_Rate]), na.rm=T),
                      mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="Advanced_DtH", WOff_Rate]), na.rm=T),
-                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="Classic", WOff_Rate]), na.rm=T),
-                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="SurvTree", WOff_Rate]), na.rm=T))
+                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="CS-LR", WOff_Rate]), na.rm=T),
+                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="CI-tree", WOff_Rate]), na.rm=T))
 
 # - Create and assign labels
 series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]")
@@ -434,13 +460,11 @@ datPlot[,Model:=case_when(Model=="Empirical"~"a_Empirical", Model=="Basic_DtH"~"
 chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2,1,3,5,7)]
 vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquote(italic(B[t])~": DtH-Basic"),
-            "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_Classic"=bquote(italic(E[t])~": Logistic Regression"),
-            "e_SurvTree"=bquote(italic(E[t])~": ST"))
+            "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_Classic"=bquote(italic(E[t])~": CS-LR"),
+            "e_SurvTree"=bquote(italic(E[t])~": CI-tree"))
 vShape <- c(17,20,4,7,12) 
 
 # - Plot
-### MM: Horrendous results, am I using the correct probabilities?
-### MM: Also need to create such a loss-severity by default cohort graph
 (g2_ResolRate <- ggplot(data=datPlot, aes(x=Date, y=WOff_Rate)) + theme_minimal() +
   labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Default spell cohorts (mmmccyy): entry time "*italic(t[e]))) + 
   theme(text=element_text(family=chosenFont), legend.position="bottom",
@@ -461,8 +485,7 @@ vShape <- c(17,20,4,7,12)
   scale_y_continuous(breaks=pretty_breaks(), labels=percent))
 ### MM: - This view aligns with the resolution rate that we have in the ROT-aritcle, i.e., we look at the
 ###       probability of write-off over the entire spell.
-###     - We get a horrendous view here since all models, except the classical, produce a probability for a single month
-###       in default only.
+###     - Very weird result that the basic model is the best.
 
 # - Save graph
 dpi <-180
@@ -472,7 +495,12 @@ ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_DefaultCohort_S
 
 
 
-# ============ 5. Housekeeping ============
+# ============ 5. Forecasting ============
+
+
+
+
+# ============ 6. Housekeeping ============
 
 cleanEnviron()
 

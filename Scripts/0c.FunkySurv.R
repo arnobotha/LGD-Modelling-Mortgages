@@ -271,7 +271,7 @@ calcRMST <- function(km, tau=NA, t=1) {
 
 
 # --- Function to calculate the residual hazard
-# -- Helper function for summing future redisual hazards to the horizon end M
+# -- Helper function for summing future redisual CIF to the horizon end M
 forward_sum <- function(x, M) {
   # Unit test conditions
   # x<-event; M<-M
@@ -284,7 +284,7 @@ forward_sum <- function(x, M) {
 }
 
 # -- Function for calculating the residual hazard
-calc_residual <- function(event, surv, M) {
+calc_residual_CIF <- function(event, surv, M) {
   # - Unit test conditions
   # lookup_bas <- datCredit[DefSpell_Key==datCredit[DefSpellResol_Type_Hist=="WOFF" & TimeInDefSpell==50, DefSpell_Key][1000],
   #                          c("DefSpell_Key", "Date", "Hazard_bas", "Survival_bas", "EventRate_bas", "RMST", "Hazard_bas_res", "WOff_Ind")]
