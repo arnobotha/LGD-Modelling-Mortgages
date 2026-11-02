@@ -4,7 +4,7 @@
 # Compound Poisson Gamma (CPG) link function.
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM)
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R

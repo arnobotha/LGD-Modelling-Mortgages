@@ -3,10 +3,17 @@
 # compiling an input space for an advanced logistic regression model.
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM)
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
+#   - 0.Setup.R
+#   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Data_Prepare_Credit_Advanced.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
+#   - 2f.Data_Fusion1.R
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:

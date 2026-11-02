@@ -70,11 +70,11 @@ if (!exists('datSurv2')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompR
 # ============ 2. Constructing the term-structures of write-off ============
 
 # --- 2.1 Estimate event rates amidst competing risks
-# - Predict cause-specific hazard h_g(t) = P(T=t, G=g | T>= t) in discrete-time
+# - Predict cause-specific hazard h_g(t) = P(T=t, G=g | T >= t) in discrete-time
 datCredit[, Hazard_WOff:=predict(modMLR, newdata=datCredit, type = "probs")[,"Write-off"]]
 datCredit[, Hazard_Cure:=predict(modMLR, newdata=datCredit, type = "probs")[,"Cured"]]
 
-# - Derive survival probability S(t) = prod(1 - h_1 - h_2)
+# - Derive (event-free) survival probability S(t) = prod(1 - h_1(t) - h_2(t))
 datCredit[, Survival_overall:=cumprod(1-Hazard_WOff-Hazard_Cure), by=.(DefSpell_Key)]
 
 # - Derive event rates as f_1(t) = S(t-1) . h_1(t)
@@ -84,10 +84,10 @@ datCredit[, EventRate_WriteOff := shift(Survival_overall, n=1,fill=1) * Hazard_W
 datCredit <- subset(datCredit, Counter>0)
 
 
-# --- 2.3 Aggregate event rates to period-level
+# --- 2.3 Aggregate event rates to spell period level
 # - Aggregate data
 datSurv_exp <- datCredit[,.(
-  # Multinomial DtH-model
+  # Multinomial DtH-model (MLR)
   EventRate_WriteOff=mean(EventRate_WriteOff, na.rm=T)),
   by=.(TimeInDefSpell)]
 
@@ -121,13 +121,11 @@ datGraph[, FacetLabel:="Competing Risks Term-structure"]
 datMAE <- datGraph %>%
   subset(Time<=sMaxSpellAge, select=c("Time", "Type", "EventRate")) %>%
   pivot_wider(names_from=Type, values_from=EventRate) %>% as.data.table()
-# Basic model
 (MAE_eventProb_MLR <- mean(abs(datMAE$a_Actual-datMAE$b_Expected_MLR_DtH), na.rm=T))
 
 
 # - Graphing parameters
 vCol <- brewer.pal(8, "Dark2")
-length(vCol)
 vLabel <- c("a_Actual"="Empirical", "b_Expected_MLR_DtH"="MLR-DtH")
 chosenFont <- "Cambria"
 
