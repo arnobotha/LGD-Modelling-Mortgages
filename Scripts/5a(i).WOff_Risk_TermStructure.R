@@ -36,36 +36,40 @@
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
 
-# - Ensure order of data is correct
-setorder(datCredit_train_CDH, LoanID, Date)
-setorder(datCredit_valid_CDH, LoanID, Date)
+# Sampling window start for model fitting purposes
+sDateStr <- as.Date("2008-01-31")
+sDateStp <- as.Date("2019-12-31")
 
-# - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
+# - Filter data for default spells and date selections
+datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
+datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
+
+
+# --- 1.2 Data preparation for prediction purposes
+# - Combine training and validation datasets to facilitate "better" (smooth) graphs
+datCredit <- rbind(datCredit_train, datCredit_valid)
+setorder(datCredit, LoanID, Date)
 
 # - Create a spell-level target variable for write-off instance
-datCredit_train[, DefSpell_Event2:=DefSpell_Event]; datCredit_valid[, DefSpell_Event2:=DefSpell_Event]
-datCredit_train[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]; datCredit_valid[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
+datCredit[, DefSpell_Event2:=DefSpell_Event]
+datCredit[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
 
 # - Transform categorical variables to factor
 # Payment method
-datCredit_train[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
-datCredit_valid[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+datCredit[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
 # Previous defaults
-datCredit_train[,PrevDefaults_fac:=as.factor(PrevDefaults)]
-datCredit_valid[,PrevDefaults_fac:=as.factor(PrevDefaults)]
+datCredit[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 
-# - Combine training and validation datasets to facilitate "better" (smooth) graphs
-datCredit <- rbind(datCredit_train, datCredit_valid)
+# - Recalculate counter variable with respect to new sampling window
+datCredit[, Counter_Artificial := 1:.N, by=.(LoanID)]
 
 # - Handle left-truncated spells by adding a starting record 
 ### NOTE:  This is necessary for calculating certain survival quantities later
 # Create an additional record for each default spell
-datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
+datAdd <- subset(datCredit, Counter_Artificial==1 & TimeInDefSpell>1)
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
 datAdd[, Time_Binned := timeBinning(TimeInDefSpell)]
-datAdd[, Counter:=0]
+datAdd[, Counter_Artificial:=0]
 # Add record to main dataset
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
 
@@ -73,7 +77,7 @@ datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 
-# --- 1.2 Load models
+# --- 1.3 Load models
 # - Basic discrete-time hazard model
 modLR_Bas <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
 
@@ -82,6 +86,9 @@ modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
 # - Tree model
 SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
+
+# Km-estimator of survival probability and related quantities
+if (!exists('datSurv')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), tempPath);gc()
 
 
 # --- 1.3 Estimate event rates for DtH models
@@ -97,8 +104,21 @@ datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
 datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
 datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
 
+# - Derive survival probability S(t) = prod(1 - hazard)
+datCredit[, Survival_adv:=cumprod(1-Hazard_adv), by=.(DefSpell_Key)]
+datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=.(DefSpell_Key)]
+
+# - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
+datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=.(DefSpell_Key)]
+datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=.(DefSpell_Key)]
+
 # - Remove added rows
-datCredit <- subset(datCredit, Counter>0)
+datCredit <- subset(datCredit, Counter_Artificial>0)
+
+# [SANITY CHECK]
+lookup <- subset(datCredit, LoanID == unique(datCredit[DefSpell_Num==1 & DefSpell_Age >= 12, LoanID])[1],
+                 select=c("DefSpell_Num", "TimeInDefSpell", "Hazard_CSLR",
+                          "Hazard_adv", "EventRate_adv", "Survival_adv"))
 
 
 # --- 1.4 Get event rates from the survival tree
@@ -125,39 +145,7 @@ datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, 
 
 # ============ 2. Constructing the term-structures of write-off ============
 
-# --- 2.1 Constructing the empirical term-structure of write-off using a Kaplan-Meier estimator
-### NOTE: Estimate survival rate of the main event S(t) = P(T >=t) for time-to-event variable T
-# - Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
-km_Default <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=DefSpell_Event2==1, type="counting") ~ 1, 
-                      id=DefSpell_Key, data=datCredit)
-
-# - Create survival table
-(datSurv_act <- surv_summary(km_Default))
-
-# - Enrich data
-datSurv_act <- datSurv_act %>%
-  # Rename some fields
-  rename(Time=time, AtRisk_n=`n.risk`, Event_n=`n.event`, Censored_n=`n.censor`, SurvivalProb_KM=`surv`) %>%
-  # Calculate hazard rate
-  mutate(Hazard_Actual=Event_n/AtRisk_n) %>% 
-  # Calculate cumulative hazard rate
-  mutate(CHaz=cumsum(Hazard_Actual)) %>%
-  # Probability mass function f(t)=h(t)*S(t-1)
-  mutate(EventRate=Hazard_Actual*data.table::shift(SurvivalProb_KM, n=1, fill=1)) %>%
-  # Filter for observations with events and censoring
-  filter(Event_n > 0 | Censored_n >0) %>% as.data.table()
-
-# - Order dataset
-setorder(datSurv_act, Time)
-
-# - Calculate the at-risk population proportion
-datSurv_act[,AtRisk_perc:=AtRisk_n/max(AtRisk_n, na.rm=T)]
-
-# - Ensure order of fields is correct
-setorder(datSurv_act, Time)
-
-
-# --- 2.3 Aggregate event rates to period-level
+# --- 2.1 Aggregate event rates to period-level
 # - Aggregate data
 datSurv_exp <- datCredit[,.(
   # Basic model
@@ -167,27 +155,28 @@ datSurv_exp <- datCredit[,.(
   # Survival tree
   EventRate_survtree=mean(EventRate_survtree, na.rm=T),
   # Empirical estimates
-  EventRate_Emp=sum(DefSpell_Event2)/.N),
+  Hazard_Emp=sum(DefSpell_Event2)/.N),
   by=list(TimeInDefSpell)]
 
 # - Ensure order of fields is correct
 setorder(datSurv_exp, TimeInDefSpell)
 
 
-# --- 2.4 [SANITY CHECK] Graphing survival quantities
+# --- 2.2 [SANITY CHECKS] Graphing survival quantities
 # - Comparing the event rate and hazard rate of the actuals
-plot(datSurv_exp[TimeInDefSpell<=120, EventRate_Emp], type="b", col="green") ### MM: Event rate as calculated by d(t)/n(t) -> EventRate_Emp=sum(DefSpell_Event2)/.N)
-lines(datSurv_act[Time<=120, EventRate], type="b", col="red") ### MM: Event rate as calculated by KM-estimator (S(t-1)*h(t))
-lines(datSurv_act[Time<=120, Hazard_Actual], type="b", col="blue") ### MM: Hazard rate as calculated by KM-estimator
-all(datSurv_exp[TimeInDefSpell<=120, EventRate_Emp]==datSurv_act[Time<=120, Hazard_Actual]) # should be TRUE
-### RESULTS: The event rate calculated by d(t)/n(t) is exactly the same as the hazard rate we get from the KM-estimator
-### CONCLUSION: The supposed event-rate as calculated by d(t)/n(t) is the hazard rate and not the event rate
+plot(datSurv_exp[TimeInDefSpell<=120, Hazard_Emp], type="b", col="green") ### MM: Event rate as calculated by d(t)/n(t) -> Hazard_Emp=sum(DefSpell_Event2)/.N)
+lines(datSurv[Time<=120, EventRate], type="b", col="red") ### MM: Event rate as calculated by KM-estimator (S(t-1)*h(t))
+lines(datSurv[Time<=120, Hazard_Actual], type="b", col="blue") ### MM: Hazard rate as calculated by KM-estimator
+all(datSurv_exp[TimeInDefSpell<=120, Hazard_Emp]==datSurv[Time<=120, Hazard_Actual]) # should be TRUE
+### RESULTS: The hazard rate calculated by d(t)/n(t) is exactly the same as the hazard rate we get from the KM-estimator
 
-# - Plotting event rates for actuals and all expecteds
-plot(datSurv_act[Time<=120, EventRate], type="b")
+# - Plotting event rates for actuals and all expected values
+plot(datSurv[Time<=120, EventRate], type="b")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_adv], type="b", col="red")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_bas], type="b", col="green")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_survtree], type="b", col="blue")
+plot(datSurv_exp[TimeInDefSpell<=120, Hazard_CSLR], type="b", col="steelblue")
+### CONCLUSION: Note that the output from the CS-LR
 
 
 
@@ -200,10 +189,10 @@ sMaxSpellAge_graph <- 84 # Max for [DefSpell_Age] for graphing purposes
 
 # --- 3.2 Create graphing data
 # - Initialise graphing data
-datGraph2 <- rbind(datSurv_act[,list(Time=Time, EventRate=EventRate, Type="a_Actual")],
+datGraph2 <- rbind(datSurv[,list(Time=Time, EventRate=EventRate, Type="a_Actual")],
                   datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_bas, Type="b_Expected_bas")],
                   datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_adv, Type="c_Expected_adv")],
-                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_survtree, Type="e_Expected_SurvTree")]
+                  datSurv_exp[,list(Time=TimeInDefSpell, EventRate=EventRate_survtree, Type="d_Expected_SurvTree")]
 )
 
 # - Set facet label
@@ -228,15 +217,15 @@ vLabel2 <- c("a_Actual"="Empirical (KM)", "b_Expected_bas"="DtH-Basic", "c_Expec
 chosenFont <- "Cambria"
 
 
-# --- 3.2 Create & save graph
-# - Graph
+# --- 3.3 Create & save graph
+# - Create graph
 (gsurv_ft2 <- ggplot(datGraph2[Time <= sMaxSpellAge_graph,], aes(x=Time, y=EventRate, group=Type)) + theme_minimal() +
     labs(y=bquote(plain("Write-off probability "*italic(w(t)))), 
          x=bquote("Spell time (months)"*~italic(t))) + 
     theme(text=element_text(family=chosenFont),legend.position = "bottom",
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
-    coord_cartesian(ylim=c(0,0.018)) +
+    #coord_cartesian(ylim=c(0,0.018)) +
     # Main graph
     geom_point(aes(y=EventRate, colour=Type, shape=Type), size=0.6) + 
     geom_line(aes(y=EventRate, colour=Type, linetype=Type)) + 

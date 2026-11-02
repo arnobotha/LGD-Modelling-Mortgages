@@ -755,8 +755,8 @@ vars <- c("-1", "Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
 modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
              data=datCredit_train_sub, family="binomial")
 summary(modLR)
-evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: - AIC: 63 844; McFadden R^2: 71.25%; AUC: 98.62%
+evalLR(modLR, modLR_base, datCredit_train_sub, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: AIC: 63 844; McFadden R^2: 66.20%; AUC: 98.62%
 
 # - Summary with robust SEs
 robust_se <- vcovHC(modLR, type="HC0")
@@ -764,24 +764,24 @@ coeftest(modLR, vcov.=robust_se)
 ### RESULTS: All variables are significant
 
 # - Test goodness-of-fit using AIC-measure from single-factor models
-(aicTable_CoxDisc <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
+(aicTable_CoxDisc <- aicTable(datCredit_train_sub, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
 ### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [g0_Delinq_Lag_1]
 ###     [log(TimeInDefSpell)*DefSpell_Num_binned]; [DefaultStatus1_Aggr_Prop_Lag_12];
 ###     [g0_Delinq_Ave]; [InterestRate_Margin_Aggr_Med_2]
 
 # - Test accuracy using c-statistic from single-factor models
-(concTable_CoxDisc <- concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
+(concTable_CoxDisc <- concTable(datCredit_train_sub, datCredit_valid_sub, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
 ### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [log(TimeInDefSpell)*DefSpell_Num_binned];
 ###     [g0_Delinq_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12];
-###     [g0_Delinq_Ave]; [InterestRate_Margin_Aggr_Med_2]
+###     [Principal_Real]; [g0_Delinq_Ave]
 
 # - Combine results into a single object
 (Table_CoxDisc <- concTable_CoxDisc[,1:2] %>% left_join(aicTable_CoxDisc, by ="Variable"))
 
 # - Additional goodness of fit tests
-GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Advanced",
+GoF_CoxSnell_KS(modLR, datCredit_train_sub, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Advanced",
                 fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Adv", ".png"), dpi=280)
-### MM: Function not working on my side, "Object 'DefSpell_ExitInd' not found..."
+### MM: Not working on my side, "Object 'DefSpell_ExitInd' not found amongst..."
 ### RESULTS: KS-statistic = 94%; Harrell's c = 98.578%; AIC = 79 024
 
 

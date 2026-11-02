@@ -38,16 +38,21 @@ mainEventName <- "Write-off"
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_real')) unpack.ffdf(paste0(genPath,"creditdata_final4a"), tempPath)
 
+# Sampling window start for model fitting purposes
+sDateStr <- as.Date("2008-01-31")
+sDateStp <- as.Date("2019-12-31")
 
+# - Filter data for default spells and date selections
+datCredit <- subset(datCredit_real, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
+rm(datCredit_real); gc()
 
 
 # ============ 2. Kaplan-Meier analysis across all default spells | Left-truncation included ============
 
 # --- 2.1 Fit Kaplan-Meier (KM) nonparametric model
 # - Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
-datKM<-datCredit_real[!is.na(DefSpell_Key),]
 km_All <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=WOff_Ind==1, type="counting") ~ 1, 
-                  id=DefSpell_Key, data=datKM)
+                  id=DefSpell_Key, data=datCredit)
 summary(km_All)$table # overall summary statistics
 plot(km_All, conf.int=T) # survival curve
 
@@ -69,17 +74,17 @@ tau <- max(km_All$time) # if max, then RMST = "mean follow-up time"
 rmst <- calcRMST(km_All, tau, t=1)
 cat(paste0("Kaplan-Meier: Restricted Mean Survival Time [RMST] during window of length tau = ", tau, ": \t", round(rmst,digits=2),
            " months. \nWhat is the average survival time during study window?"))
-### RESULTS: 61.18 months
+### RESULTS: 57.66 months
 tau <- 60
 rmst <- calcRMST(km_All, tau, t=1)
 cat(paste0("Kaplan-Meier: Restricted Mean Survival Time [RMST] during window of length tau = ", tau, ": \t", round(rmst,digits=2),
            " months. \nWhat is the average survival time during study window?"))
-### RESULTS: 40.2 months
+### RESULTS: 39.11 months
 
 # - Calculate naive estimator of time-to-event by taking mean of spell ages
-round(mean(datCredit_real[DefSpell_Counter==1, DefSpell_Age], na.rm=T), digits=2)
-round(mean(pmin(datCredit_real[DefSpell_Counter==1, DefSpell_Age], tau), na.rm=T), digits=2)
-### RESULTS: 20.95 months vs 18 months
+round(mean(datCredit[DefSpell_Counter==1, DefSpell_Age], na.rm=T), digits=2)
+round(mean(pmin(datCredit[DefSpell_Counter==1, DefSpell_Age], tau), na.rm=T), digits=2)
+### RESULTS: 18.89 months vs 18.04 months
 
 # - Retrieve the mean survival probability at the previously found percentile-based prediction point
 cat(paste0("Kaplan-Meier: Retrieved mean survival probability at a given time point (t=", percTimepoint, "): \n\t",
@@ -120,7 +125,7 @@ gsurv_Ft$plot <- gsurv_Ft$plot  +
   annotate("text", x = medLife, y = 0.5,
            label = paste0("50th Percentile: ", medLife, " months"),
            vjust=-0.5, hjust=-0.1, color = "black", size = 2.5, family = chosenFont) + 
-  annotate("text", x=medLife*5, y=0.55,
+  annotate("text", x=medLife*6, y=0.55,
            label = paste0("RMST (during window of ", tau, " months): ", round(rmst, digits=1), " months"),
            vjust=-0.5, hjust=1, color = "black", size = 2.5, family = chosenFont)
 
@@ -326,23 +331,23 @@ ggsave(gsurv_ft, file=paste0(genFigPath, "SurvivalAnalysis/EventProb-", mainEven
 ###       - This is merely to fit the paradigm of the counting-process of the Surv() function 
 ###         within a multistate setup, which requires the event indicator at the end of each interval, where 0 (or "censored")
 # indicates zero events during said interval.
-datCredit_real[, DefSpell_EventType := 
+datCredit[, DefSpell_EventType := 
                  case_when(TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "WOFF" ~ "Write-off",
                            TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Cured" ~ "Cured",
                            TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist == "Censored" ~ "Censored",
                            TimeInDefSpell<DefSpell_Age | DefSpellResol_Type_Hist == "Censored" ~ "Censored",
                            T ~ NA), by=.(DefSpell_Key)]
-datCredit_real[!is.na(DefSpell_Key), DefSpell_EventType] %>% table() %>% prop.table()
+datCredit[!is.na(DefSpell_Key), DefSpell_EventType] %>% table() %>% prop.table()
 ### RESULTS:  Censored   Cured      Write-off 
 ###           0.94779966 0.04024039 0.01195995
 
 # - Recreate event type as a factor in preparation for Surv() function
-datCredit_real[, DefSpell_EventType := 
+datCredit[, DefSpell_EventType := 
                  factor(DefSpell_EventType, levels=c("Censored", "Write-off", "Cured"))]
 
 # - Fit Aalen-Johansen estimator for S(t) amidst competing risks
 aj_All <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=DefSpell_EventType) ~ 1,
-                  id=DefSpell_Key, data=datCredit_real[!is.na(DefSpell_Key),])
+                  id=DefSpell_Key, data=datCredit)
 summary(aj_All)
 
 # - Cast state probabilities over time into data object and merge with main object
@@ -411,8 +416,8 @@ datMAE <- datGraph %>%
 
 # - Graphing parameters
 vCol4 <- brewer.pal(10, "Paired")[c(4,6)]
-vLabel <- c("Classical"=bquote("Write-off Probability (Kaplan-Meier) "*italic(f(t))),
-            "CompRisks"=bquote("Write-off Probability (Aalen-Johansen) "*italic(f[1](t))))
+vLabel <- c("Classical"=bquote("Write-off Probability (Kaplan-Meier)  "*italic(f(t))),
+            "CompRisks"=bquote("Write-off Probability (Aalen-Johansen)  "*italic(f[1](t))))
 
 # - Create main graph 
 (gsurv_ft_1 <- ggplot(datGraph[Time <= maxPeriod,], aes(x = Time, y = EventRate)) + theme_minimal() +
@@ -495,6 +500,3 @@ pack.ffdf(paste0(genPath,"datRMST"), datRMST)
 # ============ 5. Housekeeping ============
 
 cleanEnviron()
-
-
-

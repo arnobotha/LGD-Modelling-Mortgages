@@ -95,17 +95,17 @@ proc.time() - ptm # IGNORE: elapsed runtime; 4.3h
 
 
 # ------ 2b. Embedding the baseline hazard h_0(t) | Part II ------
-### NOTE: Here an interaction between [TimeInDefSpell] and [Defspell_num] is enforced
-###       such that each spell will have its own baseline and slope
+# Here, an interaction between [TimeInDefSpell] and [Defspell_num] is enforced
+# such that each spell will have its own baseline hazard
 
-# --- 3.1 Single-factor models: Single time variable (transform), binned num, plus intereaction
+# --- 3.1 Single-factor models: Single time variable (transform), binned num, plus interaction
 modMLR <- multinom(DefSpell_EventType ~  log(TimeInDefSpell)*DefSpell_Num_binned,
                    data = datCredit_train, family="binomial", maxit=1000)
 evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", predClass=1, predType="probs")
 ### RESULTS: AIC: 794,525; McFadden R^2: 0.80%; AUC: 54.12%
 
 
-# --- 3.2 Single-factor models: Binned Variable plus interaction
+# --- 3.2 Single-factor models: Binned Variable plus interaction with numeric time
 modMLR <- multinom(DefSpell_EventType ~ Time_Binned + log(TimeInDefSpell):DefSpell_Num_binned,
                    data = datCredit_train, family="binomial", maxit=1000)
 evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", predClass=1, predType="probs")
@@ -133,9 +133,13 @@ if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid
 setorder(datCredit_train_CDH, LoanID, Date)
 setorder(datCredit_valid_CDH, LoanID, Date)
 
-# - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
+# Sampling window start for model fitting purposes
+sDateStr <- as.Date("2008-01-31")
+sDateStp <- as.Date("2019-12-31")
+
+# - Filter data for default spells and date selections
+datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) &  Date >= sDateStr & Date <= sDateStp )
+datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
 
 # - Remove previous objects from memory
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
@@ -144,7 +148,7 @@ rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 modMLR_base <- multinom(DefSpell_EventType ~  1, data = datCredit_train, maxit=1000)
 
 # - Final variables
-### NOTE: Variable selection dependent on single-risk DtH-model for write-off
+### NOTE: Variable selection is dependent on single-risk DtH-model for write-off
 # Rebinned time to a finer grain
 # Removed g0_Delinq_Lag_1 due to adverse effect on term-structure
 # Inserted macroeconomic variables due to high AIC-gains in variable importance graph
@@ -164,32 +168,34 @@ vars <- c("Time_Binned", "DefSpell_Num_binned", "log(TimeInDefSpell):DefSpell_Nu
 modMLR <- multinom(as.formula(paste("DefSpell_EventType ~", paste(vars, collapse = " + "))),
                    data = datCredit_train, family="binomial", maxit=1000)
 evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", predClass=1, predType="probs")
-### RESULTS: AIC:   584,745; McFadden R^2: 27.01%; AUC: 81.55%
-
-# - Statistical significance: Likelihood Ratio Test
-ptm <- proc.time() # for runtime calculations (ignore)
-modMLR_Result  <- dropterm(modMLR, trace=F, test="Chisq", maxit=50)
-proc.time() - ptm # IGNORE: elapsed runtime; 4.3h
-### RESULTS: All variables are significant
+### RESULTS: AIC:  471,97; McFadden R^2: 27.63%; AUC: 81.69%
 
 # - Store objects on disc
 pack.ffdf(paste0(genObjPath,"MLR_DtH_results"), modMLR_Result)
 pack.ffdf(paste0(genPath,"MultiDtH_WOff"), modMLR)
 
 
+
+# --- Statistical significance: Likelihood Ratio Test
+ptm <- proc.time() # for runtime calculations (ignore)
+modMLR_Result  <- dropterm(modMLR, trace=F, test="Chisq", maxit=50)
+proc.time() - ptm # IGNORE: elapsed runtime; 4.3h
+### RESULTS: All variables are significant
+
 # - AIC-based variable importance
 (datResult <- as.data.table(modMLR_Result[rownames(modMLR_Result) != "<none>", "AIC", drop=F] - 
                            modMLR_Result["<none>", "AIC"], keep.rownames = T)[order(-AIC),])
 ggplot(datResult, aes(x=reorder(rn,AIC), y=AIC)) + geom_col(fill="steelblue") + coord_flip() + theme_minimal() + 
   labs(y=bquote(Delta * AIC), x="Variable")
-# Define # \Delta AIC = AIC_{-j} - AIC_full, where AIC_{-j} is the AIC of the reduced model excluding jth variable.
-# Top x Variables ranked by greatest deterioration in penalised model fit (\Delta AIC) upon their individual removal:
+# Define \Delta AIC = AIC_{-j} - AIC_full, where AIC_{-j} is the AIC of the reduced model excluding 
+# jth variable. Top x Variables ranked by greatest deterioration in penalised model fit 
+# (\Delta AIC) upon their individual removal:
 # InterestRate_Nom, g0_Delinq_Lag_1, M_Inflation_Growth_12, M_DTI_Growth_12, pmnt_method_grp, M_Repo_Rate_12,
 # g0_Delinq_Ave, Balance_Real_1, Principal_Real
 
-### NOTE: Model complexity matters in this ranking; categorical variables are penalized more heavily by AIC, so 
-# the (binned) spell time variable and its interaction are therefore ranked much lower, despite their
-# strategic importance in qualifying the MLR-model as a DtH-model.
+### NOTE: Model complexity matters in this ranking; categorical variables are penalized more 
+# heavily by AIC, so the (binned) spell time variable and its interaction are therefore ranked 
+# much lower, despite their strategic importance in qualifying the MLR-model as a DtH-model.
 
 # - Cleanup
-rm(modMLR_Result_int, modMLR_Result, modMLR)
+cleanEnviron()

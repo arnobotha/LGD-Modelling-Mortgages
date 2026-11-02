@@ -3,10 +3,17 @@
 # compiling an input space for an advanced logistic regression model.
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM)
+# SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
+#   - 0.Setup.R
+#   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Data_Prepare_Credit_Advanced.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
+#   - 2f.Data_Fusion1.R
 #   - 2g.Data_Fusion2.R
 
 # -- Inputs:
@@ -494,7 +501,7 @@ evalLR(modLR, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predCl
 
 # --- 7.1 Initial fit
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
-modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train_CS_sub, family="binomial")
+modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 # - Final variables
 vars <- colnames(modLR$model[,-1])
@@ -524,7 +531,7 @@ evalLR(modLR, modLR_base, datCredit_train_CS_sub, targetFld="DefSpell_Event", pr
 ### RESULTS: AIC: 48 995; McFadden R^2: 37.05%; AUC: 88.54%
 
 ### CONCLUSION: Final model confirmed as:
-###               [PrevDefaults]; [Arrears]; [g0_Delinq_lag_1]; [M_Repo_Rate_12];
+###               [PrevDefaults]; [Arrears]; [g0_Delinq_Lag_1]; [M_Repo_Rate_12];
 ###               [InterestRate_Margin_imputed_mean]; [g0_Delinq_SD_6]; [Balance_Real_1];
 ###               [slc_past_due_amt_imputed_med]; [M_RealGDP_Growth_6]; [M_Inflation_Growth_12];
 ###               [ArrearsToBalance_1_Aggr_Prop]; [TimeInDefSpell]
@@ -540,12 +547,12 @@ if (!exists('datCredit_train_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_tr
 if (!exists('datCredit_valid_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS_sub"), tempPath); gc()
 
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
-modLR_base <- glm(DefSpell_Event ~ 1, data=creditdata_train_CS_sub, family="binomial")
+modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train_CS_sub, family="binomial")
 
 
 # --- 8.2 Fit model
 # - Final variables
-vars <- c("PrevDefaults", "Arrears", "g0_Delinq_lag_1", "M_Repo_Rate_12",
+vars <- c("PrevDefaults", "Arrears", "g0_Delinq_Lag_1", "M_Repo_Rate_12",
          "InterestRate_Margin_imputed_mean", "g0_Delinq_SD_6", "Balance_Real_1",
          "slc_past_due_amt_imputed_med", "M_RealGDP_Growth_6", "M_Inflation_Growth_12",
          "ArrearsToBalance_1_Aggr_Prop", "TimeInDefSpell")
@@ -555,7 +562,8 @@ modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))
              data=datCredit_train_CS_sub, family="binomial")
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train_CS_sub, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 48 995; McFadden R^2: 33.53%; AUC: 88.54%
+### RESULTS: - Insi
+###          - AIC: 49 787; McFadden R^2: 36.02%; AUC: 88.35%
 
 
 # --- 8.3 Assess model
@@ -579,6 +587,7 @@ coeftest(modLR, vcov.=robust_se)
 # - Combine results into a single object
 Table_LR <- merge(concTable_LR[,1:2], aicTable_LR, by="Variable")
 
+# - Additional goodness of fit tests
 GoF_CoxSnell_KS(modLR, datCredit_train_CS_sub, GraphInd=TRUE, ,legPos=c(0.6,0.4), panelTitle="Logistic Regression",
                 fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_LR", ".png"), dpi=280,fldLstRowInd="DefSpell_Counter")
 ### RESULTS: KS-statistic=42%; Harell's c=88.538%; AIC=48 995

@@ -1,17 +1,23 @@
 # ================================= SURVIVAL TREES ======================================
 # Fitting and testing survival trees in predicting the occurrence of write-off in defaulted
-# loans at each time point during a default spell
+# loans at each time point during a default spell. Note that this script is run 
+# interactively towards testing the various setups in which one may fit survival trees.
+# The final setup is coded below, though the experimental results of previous runs
+# are commented.
 # ---------------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
-# SCRIPT AUTHOR(S): Marcel Muller (MM)
-#
-# DESCRIPTION:
-# This script performs fits survival trees and has the following logic
-#   1) 
+# SCRIPT AUTHOR(S): Marcel Muller (MM), Dr Arno Botha (AB)
 # ---------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
+#   - 0.Setup.R
+#   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Data_Prepare_Credit_Advanced.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
 #   - 2f.Data_Fusion1.R
+#   - 2g.Data_Fusion2.R
 
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
@@ -20,7 +26,6 @@
 # -- Outputs:
 #   - SurvTree_CTree | A list containing both the survival tree object and its
 #                      associated training dataset
-# ---------------------------------------------------------------------------------------
 # =======================================================================================
 
 
@@ -33,22 +38,27 @@ if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train
 # Validation set
 if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath)
 
-# - Create copies of the training and validation data
-datCredit_train <- copy(datCredit_train_CDH); datCredit_valid <- copy(datCredit_valid_CDH)
+# Sampling window start for model fitting purposes
+sDateStr <- as.Date("2008-01-31")
+sDateStp <- as.Date("2019-12-31")
+
+# - Filter data for default spells and date selections
+datCredit_train <- subset(datCredit_train_CDH, Date >= sDateStr & Date <= sDateStp)
+datCredit_valid <- subset(datCredit_valid_CDH, Date >= sDateStr & Date <= sDateStp)
 rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 
 # --- 1.2 Create a super-subsample to facilitate rapid model development
 # - Set sub-sample size (% of full training set)
-smp_frac <- 1
+smp_frac_trees <- 1
 
 # - Get unique account numbers (only select accounts that had a default event)
 datKeys_train <- data.table(unique(datCredit_train[!is.na(DefSpell_Key),LoanID]))
 datKeys_valid <- data.table(unique(datCredit_valid[!is.na(DefSpell_Key),LoanID]))
 
 # - Subsample unique keys
-datKeys_train_smp <- datKeys_train %>% slice_sample(prop=smp_frac) %>% as.data.table()
-datKeys_valid_smp <- datKeys_valid %>% slice_sample(prop=smp_frac) %>% as.data.table()
+datKeys_train_smp <- datKeys_train %>% slice_sample(prop=smp_frac_trees) %>% as.data.table()
+datKeys_valid_smp <- datKeys_valid %>% slice_sample(prop=smp_frac_trees) %>% as.data.table()
 
 # - Subset training data
 datCredit_train_smp <- subset(datCredit_train, LoanID %in% datKeys_train_smp$V1)
@@ -72,9 +82,10 @@ datCredit_valid_smp[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
 datCredit_train_smp[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 datCredit_valid_smp[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 
-# - Create a cross-sectional dataset
-datCredit_train_smp_cross <- subset(datCredit_train_smp, DefSpell_Counter==1)
-datCredit_valid_smp_cross <- subset(datCredit_valid_smp, DefSpell_Counter==1)
+# - Create a cross-sectional dataset by selecting randomly sampled point during spell history
+set.seed(1, kind="Mersenne-Twister")
+datCredit_train_smp_cross <- datCredit_train_smp[, .SD[sample(.N, 1)], by=list(DefSpell_Key)]
+datCredit_valid_smp_cross <- datCredit_valid_smp[, .SD[sample(.N, 1)], by=list(DefSpell_Key)]
 
 
 # --- 1.4 Additional parameters
@@ -112,7 +123,7 @@ if (!is.na(max_DefSpell_Age)){
 
 # - Fit tree
 start_time <- proc.time()
-SurvTree_PartyKit <- ctree(Surv(DefSpell_Age,DefSpell_Event)~
+SurvTree_PartyKit <- ctree(Surv(DefSpell_Age, DefSpell_Event)~
                              PrevDefaults_fac + DefSpell_Num_binned +
                              ArrearsToBalance_1_Aggr_Prop + Balance_Real_1 +
                              pmnt_method_grp_fac + InterestRate_Margin_Aggr_Med_2 + InterestRate_Nom +
@@ -131,9 +142,9 @@ proc.time() - start_time
 # - Visualise tree
 plot(SurvTree_PartyKit)
 ### NOTE: Variables included in fitted model:
-###       [PrevDefaults_fac]; [M_DTI_Growth_6]; [DefaultStatus1_Aggr_Prop_Lag_12];
-###       [Balance_Real_1]; [pmnt_method_grp_fct]; [DefSpell_Num_binned];
-###       [g0_Delinq_Ave]; [IntereestRate_Margin_Aggr_Med_2]
+# PrevDefaults_fac, pmnt_method_grp_fct, g0_Delinq_Ave, Balance_Real_1, InterestRate_Nom,
+# InterestRate_Margin_Aggr_Med_2, DefSpell_Num_binned, g0_Delinq_Num, 
+
 
 
 # --- 2.2 Generate survival quantity predictions given the fitted tree
@@ -151,10 +162,7 @@ datHaz <- predSurv(survTree=SurvTree_PartyKit, datGiven=datCredit_train_smp_cros
                    max_DefSpell_Age=max_DefSpell_Age)
 
 # - Join hazards back to main dataset
-datCredit <- merge(datCredit,
-                   datHaz,
-                   by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"),
-                   all.x=T)
+datCredit <- merge(datCredit, datHaz, by.x=c("Node","TimeInDefSpell"), by.y=c("Node","Time"), all.x=T)
 
 # - [SANITY CHECK] Inspect reasonableness of survival probabilities
 ggplot(datHaz[Time<=120], aes(x=Time, y=Surv, group=Node)) + geom_line(aes(col=Node))
@@ -187,9 +195,9 @@ if (check3.2==0) {cat("SAFE: No missing event rates present.\n")} else {cat("WAR
 ### RESULTS: Safe
 
 
-# ------ 4. Evaluate tree accuracy
+# ------ 4. Evaluate tree discriminatory power and accuracy
 
-# --- 4.1 ROC analysis
+# --- 4.1 tROC-analysis
 # - Perform time-dependent ROC analysis
 predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation
