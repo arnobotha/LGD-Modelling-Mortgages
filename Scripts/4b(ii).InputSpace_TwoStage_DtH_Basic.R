@@ -23,14 +23,15 @@
 
 # --- 1.1 Load data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath); gc()
 
 # - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
-# remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
+datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
+
+# - Remove previous objects from memory
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 
 # --- 1.2 Fit preliminary models
@@ -41,7 +42,8 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
 
 
 # ============ 2. Final model ============
-### NOTE: Selection based on expert judgement only
+### NOTE: Selection based on expert judgement only and using restricted training set
+###       that excludes observations otuside of predetermined range as set in script 2g
 
 # - Final variables
 vars_basic <- c("log(TimeInDefSpell)", "DefSpell_Num_binned", "g0_Delinq_Lag_1",
@@ -56,7 +58,7 @@ vars_basic <- c("log(TimeInDefSpell)", "DefSpell_Num_binned", "g0_Delinq_Lag_1",
 modLR_basic <- glm( as.formula(paste("DefSpell_Event ~", paste(vars_basic, collapse = " + "))),
                     data=datCredit_train, family="binomial")
 evalLR(modLR_basic, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 212 108;  McFadden R^2: 4.36%; AUC:  70.13%
+### RESULTS: AIC: 180 893;  McFadden R^2: 4.08%; AUC:  68.85%
 
 # - Variable significance using robust SEs
 robust_se <- vcovHC(modLR_basic, type="HC0")
@@ -67,13 +69,13 @@ coeftest(modLR_basic, vcov.=robust_se)
 (aicTable_CoxDisc_basic <- aicTable(datCredit_train, vars_basic,
                                     TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
 ### RESULTS: Top variables (ranked in order): [g0_Delinq_Lag_1]; [log(TimeInDefSpell)]; [DefSpell_Num_binned];
-###                                           [g0_Delinq_Any_Aggr_Prop_Lag_1]; [M_Inflation_Growth_9] 
+###                                           [M_Inflation_Growth_9]; [g0_Delinq_Any_Aggr_Prop_Lag_1] 
 
 # - Test accuracy using c-statistic over single-factor models
 (concTable_CoxDisc_basic <- concTable(datCredit_train, datCredit_valid, vars_basic,
                                       TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
 ### RESULTS: Top variables (ranked in order): [log(TimeInDefSpell)]; [[g0_Delinq_Lag_1]; [DefSpell_Num_binned];
-###                                           [g0_Delinq_Any_Aggr_Prop_Lag_1]; [M_Inflation_Growth_9] 
+###                                           [M_Inflation_Growth_9]; [g0_Delinq_Any_Aggr_Prop_Lag_1]
 
 # - Combine results into a single object
 (Table_CoxDisc_basic <- concTable_CoxDisc_basic[,1:2] %>% left_join(aicTable_CoxDisc_basic, by ="Variable"))
@@ -81,6 +83,8 @@ coeftest(modLR_basic, vcov.=robust_se)
 
 GoF_CoxSnell_KS(modLR_basic, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Basic",
                 fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Bas", ".png"), dpi=280)
+### MM: Function not working on my side, "Object 'DefSpell_ExitInd' not found..."
+### RESULTS: KS-statistic = %; Harrell's c = %; AIC = 
 
 # - Save objects
 # Model analytics
@@ -90,3 +94,6 @@ saveRDS(modLR_basic, file=paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
 
 # - Cleanup
 cleanEnviron()
+
+
+

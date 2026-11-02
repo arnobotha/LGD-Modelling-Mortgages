@@ -29,20 +29,25 @@
 # --- 1.1 Load and subset data
 # - Confirm prepared datasets are loaded into memory
 # Training
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath); gc()
 # Validation
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath); gc()
 
 # - Ensure order of data is correct
-setorder(datCredit_train_CDH, c("LoanID", "Date"))
-setorder(datCredit_valid_CDH, c("LoanID", "Date"))
+setorder(datCredit_train_CDH, LoanID, Date); setorder(datCredit_valid_CDH, LoanID, Date)
+setorder(datCredit_train_CDH_sub, LoanID, Date); setorder(datCredit_valid_CDH_sub, LoanID, Date)
 
 # - Use only default spells
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
+datCredit_train_sub <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
+datCredit_valid_sub <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
 
 # - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+rm(datCredit_train_CDH, datCredit_valid_CDH,
+   datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 
 # --- 1.2 Fit preliminary models
@@ -598,9 +603,9 @@ vars <- c("log(TimeInDefSpell)*DefSpell_Num_binned",
 
 # - Full model
 modLR_full <- glm( as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-                   data=datCredit_train, family="binomial")
+                   data=datCredit_train_sub, family="binomial")
 summary(modLR_full)
-evalLR(modLR_full, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
+evalLR(modLR_full, modLR_base, datCredit_train_sub, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC: 909 035; McFadden R^2: -309.88%; AUC: 83.07%
 ### NOTE: Quasi-complete separation may have occurred in fitting the model,
 ###       will probably be corrected in the automated variable selection procedure
@@ -679,28 +684,60 @@ evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass
 
 
 
-# ------ 9. Final model ------ 
+# ============ 9. Adjusting the model training period ============
+### NOTE: We change the training period to 2008-01-01 -> 2019-12-31, which
+###       ensures a out-of-time and out-of-sample backtesting/assessment.
 
-# --- 9.1 Preliminaries
+# --- 9.1 Initial fit
+# - Fit an "empty" model as a performance gain, used within some diagnostic functions
+modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train_CDH_sub, family="binomial")
+
+# - Final variables
+vars <- c("-1", "Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
+          "InterestRate_Nom", "pmnt_method_grp",
+          "Principal_Real", "Balance_Real_1",
+          "M_Repo_Rate_12", "NewLoans_Aggr_Prop",
+          "DefaultStatus1_Aggr_Prop_Lag_12",
+          "g0_Delinq_Ave", "M_Inflation_Growth_12",
+          "g0_Delinq_Lag_1", "InterestRate_Margin_Aggr_Med_2",
+          "M_RealIncome_Growth_9", "Balance_Real_1")
+### MM: These variables do not match those in the comments at the end of section 8?
+
+# - Fit model
+modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
+             data=datCredit_train_sub, family="binomial")
+summary(modLR)
+evalLR(modLR, modLR_base, datCredit_train_sub, targetFld="DefSpell_Event", predClass=1)
+### RESULTS: - AIC: 63 844; McFadden R^2: 71.25%; AUC: 98.62%
+###          - No insignificant variables
+
+### CONCLUSION: Final model selected with full input space as specified above
+
+
+
+
+# ------ 10. Final model ------ 
+
+# --- 10.1 Preliminaries
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath);gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath);gc()
 
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
+# - Ensure order of data is correct
+setorder(datCredit_train_CDH_sub, LoanID, Date); setorder(datCredit_valid_CDH_sub, LoanID, Date)
 
 # - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp,]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp,]
-# remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+datCredit_train_sub <- datCredit_train_CDH_sub[!is.na(DefSpell_Key),]
+datCredit_valid_sub <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
+
+# - Remove previous objects from memory
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
-modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train, family="binomial")
+modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train_sub, family="binomial")
 
 
-# --- 9.2 Fit and evaluate final model
+# --- 10.2 Fit and evaluate final model
 # - Initialize and curate final list variables
 # Removed intercept to qualify fully as a DtH-model
 # Removed M_DTI_Growth_12 since it proved insignificant once restricted sampling window is imposed
@@ -716,10 +753,10 @@ vars <- c("-1", "Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
 
 # - Fit model
 modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
-             data=datCredit_train, family="binomial")
+             data=datCredit_train_sub, family="binomial")
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: AIC: 91,794; McFadden R^2: 66.13%; AUC: 98.56%
+### RESULTS: - AIC: 63 844; McFadden R^2: 71.25%; AUC: 98.62%
 
 # - Summary with robust SEs
 robust_se <- vcovHC(modLR, type="HC0")
@@ -729,13 +766,14 @@ coeftest(modLR, vcov.=robust_se)
 # - Test goodness-of-fit using AIC-measure from single-factor models
 (aicTable_CoxDisc <- aicTable(datCredit_train, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
 ### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [g0_Delinq_Lag_1]
-###     [log(TimeInDefSpell)*DefSpell_Num_binned]; ; [DefaultStatus1_Aggr_Prop_Lag_12];
-###                         [g0_Delinq_Ave]; [InterestRate_Margin_Aggr_Med_2]
+###     [log(TimeInDefSpell)*DefSpell_Num_binned]; [DefaultStatus1_Aggr_Prop_Lag_12];
+###     [g0_Delinq_Ave]; [InterestRate_Margin_Aggr_Med_2]
 
 # - Test accuracy using c-statistic from single-factor models
 (concTable_CoxDisc <- concTable(datCredit_train, datCredit_valid, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [InterestRate_Nom]; [log(TimeInDefSpell)*DefSpell_Num_binned]; [Time_Binned]; [g0_Delinq_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12];
-###                         [g0_Delinq_Ave]; [InterestRate_Margin_Aggr_Med_2]
+### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [log(TimeInDefSpell)*DefSpell_Num_binned];
+###     [g0_Delinq_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12];
+###     [g0_Delinq_Ave]; [InterestRate_Margin_Aggr_Med_2]
 
 # - Combine results into a single object
 (Table_CoxDisc <- concTable_CoxDisc[,1:2] %>% left_join(aicTable_CoxDisc, by ="Variable"))
@@ -743,10 +781,11 @@ coeftest(modLR, vcov.=robust_se)
 # - Additional goodness of fit tests
 GoF_CoxSnell_KS(modLR, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Advanced",
                 fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Adv", ".png"), dpi=280)
+### MM: Function not working on my side, "Object 'DefSpell_ExitInd' not found..."
 ### RESULTS: KS-statistic = 94%; Harrell's c = 98.578%; AIC = 79 024
 
 
-# --- 9.3 Save objects
+# --- 10.3 Save objects
 # Model analytics
 pack.ffdf(paste0(genObjPath,"CoxDisc_advanced_fits"), Table_CoxDisc)
 # Modeling object
@@ -755,3 +794,6 @@ saveRDS(modLR_Adv, file=paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
 # - Cleanup
 cleanEnviron()
+
+
+
