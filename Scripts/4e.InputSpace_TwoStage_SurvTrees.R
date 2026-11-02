@@ -10,7 +10,14 @@
 # ---------------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
+#   - 0.Setup.R
+#   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Data_Prepare_Credit_Advanced.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
 #   - 2f.Data_Fusion1.R
+#   - 2g.Data_Fusion2.R
 
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g
@@ -188,9 +195,9 @@ if (check3.2==0) {cat("SAFE: No missing event rates present.\n")} else {cat("WAR
 ### RESULTS: Safe
 
 
-# ------ 4. Evaluate tree accuracy
+# ------ 4. Evaluate tree discriminatory power and accuracy
 
-# --- 4.1 ROC analysis
+# --- 4.1 tROC-analysis
 # - Perform time-dependent ROC analysis
 predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation

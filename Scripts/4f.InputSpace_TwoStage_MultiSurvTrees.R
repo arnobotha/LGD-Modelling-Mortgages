@@ -58,77 +58,121 @@ datCredit_valid[, DefSpellResol_Fac:=factor(DefSpellResol_Type_Hist,
                                             c("Censored", "WOFF", "Cured"))]
 
 
+# --- 1.3 Load survival objects for empirical-expected term-structure diagnostic
+if (!exists('datSurv2')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompRisks"), tempPath);gc()
 
 
 
-# ------ 2. Fitting a survival tree and rendering predicitons
+# ------ 2. Fitting a survival tree and rendering predictions
 
 # --- 2.1 Fit tree
 # - Input space of multinomial DtH-model
 # Time_Binned, DefSpell_Num_binned, log(TimeInDefSpell):DefSpell_Num_binned,
 # InterestRate_Nom, M_Repo_Rate_12, M_DTI_Growth_12, M_RealIncome_Growth_9,
 # M_Inflation_Growth_12, NewLoans_Aggr_Prop
-# - Input space of cross-sectional logistic regression model
-# PrevDefaults_fac, Arrears, pmnt_method_grp_fac, g0_Delinq_Lag_1, slc_past_due_amt_imputed_med,
-# InterestRate_Margin_imputed_mean, g0_Delinq_SD_6, Principal_Real, M_Repo_Rate_6,
-# M_Inflation_Growth_6, NewLoans_Aggr_Prop, M_RealGDP_Growth_9
 ### NOTE: The following changes to the input space are made interactively using epxert judgment
 # Added DefSpell_Num_binned
 
 # - Fit tree
 max_depth <- 4 # Maximum tree-depth
 start_time <- proc.time()
-modMultiSurvTree <- ctree(DefSpell_EventType ~ TimeInDefSpell + 
-                             PrevDefaults_fac + DefSpell_Num_binned + pmnt_method_grp_fac + 
-                            M_Inflation_Growth_6,
-                             #Arrears + 
-                             #g0_Delinq_Lag_1 + slc_past_due_amt_imputed_med + InterestRate_Margin_imputed_mean +
-                             #g0_Delinq_SD_6 + Principal_Real + M_Repo_Rate_6 + 
-                             #M_Inflation_Growth_6 + NewLoans_Aggr_Prop + M_RealGDP_Growth_9,
+modMultiSurvTree <- ctree(DefSpell_EventType ~ TimeInDefSpell + DefSpell_Num_binned + 
+                             InterestRate_Nom + M_Repo_Rate_12 + M_DTI_Growth_12 + 
+                               pmnt_method_grp_fac + M_RealIncome_Growth_9 + M_Inflation_Growth_12 + 
+                               NewLoans_Aggr_Prop,
+                             #Arrears + pmnt_method_grp_fac
                            data=datCredit_train,
                            control=ctree_control(mincriterion=0.99, # 1 - p-value threshold (default ≈ 5% significance)
                                                  minsplit=1000, # minimum number of observations to attempt a split
                                                  minbucket=50, # minimum number in terminal node (common default)
                                                  testtype="Bonferroni", # most conservative → classical feeling
                                                  maxdepth=max_depth))
-proc.time() - start_time
-### Runtime = 1 sec
+proc.time() - start_time # Runtime = 1 sec
 
 # - Visualise tree
 plot(modMultiSurvTree)
 ### NOTE: Variables included in fitted model:
+# InterestRate_Nom, pmnt_method_grp_fac, M_DTI_Growth_12, M_RealIncome_Growth_9, TimeInDefSpell,
+# NewLoans_Aggr_Prop, 
+
+# - Save model
+pack.ffdf(paste0(genPath,"MultiCI_Tree"), modMultiSurvTree)
+
 
 
 # --- 2.2 Obtain predictions from tree
+
+# - Combine training and validation datasets to facilitate "better" (smooth) graphs
+datCredit <- rbind(datCredit_train, datCredit_valid)
+
+# - Recalculate counter variable with respect to new sampling window
+datCredit[, Counter_Artificial := 1:.N, by=.(LoanID)]
+
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter_Artificial==1 & TimeInDefSpell>1)
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Time_Binned := timeBinning(TimeInDefSpell)]
+datAdd[, Counter:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
+
 # - Point to main credit data
 datCredit <- rbind(data.table(datCredit_train, Sample="Training"),
                    data.table(datCredit_valid, Sample="Validation"))
 
 # - Score data using fitted tree
-datCredit[, Hazard_WriteOff_Exp := predict(modMultiSurvTree, newdata = datCredit, type="prob")[, "Write-off"]]
-datCredit[, Hazard_Cured_Exp := predict(modMultiSurvTree, newdata = datCredit, type="prob")[, "Cured"]]
+matPredictions <- predict(modMultiSurvTree, newdata=datCredit, type = "prob")
+datCredit[, Hazard_WriteOff_Exp := matPredictions[, "Write-off"]]
+datCredit[, Hazard_Cured_Exp := matPredictions[, "Cured"]]
+
+# - Derive (event-free) survival probability S(t) = prod(1 - h_1(t) - h_2(t))
+datCredit[, Survival_overall_exp := cumprod(1-Hazard_WriteOff_Exp-Hazard_Cured_Exp), by=.(DefSpell_Key)]
+
+# - Derive event rates as f_1(t) = S(t-1) . h_1(t)
+datCredit[, EventRate_WriteOff_exp := shift(Survival_overall_exp, n=1,fill=1) * Hazard_WriteOff_Exp, by=.(DefSpell_Key)]
+
+# - Remove added rows
+datCredit <- subset(datCredit, Counter>0)
 
 
+# --- 2.3 Aggregate event rates to spell period level and plot and calculate MAE
+# - Aggregate data
+datSurv_exp <- datCredit[,.(
+  EventRate_WriteOff=mean(EventRate_WriteOff_exp, na.rm=T)),
+  by=.(TimeInDefSpell)]
+
+# - Ensure order of fields is correct
+setorder(datSurv_exp, TimeInDefSpell)
+
+# - Cut-offs for analysis and graphs 
+sMaxSpellAge <- 84 # Max for [DefSpell_Age], as determined in earlier analyses (script 3c)
+
+# - Plotting event rates for actuals and all expected values
+plot(datSurv2[Time<=sMaxSpellAge, EventRate_WriteOff], type="b")
+lines(datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_WriteOff], type="b", col="red")
+# MAE
+mean(abs(datSurv2[Time<=sMaxSpellAge, EventRate_WriteOff] - 
+      datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_WriteOff]), na.rm=T)
+# MAE: 0.00475
 
 
-# - Fit Aalen-Johansen estimator for S(t) amidst competing risks
-aj_All <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=DefSpell_EventType) ~ 1,
-                  id=DefSpell_Key, data=datCredit_real[!is.na(DefSpell_Key),])
-summary(aj_All)
+# --- 2.4 tROC-analysis
+# - Perform time-dependent ROC analysis
+predictTime <- 44
+ptm <- proc.time() #IGNORE: for computation time calculation
+objROC44_MultiST <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                               Marker = datCredit[Sample=="Validation", Hazard_WriteOff_Exp],
+                               month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                               fld_Event="WOff_Ind", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                               caseStudyName=paste0("Cond_MultiSurvTree_", predictTime), numThreads=4, logPath=genPath, 
+                               Graph=T)
+proc.time() - ptm
+objROC44_MultiST$AUC ;objROC44_MultiST$ROC_graph
+### RESULTS: AUC up to t: 94.36%, achieved in 27 secs (maximum node depth=4)
 
-# - Cast state probabilities over time into data object and merge with main object
-### NOTE: These probabilities are equivalent to the cause-specific cumulative incidence functions (CIFs)
-datSurv2 <- data.table(Time = aj_All$time, AtRisk_n = aj_All$n.risk[,"(s0)"],
-                       Event_n_WriteOff = aj_All$n.event[,"Write-off"], Event_n_Cured = aj_All$n.event[,"Cured"],
-                       Censored_n = aj_All$n.censor[,"(s0)"], SurvivalProb_AJ = aj_All$pstate[,"(s0)"], 
-                       CIF_WriteOff = aj_All$pstate[,"Write-off"], # Write-off CIF
-                       CIF_Cured = aj_All$pstate[,"Cured"]) # Cure CIF
 
-# - Create event probabilities for cause g as f_g(t) = F_g(t) - F_g(t-1)
-datSurv2[, EventRate_WriteOff := CIF_WriteOff - shift(CIF_WriteOff, n=1, fill=0) ]
-datSurv2[, EventRate_Cured := CIF_Cured - shift(CIF_Cured, n=1, fill=0) ]
+# --- Cleanup
+cleanEnviron()
 
-# - Create cause-specific sub-hazard functions h_1(t) and h_2(t)
-datSurv2[, Hazard_WriteOff := Event_n_WriteOff / AtRisk_n]
-datSurv2[, Hazard_Cured := Event_n_Cured / AtRisk_n]
-datSurv2[, SurvivalProb_Overall := cumprod(1 - Hazard_WriteOff - Hazard_Cured)] # S(t) = 1 - h_1(t) - h_2(t)
