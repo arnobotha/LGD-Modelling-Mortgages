@@ -486,6 +486,10 @@ ggsave(gsurv_RMST, file=paste0(genFigPath, "SurvivalAnalysis/Conditional_Expecte
        width=1200/dpi, height=1000/dpi,dpi=dpi, bg="white")
 
 
+# --- 4.3 Save RMST data
+pack.ffdf(paste0(genPath,"datRMST"), datRMST)
+
+
 
 
 # ============ 5. Housekeeping ============

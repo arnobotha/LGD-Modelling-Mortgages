@@ -9,9 +9,8 @@
 # or, indeed, used across other projects. Functions are grouped thematically.
 # ==============================================================================
 
-# ----------------- 1. Functions related to the modelling process------------------
 
-
+# ----------------- 1. Functions related to the modelling process ------------------
 
 # --- Function to add and/or remove certain values from a vector (Improves readability of code)
 # Input:  [mat]: (2 x n) Matrix on which changes will be made. The first column contains the variable names (vars) and the second their respective variable type (vartypes);
@@ -269,5 +268,31 @@ calcRMST <- function(km, tau=NA, t=1) {
   # - Return RMST
   return(rmst)
 }
+
+
+# --- Function to calculate the residual hazard
+# -- Helper function for summing future redisual hazards to the horizon end M
+forward_sum <- function(x, M) {
+  # Unit test conditions
+  # x<-event; M<-M
+  
+  x <- fcoalesce(x, 0)
+  
+  n <- length(x)
+  
+  sapply(seq_len(n), function(i) {sum(x[i:min(n, i + M[i] - 1)])})
+}
+
+# -- Function for calculating the residual hazard
+calc_residual <- function(event, surv, M) {
+  # - Unit test conditions
+  # lookup_bas <- datCredit[DefSpell_Key==datCredit[DefSpellResol_Type_Hist=="WOFF" & TimeInDefSpell==50, DefSpell_Key][1000],
+  #                          c("DefSpell_Key", "Date", "Hazard_bas", "Survival_bas", "EventRate_bas", "RMST", "Hazard_bas_res", "WOff_Ind")]
+  # event<-lookup_bas$EventRate_bas; surv<-lookup_bas$Survival_bas; M<-lookup_bas$RMST
+  
+  # - Calculate residual hazard
+  forward_sum(event, M)/shift(surv, fill=1)
+}
+
 
 
