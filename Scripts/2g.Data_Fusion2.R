@@ -89,6 +89,10 @@ if (all(is.na(stratifiers))){ # No stratifiers
 # - Save intermediary snapshots to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final_CDH_keys"), datKeys)
 
+# - Set subsampling parameters for restricting the model training data to be ion a certain period
+date_sub_start <- as.Date("2008-01-01")
+date_sub_end <- as.Date("2019-12-31")
+
 
 
 
@@ -755,7 +759,8 @@ rm(datMV, list_merge_variables, results_missingness, datMV_Check1, datMV_Check2)
 
 
 # --- 3.9 Model-based feature engineering
-# See script 0h for function definition
+# - Binned [TimeInDefSpell]
+### NOTE: See script 0h for function definition
 datCredit_prep[, Time_Binned := timeBinning(TimeInDefSpell)]
 datCredit_prep[, Time_Binned_Coarser := timeBinning_coarser(TimeInDefSpell)]
 table(datCredit_prep[!is.na(DefSpell_Key), Time_Binned]) %>% prop.table()
@@ -783,6 +788,15 @@ datCredit_prep[, DefSpell_EventType :=
 datCredit_prep[, DefSpell_EventType := 
                   factor(DefSpell_EventType, levels=c("Censored", "Write-off", "Cured"))]
 
+# - Date of default spell resolution
+# Create field
+datCredit_prep[, DefSpellResol_DateEnd:=Date[DefSpellResol_TimeEnd==Age_Adj], by=list(DefSpell_Key)]
+# [SANITY CHECK]
+datCredit_prep[DefSpell_Counter==1,.N]==datCredit_prep[DefSpellResol_DateEnd==Date,.N]
+### RESULTS: [DefSpellResol_DateEnd] created correctly, total default spells equals number of instances
+###          where [DefSpellResol_DateEnd]==[Date], which indicates there is on resolution date for each spell
+
+
 # --- 3.11 Save fused- and enriched subsampled dataset for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), datCredit_prep)
 
@@ -795,7 +809,7 @@ pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), datCredit_prep)
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), tempPath)
 if (!exists('datKeys')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_keys"), tempPath)
 
-# Set sampling parameters
+# - Set sampling parameters
 clusVar <- "LoanID"
 smp_frac <- 0.7
 
@@ -869,12 +883,12 @@ pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
 # ============ 5. Apply a cross-validation clustered resampling scheme | Selecting random spell observations ============
 
 # - Confirm that required data objects are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath, "creditdata_train_CDH"), tempPath); gc()
+if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath, "creditdata_valid_CDH"), tempPath); gc()
 
-# - Subset for default spells
-datCredit_train_CS <- datCredit_train_CDH[!is.na(DefSpell_Key)]
-datCredit_valid_CS <- datCredit_valid_CDH[!is.na(DefSpell_Key)]
+# - Subset for resolved default spells only
+datCredit_train_CS <- datCredit_train_CDH[!is.na(DefSpell_Key) & DefSpellResol_Type_Hist %in% c("Cured", "WOFF")]
+datCredit_valid_CS <- datCredit_valid_CDH[!is.na(DefSpell_Key) & DefSpellResol_Type_Hist %in% c("Cured", "WOFF")]
 
 # - Create an indicator to identify a write-off
 datCredit_train_CS[, DefSpell_Event:=ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
@@ -887,7 +901,8 @@ datCredit_valid_CS <- datCredit_valid_CS[, .SD[sample(.N, 1)], by=list(DefSpell_
 
 # - [SANITY CHECKS]
 # Cardinality of training and validation sets
-check1 <- datCredit_train_CS[,.N]==uniqueN(datCredit_train_CDH$DefSpell_Key, na.rm=T) & datCredit_valid_CS[,.N]==uniqueN(datCredit_valid_CDH$DefSpell_Key, na.rm=T)
+check1 <- datCredit_train_CS[,.N]==uniqueN(datCredit_train_CDH[DefSpellResol_Type_Hist %in% c("Cured", "WOFF"), DefSpell_Key], na.rm=T) &
+  datCredit_valid_CS[,.N]==uniqueN(datCredit_valid_CDH[DefSpellResol_Type_Hist %in% c("Cured", "WOFF"), DefSpell_Key], na.rm=T)
 cat((check1 %?% "SAFE: Training and validation datasets created succcessfully by selecting a random row from each default spell. \n" %:% 
        'WARNING: Training and validation datasets created unsucccessfully by selecting a random row from each default spell. \n' ))
 # Total write-off instances
@@ -907,7 +922,77 @@ pack.ffdf(paste0(genPath,"creditdata_valid_CS"), datCredit_valid_CS)
 
 
 
-# ============ 6. Housekeeping ============
+# ============ 6. Split data into training, validation, and out-of-time samples ============
+### NOTE: - The training and validation samples are restricted to the specified period in section 1
+###       - An out-of-time (OOT) dataset is created for out-of-time testing diagnostics
+###       - For the full data we include all observations of a default spell before the specified end date
+###         in the training and validation sets, whilst the OOT gets all observations past the specified end date
+###       - For the cross-sectional sets, only resolved default spells in the specified window are include in the
+###         training and validation sets since the model needs to be trained on resolved spells only
+  
+  
+# --- 6.1 Full samples
+# - Subsample data
+datCredit_train_CDH_sub <- datCredit_train_CDH[Date>=date_sub_start & Date<=date_sub_end]
+datCredit_valid_CDH_sub <- datCredit_valid_CDH[Date>=date_sub_start & Date<=date_sub_end]
+
+# - Create out-of-time data
+datCredit_CDH_OOT <- rbind(datCredit_train_CDH[Date>date_sub_end],
+                           datCredit_valid_CDH[Date>date_sub_end])
+
+# - [SANITY CHECK] Assess cardinality of newly created datasets
+datCredit_train_CDH_sub[,.N]/datCredit_train_CDH[,.N]*100
+datCredit_valid_CDH_sub[,.N]/datCredit_valid_CDH[,.N]*100
+datCredit_CDH_OOT[,.N]/(datCredit_train_CDH[,.N]+datCredit_valid_CDH[,.N])*100
+### RESULTS: - Training set is reduced to 80.32% of original size
+###          - Validation set is reduced to 80.36% of original size
+###          - OOT set consists of 11.23% of original training & validation observations
+
+# - [SANITY CHECK] Does the new OOT sample contain all spells as expected from the original sets
+check1<-datCredit_CDH_OOT[,.N]==datCredit_train_CDH[Date>date_sub_end,.N]+datCredit_valid_CDH[Date>date_sub_end,.N]
+cat(((check1) %?% "SAFE: Training, validation, and OOFs samples created suscessfully. \n" %:% 
+       'WARNING: Training, validation, and OOFs samples not created suscessfully. \n' ))
+
+
+# --- 6.2 Cross-sectional samples
+# - Subsample data
+datCredit_train_CS_sub <- datCredit_train_CS[Date>=date_sub_start & DefSpellResol_DateEnd<=date_sub_end]
+datCredit_valid_CS_sub <- datCredit_valid_CS[Date>=date_sub_start & DefSpellResol_DateEnd<=date_sub_end]
+
+# - Create out-of-time data
+datCredit_CS_OOT <- rbind(datCredit_train_CS[DefSpellResol_DateEnd>date_sub_end],
+                          datCredit_valid_CS[DefSpellResol_DateEnd>date_sub_end])
+
+# - [SANITY CHECK] Assess cardinality of newly created datasets
+datCredit_train_CS_sub[,.N]/datCredit_train_CS[,.N]*100
+datCredit_valid_CS_sub[,.N]/datCredit_valid_CS[,.N]*100
+datCredit_CS_OOT[,.N]/(datCredit_train_CS[,.N]+datCredit_valid_CS[,.N])*100
+### RESULTS: - Training set is reduced to 72.5% of original size
+###          - Validation set is reduced to 72.5% of original size
+###          - OOT set consists of 14.19% of original training & validation observations
+
+# - [SANITY CHECK] Does the new OOT sample contain all spells as expected from the original sets
+check2<-datCredit_CS_OOT[,.N]==(datCredit_train_CS[Date>=date_sub_start,.N]-datCredit_train_CS_sub[,.N])+
+  (datCredit_valid_CS[Date>=date_sub_start,.N]-datCredit_valid_CS_sub[,.N])
+cat(((check2) %?% "SAFE: Training, validation, and OOFs (cross-sectional) samples created suscessfully. \n" %:% 
+       'WARNING: Training, validation, and OOTs (cross-sectional) samples not created suscessfully. \n' ))
+
+
+# --- 6.3 Save sets
+# - Full sets
+pack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), datCredit_train_CDH_sub)
+pack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), datCredit_valid_CDH_sub)
+pack.ffdf(paste0(genPath,"creditdata_CDH_OOT"), datCredit_CDH_OOT)
+
+# - Cross-sectional sets
+pack.ffdf(paste0(genPath,"creditdata_train_CS_sub"), datCredit_train_CS_sub)
+pack.ffdf(paste0(genPath,"creditdata_valid_CS_sub"), datCredit_valid_CS_sub)
+pack.ffdf(paste0(genPath,"creditdata_OOT_CS"), datCredit_CS_OOT)
+
+
+
+
+# ============ 7. Housekeeping ============
 
 cleanEnviron()
 
