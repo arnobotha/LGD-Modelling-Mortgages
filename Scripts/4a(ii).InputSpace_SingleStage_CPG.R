@@ -587,7 +587,9 @@ modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + ")
                data=datCredit_train_sub)
 summary(modGLM)
 evalLS(modGLM, datCredit_train_sub, targetFld="LossRate_Real", modGLM_base)
-### RESULTS: AIC: 58338.84; R^2: 12.01%; RMSE: 20.43%; MAE: 10.78%
+### RESULTS: - Insignificant variables
+###             None
+###          - AIC: 54753.16; R^2: 13.52257%; RMSE: 19.8635%; MAE: 10.16333%
 
 
 # --- 8.3 Save objects
