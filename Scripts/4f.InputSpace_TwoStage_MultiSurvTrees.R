@@ -114,7 +114,7 @@ datCredit[, Counter_Artificial := 1:.N, by=.(LoanID)]
 datAdd <- subset(datCredit, Counter_Artificial==1 & TimeInDefSpell>1)
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
 datAdd[, Time_Binned := timeBinning(TimeInDefSpell)]
-datAdd[, Counter:=0]
+datAdd[, Counter_Artificial:=0]
 # Add record to main dataset
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
 
@@ -134,7 +134,7 @@ datCredit[, Survival_overall_exp := cumprod(1-Hazard_WriteOff_Exp-Hazard_Cured_E
 datCredit[, EventRate_WriteOff_exp := shift(Survival_overall_exp, n=1,fill=1) * Hazard_WriteOff_Exp, by=.(DefSpell_Key)]
 
 # - Remove added rows
-datCredit <- subset(datCredit, Counter>0)
+datCredit <- subset(datCredit, Counter_Artificial>0)
 
 
 # --- 2.3 Aggregate event rates to spell period level and plot and calculate MAE
@@ -155,7 +155,7 @@ lines(datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_WriteOff], type="b", c
 # MAE
 mean(abs(datSurv2[Time<=sMaxSpellAge, EventRate_WriteOff] - 
       datSurv_exp[TimeInDefSpell<=sMaxSpellAge, EventRate_WriteOff]), na.rm=T)
-# MAE: 0.00475
+# MAE: 0.00461
 
 
 # --- 2.4 tROC-analysis

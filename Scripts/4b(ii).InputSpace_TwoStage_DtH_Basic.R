@@ -91,12 +91,6 @@ coeftest(modLR_basic, vcov.=robust_se)
 # - Combine results into a single object
 (Table_CoxDisc_basic <- concTable_CoxDisc_basic[,1:2] %>% left_join(aicTable_CoxDisc_basic, by ="Variable"))
 
-# - Additional goodness of fit tests
-GoF_CoxSnell_KS(modLR_basic, datCredit_train, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Basic",
-                fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Bas", ".png"), dpi=280)
-### MM: Not working on my side, "Object 'DefSpell_ExitInd' not found amongst..."
-### RESULTS: KS-statistic = %; Harrell's c = %; AIC = 
-
 # - Save objects
 # Model analytics
 pack.ffdf(paste0(genObjPath,"CoxDisc_basic_fits"), Table_CoxDisc_basic)

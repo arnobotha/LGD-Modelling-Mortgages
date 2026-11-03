@@ -157,7 +157,7 @@ vars <- c("Time_Binned", "DefSpell_Num_binned", "log(TimeInDefSpell):DefSpell_Nu
           "InterestRate_Nom", 
           "M_Repo_Rate_12", "M_DTI_Growth_12", "M_RealIncome_Growth_9", "M_Inflation_Growth_12",
           "NewLoans_Aggr_Prop"
-          # worsened term-structure
+          # The following variables worsened the term-structure diagnostic:
           #""Principal_Real"", "Balance_Real_1", 
           #"InterestRate_Margin_Aggr_Med_2", "slc_acct_roll_ever_24_imputed_mean", g0_Delinq_Lag_1, 
           # "slc_acct_arr_dir_3", "pmnt_method_grp", "InterestRate_Margin_Aggr_Med_2",
@@ -171,14 +171,13 @@ evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", pre
 ### RESULTS: AIC:  471,97; McFadden R^2: 27.63%; AUC: 81.69%
 
 # - Store objects on disc
-pack.ffdf(paste0(genObjPath,"MLR_DtH_results"), modMLR_Result)
 pack.ffdf(paste0(genPath,"MultiDtH_WOff"), modMLR)
-
 
 
 # --- Statistical significance: Likelihood Ratio Test
 ptm <- proc.time() # for runtime calculations (ignore)
 modMLR_Result  <- dropterm(modMLR, trace=F, test="Chisq", maxit=50)
+pack.ffdf(paste0(genObjPath,"MLR_DtH_results"), modMLR_Result)
 proc.time() - ptm # IGNORE: elapsed runtime; 4.3h
 ### RESULTS: All variables are significant
 

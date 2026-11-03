@@ -497,7 +497,7 @@ evalLR(modLR, modLR_base, datCredit_train_CS, targetFld="DefSpell_Event", predCl
 
 # ============ 7. Adjusting the model training period ============
 ### NOTE: We change the training period to 2008-01-01 -> 2019-12-31, which
-###       ensures a out-of-time and out-of-sample backtesting/assessment.
+###       ensures an out-of-time and out-of-sample back-testing/assessment.
 
 # --- 7.1 Initial fit
 # - Fit an "empty" model as a performance gain, used within some diagnostic functions
@@ -519,9 +519,9 @@ evalLR(modLR, modLR_base, datCredit_train_CS_sub, targetFld="DefSpell_Event", pr
 
 # --- 7.2 Model refinements | Adjusting the input space based on expert judgement
 ### NOTE: 1) The following variables are removed due to insignificance:
-###             [AgeToTerm_Aggr_Mean]
+###             [AgeToTerm_Aggr_Mean], slc_past_due_amt_imputed_med     
 vars <- colnames(modLR$model[,-1])
-vars <- vars[!(vars %in% c("AgeToTerm_Aggr_Mean"))]
+vars <- vars[!(vars %in% c("AgeToTerm_Aggr_Mean", "slc_past_due_amt_imputed_med"))]
 
 # - Fit model
 modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
@@ -533,7 +533,7 @@ evalLR(modLR, modLR_base, datCredit_train_CS_sub, targetFld="DefSpell_Event", pr
 ### CONCLUSION: Final model confirmed as:
 ###               [PrevDefaults]; [Arrears]; [g0_Delinq_Lag_1]; [M_Repo_Rate_12];
 ###               [InterestRate_Margin_imputed_mean]; [g0_Delinq_SD_6]; [Balance_Real_1];
-###               [slc_past_due_amt_imputed_med]; [M_RealGDP_Growth_6]; [M_Inflation_Growth_12];
+###               [M_RealGDP_Growth_6]; [M_Inflation_Growth_12];
 ###               [ArrearsToBalance_1_Aggr_Prop]; [TimeInDefSpell]
 
 
@@ -552,9 +552,10 @@ modLR_base <- glm(DefSpell_Event ~ 1, data=datCredit_train_CS_sub, family="binom
 
 # --- 8.2 Fit model
 # - Final variables
+### NOTE: [slc_past_due_amt_imputed_med] removed due to statistical insignifance on the rextricted training window
 vars <- c("PrevDefaults", "Arrears", "g0_Delinq_Lag_1", "M_Repo_Rate_12",
          "InterestRate_Margin_imputed_mean", "g0_Delinq_SD_6", "Balance_Real_1",
-         "slc_past_due_amt_imputed_med", "M_RealGDP_Growth_6", "M_Inflation_Growth_12",
+          "M_RealGDP_Growth_6", "M_Inflation_Growth_12",
          "ArrearsToBalance_1_Aggr_Prop", "TimeInDefSpell")
   
 # - Fit model
@@ -562,8 +563,7 @@ modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))
              data=datCredit_train_CS_sub, family="binomial")
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train_CS_sub, targetFld="DefSpell_Event", predClass=1)
-### RESULTS: - Insi
-###          - AIC: 49 787; McFadden R^2: 36.02%; AUC: 88.35%
+### RESULTS: AIC: 49 785; McFadden R^2: 36.02%; AUC: 88.35%
 
 
 # --- 8.3 Assess model
@@ -586,11 +586,6 @@ coeftest(modLR, vcov.=robust_se)
 
 # - Combine results into a single object
 Table_LR <- merge(concTable_LR[,1:2], aicTable_LR, by="Variable")
-
-# - Additional goodness of fit tests
-GoF_CoxSnell_KS(modLR, datCredit_train_CS_sub, GraphInd=TRUE, ,legPos=c(0.6,0.4), panelTitle="Logistic Regression",
-                fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_LR", ".png"), dpi=280,fldLstRowInd="DefSpell_Counter")
-### RESULTS: KS-statistic=42%; Harell's c=88.538%; AIC=48 995
 
 
 # --- 8.4 Housekeeping

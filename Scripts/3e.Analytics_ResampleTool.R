@@ -330,10 +330,8 @@ datGraph <- rbind(datCredit[, Sample:="a_Full"],
 colnames(datGraph) <- c("clusVar_Spell", "timeVar", "timeVar_SpellMin", "timeVar_SpellMax", "Spell_Resol", "Sample")
 
 # - Setting some aggregation parameters, purely to facilitate graphing aesthetics
-StartDte <- min(datCredit_smp$timeVar, na.rm=T)
-EndDte <- max(datCredit_smp$timeVar, na.rm=T)
-maxDate <- EndDte # A post-hoc filter, used for graphing purposes - left as the end of the sampling window
-minDate <- StartDte + month(1) # A post-hoc filter, used for graphing purposes - set as one month after the sampling window
+maxDate <- as.Date("2019-12-31")  # Used for graphing purposes
+minDate <- as.Date("2008-01-31") # Used for graphing purposes
 
 # - Fixing to spell entry-time, we aggregate to monthly level and observe the time series up to given point
 datAggr_cohorts <- merge(datGraph[timeVar==timeVar_SpellMin, list(Sum_Total = .N), by=list(Sample,timeVar)],
@@ -425,54 +423,6 @@ dpi <- 200
 ggsave(g2, file=paste0(genFigPath, "ResolutionRates_Def_te_resample_", 
                        round(datCredit_smp[,.N]/1000),"k.png"), width=1200/(dpi), height=1800/(dpi), dpi=dpi, bg="white")
 
-# --- Create graph only for censored
-(g2a <- ggplot(datAggr_cohorts[Spell_Resol=="Censored" ,], aes(x=timeVar, y=Prop)) + theme_minimal() + 
-    labs(x=bquote("Default spell cohorts (mmmccyy): entry time "*italic(t[e])), y=bquote("Resolution rate (%) of type "*italic(kappa)==1)) +
-    theme(text=element_text(family=chosenFont),legend.position = "bottom",
-          axis.text.x=element_text(angle=90), #legend.text=element_text(family=chosenFont), 
-          strip.background=element_rect(fill="snow2", colour="snow2"),
-          strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
-    # main line graph with overlaid points
-    geom_line(aes(colour=Sample, linetype=Sample)) + 
-    geom_point(aes(colour=Sample, shape=Sample), size=1) + 
-    # facets
-    facet_wrap(Facet~., labeller = label_parsed, scales = "free", strip.position="right") + 
-    #annotations
-    geom_text(data=datAnnotate[Spell_Resol=="Censored", ], aes(x=x, y=y, hjust=hjust, vjust=vjust, label = Label), family=chosenFont, size=3, parse=T) + 
-    # scale options
-    scale_colour_manual(name=bquote("Sample "*italic(bar(D))), values=vCol, labels=vLabel) + 
-    scale_shape_discrete(name=bquote("Sample "*italic(bar(D))), labels=vLabel) + scale_linetype_discrete(name=bquote("Sample "*italic(bar(D))), labels=vLabel) + 
-    scale_y_continuous(breaks=pretty_breaks(), label=percent) + 
-    scale_x_date(date_breaks=paste0(6, " month"), date_labels = "%b %Y"))
-
-# - Save graph
-dpi <- 200
-ggsave(g2a, file=paste0(genFigPath, "ResolutionRates_Def_te_resample_Censored", 
-                        round(datCredit_smp[,.N]/1000),"k.png"), width=1200/(dpi), height=1000/(dpi), dpi=dpi, bg="white")
-# --- Create graph only for cured
-(g2b <- ggplot(datAggr_cohorts[Spell_Resol=="Cured",], aes(x=timeVar, y=Prop)) + theme_minimal() + 
-    labs(x=bquote("Default spell cohorts (mmmccyy): entry time "*italic(t[e])), y=bquote("Resolution rate (%) of type "*italic(kappa)==1)) +
-    theme(text=element_text(family=chosenFont),legend.position = "bottom",
-          axis.text.x=element_text(angle=90), #legend.text=element_text(family=chosenFont), 
-          strip.background=element_rect(fill="snow2", colour="snow2"),
-          strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
-    # main line graph with overlaid points
-    geom_line(aes(colour=Sample, linetype=Sample)) + 
-    geom_point(aes(colour=Sample, shape=Sample), size=1) + 
-    # facets
-    facet_wrap(Facet~., labeller = label_parsed, scales = "free", strip.position="right") + 
-    #annotations
-    geom_text(data=datAnnotate[Spell_Resol=="Cured", ], aes(x=x, y=y, hjust=hjust, vjust=vjust, label = Label), family=chosenFont, size=3, parse=T) + 
-    # scale options
-    scale_colour_manual(name=bquote("Sample "*italic(bar(D))), values=vCol, labels=vLabel) + 
-    scale_shape_discrete(name=bquote("Sample "*italic(bar(D))), labels=vLabel) + scale_linetype_discrete(name=bquote("Sample "*italic(bar(D))), labels=vLabel) + 
-    scale_y_continuous(breaks=pretty_breaks(), label=percent) + 
-    scale_x_date(date_breaks=paste0(6, " month"), date_labels = "%b %Y"))
-
-# - Save graph
-dpi <- 200
-ggsave(g2b, file=paste0(genFigPath, "ResolutionRates_Def_te_resample_Cured", 
-                        round(datCredit_smp[,.N]/1000),"k.png"), width=1200/(dpi), height=1000/(dpi), dpi=dpi, bg="white")
 # Produce graph focusing only on written-off component
 (g2c <- ggplot(datAggr_cohorts[Spell_Resol=="Written-off" ,], aes(x=timeVar, y=Prop)) + theme_minimal() + 
     labs(x=bquote("Default spell cohorts (mmmccyy): entry time "*italic(t[e])), y=bquote("Resolution rate (%) of type "*italic(kappa)==1)) +
@@ -495,11 +445,11 @@ ggsave(g2b, file=paste0(genFigPath, "ResolutionRates_Def_te_resample_Cured",
 
 # - Save graph
 dpi <- 200
-ggsave(g2c, file=paste0(genFigPath, "ResolutionRates_Def_te_resample_WOff", 
+ggsave(g2c, file=paste0(genFigPath, "ResolutionRates_Def_te_resample_WOff_", 
                         round(datCredit_smp[,.N]/1000),"k.png"), width=1200/(dpi), height=1000/(dpi), dpi=dpi, bg="white")
 
 # - Cleanup
-suppressWarnings( rm(datGraph, datAggr_cohorts, datAnnotate, resolPerf_levels, chosenFont, g1, g2,g2a,g2b,g2c,
+suppressWarnings( rm(datGraph, datAggr_cohorts, datAnnotate, resolPerf_levels, chosenFont, g1, g2,g2c,
                      vCol, vLabel, colnames, datAggr_cohorts2, datFacetsProp) )
 
 
@@ -520,10 +470,8 @@ datGraph <- rbind(datCredit[, Sample:="a_Full"],
 colnames(datGraph) <- c("clusVar_Spell", "timeVar", "timeVar_SpellMin", "timeVar_SpellMax", "Spell_Resol", "Spell_Resol2", "Sample")
 
 # - Setting some aggregation parameters, purely to facilitate graphing aesthetics
-StartDte <- min(datCredit_smp$timeVar, na.rm=T)
-EndDte <- max(datCredit_smp$timeVar, na.rm=T)
-maxDate <- EndDte # A post-hoc filter, used for graphing purposes - left as the end of the sampling window
-minDate <- StartDte #+ month(1) # A post-hoc filter, used for graphing purposes - set as one month after the sampling window
+maxDate <- as.Date("2019-12-31")  # Used for graphing purposes
+minDate <- as.Date("2008-01-31") # Used for graphing purposes
 
 # - Fixing to spell stop-time, we aggregate to monthly level and observe the time series up to given point
 datAggr_cohorts <- merge(datGraph[timeVar==timeVar_SpellMax, list(Sum_Total = .N), by=list(Sample,timeVar)],
@@ -659,6 +607,4 @@ rm(datAnnotate, resolDef_levels, chosenFont, vCol, vLabel, datAggr_cohorts,
    datAggr_cohorts2, maxDate, minDate, datFacetsProp)
 
 # --- Cleanup
-suppressWarnings(rm(g1, g2, g3, g4, g5, datCredit, datCredit_smp, stratifiers, clusVar, Counter, timeVar, End_Dte,
-                    Start_Dte, datGraph, datCredit_train, datCredit_valid, 
-                    dat_train_keys, datKeys, datKeys_sampled))
+cleanEnviron()

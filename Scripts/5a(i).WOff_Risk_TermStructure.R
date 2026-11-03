@@ -91,7 +91,7 @@ SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 if (!exists('datSurv')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), tempPath);gc()
 
 
-# --- 1.3 Estimate event rates for DtH models
+# --- 1.4 Estimate event rates for DtH models
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
@@ -117,11 +117,10 @@ datCredit <- subset(datCredit, Counter_Artificial>0)
 
 # [SANITY CHECK]
 lookup <- subset(datCredit, LoanID == unique(datCredit[DefSpell_Num==1 & DefSpell_Age >= 12, LoanID])[1],
-                 select=c("DefSpell_Num", "TimeInDefSpell", "Hazard_CSLR",
-                          "Hazard_adv", "EventRate_adv", "Survival_adv"))
+                 select=c("DefSpell_Num", "TimeInDefSpell", "Hazard_adv", "EventRate_adv", "Survival_adv"))
 
 
-# --- 1.4 Get event rates from the survival tree
+# --- 1.5 Get event rates from the survival tree
 # - Get training data from survival tree
 datCredit_train_SurvTree <- SurvTree_CTree$datTrain
 
@@ -175,7 +174,6 @@ plot(datSurv[Time<=120, EventRate], type="b")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_adv], type="b", col="red")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_bas], type="b", col="green")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_survtree], type="b", col="blue")
-plot(datSurv_exp[TimeInDefSpell<=120, Hazard_CSLR], type="b", col="steelblue")
 ### CONCLUSION: Note that the output from the CS-LR
 
 
@@ -208,11 +206,11 @@ datMAE <- datGraph2 %>%
 # Advanced model
 (MAE_eventProb_adv <- mean(abs(datMAE$a_Actual-datMAE$c_Expected_adv), na.rm=T))
 # Survival tree
-(MAE_eventProb_SurvTree <- mean(abs(datMAE$a_Actual-datMAE$e_Expected_SurvTree), na.rm=T))
+(MAE_eventProb_SurvTree <- mean(abs(datMAE$a_Actual-datMAE$d_Expected_SurvTree), na.rm=T))
 
 # - Graphing parameters
 vCol <- brewer.pal(8, "Dark2")
-vLabel2 <- c("a_Actual"="Empirical (KM)", "b_Expected_bas"="DtH-Basic", "c_Expected_adv"="DtH-Advanced",
+vLabel2 <- c("a_Actual"="Empirical (Kaplan-Meier)", "b_Expected_bas"="DtH-Basic", "c_Expected_adv"="DtH-Advanced",
              "d_Expected_SurvTree"="CI-tree")
 chosenFont <- "Cambria"
 
@@ -253,6 +251,3 @@ ggsave(gsurv_ft2, file=paste0(genFigPath, "EventProb_Write-Off_ActVsExp_CoxDisc_
 # ============ 4. Housekeeping ============
 
 cleanEnviron()
-
-
-

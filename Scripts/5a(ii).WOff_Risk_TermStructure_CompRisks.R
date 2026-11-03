@@ -47,7 +47,7 @@ sDateStp <- as.Date("2019-12-31")
 datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
 datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
 
-# - Combine training and validation datasets to facilitate "better" (smooth) graphs
+# - Combine training and validation datasets to facilitate "better" graphs with smoother line graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
 
 # - Remove objects
@@ -157,7 +157,7 @@ datMAE <- datGraph %>%
 
 # - Graphing parameters
 vCol <- brewer.pal(8, "Dark2")
-vLabel <- c("a_Actual"="Empirical (AJ)", "b_Expected_MultiNom_DtH"="DtH-Multinomial",
+vLabel <- c("a_Actual"="Empirical (Aalen-Johansen)", "b_Expected_MultiNom_DtH"="DtH-Multinomial",
             "c_Expected_MultiNom_Tree"="Multinomial CI-tree")
 chosenFont <- "Cambria"
 

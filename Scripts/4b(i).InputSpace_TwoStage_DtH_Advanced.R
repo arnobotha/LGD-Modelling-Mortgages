@@ -648,38 +648,24 @@ evalLR(modLR_step, modLR_base, datCredit_train, targetFld="DefSpell_Event", pred
 ###           12) [g0_Delinq_Any_Aggr_Prop_Lag_12]
 ###           13) [slc_acct_arr_dir_3]
 ###           14) [slc_curing_ind]
+### Changed: removed intercept
 # - Initialise set of variables
-vars <- c("Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
+vars <- c("-1", "Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
           "InterestRate_Nom", "pmnt_method_grp",
-          "Principal_Real",
+          "Principal_Real", "Balance_Real_1",
           "M_Repo_Rate_12", "NewLoans_Aggr_Prop",
           "DefaultStatus1_Aggr_Prop_Lag_12",
           "g0_Delinq_Ave", "M_Inflation_Growth_12",
           "g0_Delinq_Lag_1", "InterestRate_Margin_Aggr_Med_2",
-          "M_DTI_Growth_12", "M_RealIncome_Growth_9", "Balance_Real_1"
+          "M_DTI_Growth_12", "M_RealIncome_Growth_9"
 )
 
-# - Fit model
+# - Fit and evaluate model
 modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
              data=datCredit_train, family="binomial")
-
-# - Evaluate model
 summary(modLR)
 evalLR(modLR, modLR_base, datCredit_train, targetFld="DefSpell_Event", predClass=1)
 ### RESULTS: AIC: 79 024; McFadden R^2: 64.39%; AUC: 98.58%
-
-### CONCLUSION: Select these as the final variables:
-###             [Time_Binned], [log(TimeInDefSpell)],
-###             [DefSpell_Num_binned], [log(TimeInDefSpell):DefSpell_Num_binned],
-###             [InterestRate_Nom], [pmnt_method_grp],
-###             [Principal_Real],
-###             [M_Repo_Rate_12], [NewLoans_Aggr_Prop],
-###             [DefaultStatus1_Aggr_Prop_Lag_12],
-###             [g0_Delinq_Ave], [M_Inflation_Growth_12],
-###             [g0_Delinq_Lag_1], [InterestRate_Margin_Aggr_Med_2],
-###             [M_DTI_Growth_12], [M_RealIncome_Growth_9], [Balance_Real_1]
-
-### CONCLUSION: All variables are significant
 
 
 
@@ -700,8 +686,7 @@ vars <- c("-1", "Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
           "DefaultStatus1_Aggr_Prop_Lag_12",
           "g0_Delinq_Ave", "M_Inflation_Growth_12",
           "g0_Delinq_Lag_1", "InterestRate_Margin_Aggr_Med_2",
-          "M_RealIncome_Growth_9", "Balance_Real_1")
-### MM: These variables do not match those in the comments at the end of section 8?
+          "M_DTI_Growth_12", "M_RealIncome_Growth_9",)
 
 # - Fit model
 modLR <- glm(as.formula(paste("DefSpell_Event ~", paste(vars, collapse = " + "))),
@@ -778,12 +763,6 @@ coeftest(modLR, vcov.=robust_se)
 # - Combine results into a single object
 (Table_CoxDisc <- concTable_CoxDisc[,1:2] %>% left_join(aicTable_CoxDisc, by ="Variable"))
 
-# - Additional goodness of fit tests
-GoF_CoxSnell_KS(modLR, datCredit_train_sub, GraphInd=TRUE, legPos=c(0.6,0.4), panelTitle="Survival Analysis: Advanced",
-                fileName = paste0(genFigPath, "KS_Test_CoxSnellResiduals_Exp_CDH_Adv", ".png"), dpi=280)
-### MM: Not working on my side, "Object 'DefSpell_ExitInd' not found amongst..."
-### RESULTS: KS-statistic = 94%; Harrell's c = 98.578%; AIC = 79 024
-
 
 # --- 10.3 Save objects
 # Model analytics
@@ -794,6 +773,3 @@ saveRDS(modLR_Adv, file=paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
 # - Cleanup
 cleanEnviron()
-
-
-

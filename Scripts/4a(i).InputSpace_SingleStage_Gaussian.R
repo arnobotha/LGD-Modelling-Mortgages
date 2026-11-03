@@ -559,7 +559,7 @@ modGLM <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))
               data=datCredit_train,family = gaussian(link = "identity"))
 summary(modGLM)
 evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: -26910.01; R^2: 16.19; RMSE: 19.89%; MAE: 11.35%
+### RESULTS: AIC: -26615.67; R^2: 16.22; RMSE: 19.9%; MAE: 11.39%
 
 
 # --- 9.3 Save objects

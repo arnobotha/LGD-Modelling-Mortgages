@@ -201,12 +201,16 @@ if (check3.2==0) {cat("SAFE: No missing event rates present.\n")} else {cat("WAR
 # - Perform time-dependent ROC analysis
 predictTime <- 44
 ptm <- proc.time() #IGNORE: for computation time calculation
-objROC44_ST <- tROC.multi(datGiven=datCredit[Sample=="Validation"], modGiven=NA, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
-                          fld_ID="DefSpell_Key", fld_Event="WOff_Ind", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                          caseStudyName=paste0("Cond_SurvTree_", predictTime), numThreads=12, logPath=genPath, 
-                          predType="response", MarkerGiven="Hazard", Graph=T)
+objROC44_ST <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                          Marker = datCredit[Sample=="Validation", Hazard],
+                          month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                          fld_Event="WOff_Ind", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                          caseStudyName=paste0("Cond_SurvTree_", predictTime), numThreads=4, logPath=genPath, 
+                          Graph=T)
 proc.time() - ptm
 objROC44_ST$AUC ;objROC44_ST$ROC_graph
+### FINAL RESULTS: AUC up to t: 75.56%, achieved in 240 secs (maximum node depth=4)
+
 
 # -- Sampling fraction=0.25; No filtering on DefaultSpell_Age; Curated input space used; various maximum node depths
 ### RESULTS: AUC up to t: 82.71511%, achieved in 35 secs (maximum node depth=1)
@@ -272,7 +276,7 @@ objROC44_ST$AUC ;objROC44_ST$ROC_graph
 # --- 4.2 Constructing the empirical term-structure of write-off using a Kaplan-Meier estimator
 # - Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
 km_Default <- survfit(Surv(time=TimeInDefSpell-1, time2=TimeInDefSpell, event=WOff_Ind==1, type="counting") ~ 1, 
-                      id=DefSpell_Key, data=datCredit)
+                      id=DefSpell_Key, data=datCredit[!is.na(DefSpell_Key),])
 
 # - Create survival table
 datSurv_act <- surv_summary(km_Default)
@@ -307,6 +311,7 @@ datSurv_exp <- datSurv_exp[order(TimeInDefSpell)]
 plot(x=datSurv_exp[TimeInDefSpell<=120, TimeInDefSpell], y=datSurv_exp[TimeInDefSpell<=120, EventRate], type="l", col="green")
 lines(datSurv_act[Time<=120, EventRate], type="l", col="red")
 mean(abs(datSurv_exp[TimeInDefSpell<=120,EventRate] - datSurv_act[Time<=120,EventRate]), na.rm=T)
+### FINAL RESULTS: 0.001976263
 
 # -- Sampling fraction=0.25; No filtering on DefaultSpell_Age; Curated input space used; various maximum node depths
 ### RESULTS: MAE=0.002305036 (maximum tree-depth=1)

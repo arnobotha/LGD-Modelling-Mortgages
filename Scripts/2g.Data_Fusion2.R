@@ -950,7 +950,7 @@ datCredit_CDH_OOT[,.N]/(datCredit_train_CDH[,.N]+datCredit_valid_CDH[,.N])*100
 
 # - [SANITY CHECK] Does the new OOT sample contain all spells as expected from the original sets
 check1<-datCredit_CDH_OOT[,.N]==datCredit_train_CDH[Date>date_sub_end,.N]+datCredit_valid_CDH[Date>date_sub_end,.N]
-cat(((check1) %?% "SAFE: Training, validation, and OOFs samples created suscessfully. \n" %:% 
+cat(((check1) %?% "SAFE: Training, validation, and OOTs samples created suscessfully. \n" %:% 
        'WARNING: Training, validation, and OOFs samples not created suscessfully. \n' ))
 
 
@@ -974,7 +974,7 @@ datCredit_CS_OOT[,.N]/(datCredit_train_CS[,.N]+datCredit_valid_CS[,.N])*100
 # - [SANITY CHECK] Does the new OOT sample contain all spells as expected from the original sets
 check2<-datCredit_CS_OOT[,.N]==(datCredit_train_CS[Date>=date_sub_start,.N]-datCredit_train_CS_sub[,.N])+
   (datCredit_valid_CS[Date>=date_sub_start,.N]-datCredit_valid_CS_sub[,.N])
-cat(((check2) %?% "SAFE: Training, validation, and OOFs (cross-sectional) samples created suscessfully. \n" %:% 
+cat(((check2) %?% "SAFE: Training, validation, and OOTs (cross-sectional) samples created suscessfully. \n" %:% 
        'WARNING: Training, validation, and OOTs (cross-sectional) samples not created suscessfully. \n' ))
 
 
@@ -995,6 +995,3 @@ pack.ffdf(paste0(genPath,"creditdata_OOT_CS"), datCredit_CS_OOT)
 # ============ 7. Housekeeping ============
 
 cleanEnviron()
-
-
-
