@@ -30,20 +30,27 @@
 # ------ 1. Preliminaries ------
 
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath);gc()
-if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath);gc()
+if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath); gc()
+if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath); gc()
+if (!exists('datCredit_train_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CS_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS_sub"), tempPath); gc()
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit_train_CS[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
 datCredit_valid_CS[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_train_CS_sub[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_valid_CS_sub[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
 
 # - Subset to exclude nonsensical loss-rates
 datCredit_train <- subset(datCredit_train_CS, OOB_Ind == 0)
 datCredit_valid <- subset(datCredit_valid_CS, OOB_Ind == 0)
+datCredit_train_sub <- subset(datCredit_train_CS_sub, OOB_Ind == 0)
+datCredit_valid_sub <- subset(datCredit_valid_CS_sub, OOB_Ind == 0)
 ### NOTE: The training- and validation datasets are reduced by ~14% due to these out-of-bound observations
 
 # - Remove previous objects from memory
-rm(datCredit_train_CS, datCredit_valid_CS); gc()
+rm(datCredit_train_CS, datCredit_valid_CS,
+   datCredit_train_CS_sub, datCredit_valid_CS_sub); gc()
 
 # - Fit an empty model to use for analyses
 modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
@@ -492,64 +499,107 @@ evalLS(modGLM_step, datCredit_train, targetFld="LossRate_Real", modGLM_base)
 # NewLoans_Aggr_Prop, Instalment_Real, M_RealGDP_Growth_12, M_RealIncome_Growth
 
 
-
-
-# ------ 9. Final model
-
-# --- 9.1 Preliminaries
-# - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath);gc()
-if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath);gc()
-
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
-
-# - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CS, Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CS, Date >= sDateStr & Date <= sDateStp)
-
-# - Identify where the loss rate is out of bounds and not feasible
-datCredit_train <- datCredit_train[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
-datCredit_valid <- datCredit_valid[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
-
-# - Subset to exclude nonsensical loss-rates
-datCredit_train <- subset(datCredit_train, OOB_Ind == 0)
-datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
-### NOTE: The training- and validation datasets are reduced by ~14% due to these out-of-bound observations
-
-# - Remove previous objects from memory
-rm(datCredit_train_CS, datCredit_valid_CS); gc()
-
-# - Fit an empty model to use for analyses
-modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
-
-
-# --- 9.2 Fit and evaluate final model
+# --- 6.2 Applying expert judgement
 # - Initialize and curate final list variables
 # Removed TimeInDelinqState since it proved insignificant once restricted sampling window is imposed
 # Removed Balance_Real_1 since it proved insignificant once restricted sampling window is imposed
 # Removed AgeToTerm_Aggr_Mean since it proved insignificant once restricted sampling window is imposed
-# Removed TimeInDefSpell since it proved insignificant once restricted sampling window is imposed
 # Removed slc_acct_arr_dir_3 since it proved insignificant once restricted sampling window is imposed
 # Removed InterestRate_Margin_Aggr_Med_2 since it proved insignificant once restricted sampling window is imposed 
 # Removed M_Repo_Rate_12 since it proved insignificant once restricted sampling window is imposed 
-vars <- c("PrevDefaults", "slc_curing_ind", "g0_Delinq_Lag_1", "g0_Delinq_Num",
+# Removed M_Inflation_Growth_9 since it proved insignificant once restricted sampling window is imposed 
+# Removed TimeInDefSpell since it proved insignificant once restricted sampling window is imposed 
+vars <- c("PrevDefaults", "slc_curing_ind", "g0_Delinq_Lag_1", "g0_Delinq_Num", "Balance_Real_1",
+          "AgeToTerm_Aggr_Mean", "slc_acct_arr_dir_3", "InterestRate_Margin_Aggr_Med_2", "M_Repo_Rate_12",
           "AgeToTerm", "Principal_Real", "InterestRate_Margin_imputed_mean", "DefSpell_Maturity_Aggr_Mean",
-          "M_DTI_Growth_12", "M_Emp_Growth_1", "M_Inflation_Growth_9"
-)
+          "M_DTI_Growth_12", "M_Emp_Growth_1", "TimeInDefSpell", "M_Inflation_Growth_9")
+
+# - Fit and evaluate model
+modGLM <- cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                data=datCredit_train)
+summary(modGLM)
+evalLS(modGLM, datCredit_train, targetFld="LossRate_Real", modGLM_base)
+### RESULTS: - Insignificant variables
+###             None
+###          - AIC: 55122; R^2: 6.876423%; RMSE: 20.10%; MAE: 10.07%
+
+
+
+# ------ 7. Adjusting the model training period ------
+### NOTE: We change the training period to 2008-01-01 -> 2019-12-31, which
+###       ensures an out-of-time and out-of-sample back-testing/assessment.
+
+# - Fit an empty model to use for analyses
+modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train_sub)
+
+# - Specify inputs
+vars <- c("PrevDefaults", "slc_curing_ind", "g0_Delinq_Lag_1", "g0_Delinq_Num", "TimeInDelinqState",
+          "AgeToTerm", "Principal_Real", "InterestRate_Margin_imputed_mean", "DefSpell_Maturity_Aggr_Mean",
+          "M_DTI_Growth_12", "M_Emp_Growth_1", "TimeInDefSpell", "Balance_Real_1", "AgeToTerm_Aggr_Mean",
+          "slc_acct_arr_dir_3", "InterestRate_Margin_Aggr_Med_2", "M_Repo_Rate_12", "M_Inflation_Growth_9")
+
+# - Fit and evaluate model
+modGLM <- cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+                data=datCredit_train_sub)
+summary(modGLM)
+evalLS(modGLM,datCredit_train_sub, targetFld="LossRate_Real", modGLM_base)
+### RESULTS: - Insignificant variables
+###             None
+###          - AIC: 54753.16; R^2: 13.52257%; RMSE: 19.8635%; MAE: 10.16333%
+
+### CONCLUSION: Use final input space as specified above
+
+
+
+
+# ------ 8. Final model ------
+
+# --- 8.1 Preliminaries
+# - Confirm prepared datasets are loaded into memory
+if (!exists('datCredit_train_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CS_sub"), tempPath);gc()
+if (!exists('datCredit_valid_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS_sub"), tempPath);gc()
+
+# - Identify where the loss rate is out of bounds and not feasible
+datCredit_train_sub <- datCredit_train_CS_sub[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_valid_sub <- datCredit_valid_CS_sub[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+
+# - Subset to exclude nonsensical loss-rates
+datCredit_train_sub <- subset(datCredit_train_sub, OOB_Ind == 0)
+datCredit_valid_sub <- subset(datCredit_valid_sub, OOB_Ind == 0)
+### NOTE: The training- and validation datasets are reduced by ~14% due to these out-of-bound observations
+
+# - Remove previous objects from memory
+rm(datCredit_train_CS_sub, datCredit_valid_CS_sub); gc()
+
+# - Fit an empty model to use for analyses
+modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train_sub)
+
+
+# --- 8.2 Fit and evaluate final model
+# - Initialize and curate final list variables
+vars <- c("PrevDefaults", "slc_curing_ind", "g0_Delinq_Lag_1", "g0_Delinq_Num", "TimeInDelinqState",
+          "AgeToTerm", "Principal_Real", "InterestRate_Margin_imputed_mean", "DefSpell_Maturity_Aggr_Mean",
+          "M_DTI_Growth_12", "M_Emp_Growth_1", "TimeInDefSpell", "Balance_Real_1", "AgeToTerm_Aggr_Mean",
+          "slc_acct_arr_dir_3", "InterestRate_Margin_Aggr_Med_2", "M_Repo_Rate_12", "M_Inflation_Growth_9")
 
 # - Fit and evaluate model
 modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-               data=datCredit_train)
+               data=datCredit_train_sub)
 summary(modGLM)
-evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
+evalLS(modGLM, datCredit_train_sub, targetFld="LossRate_Real", modGLM_base)
 ### RESULTS: AIC: 58338.84; R^2: 12.01%; RMSE: 20.43%; MAE: 10.78%
 
 
-# --- 9.3 Save objects
+# --- 8.3 Save objects
 modGLM_OneStage_CPG <- copy(modGLM); rm(modGLM); gc()
 saveRDS(modGLM_OneStage_CPG, file=paste0(genObjPath,"OneStage_CPG_Model.rds"))
 
-# - Cleanup
+
+
+
+# ------ 9. Housekeeping ------
+
 cleanEnviron()
+
+
+

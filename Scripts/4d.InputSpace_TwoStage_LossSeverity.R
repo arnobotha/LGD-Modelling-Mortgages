@@ -23,27 +23,38 @@
 # ============ 1. Preliminaries ============
 
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
+if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath); gc()
 
 # - Use only default spells 
 datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key) & DefSpellResol_Type_Hist=="WOFF",]
 datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key) & DefSpellResol_Type_Hist=="WOFF",]
+datCredit_train_sub <- datCredit_train_CDH_sub[!is.na(DefSpell_Key) & DefSpellResol_Type_Hist=="WOFF",]
+datCredit_valid_sub <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key) & DefSpellResol_Type_Hist=="WOFF",]
 
 # - Filter to maximum spell counter
 datCredit_train <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
 datCredit_valid <- datCredit_valid[, .SD[which.max(DefSpell_Counter)], by = LoanID]
+datCredit_train_sub <- datCredit_train_sub[, .SD[which.max(DefSpell_Counter)], by = LoanID]
+datCredit_valid_sub <- datCredit_valid_sub[, .SD[which.max(DefSpell_Counter)], by = LoanID]
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit_train <- datCredit_train[, OOB_Ind := ifelse(LossRate_Real <=0 | LossRate_Real > 1, 1,0)]
 datCredit_valid <- datCredit_valid[, OOB_Ind := ifelse(LossRate_Real <= 0 | LossRate_Real > 1, 1,0)]
+datCredit_train_sub <- datCredit_train_sub[, OOB_Ind := ifelse(LossRate_Real <=0 | LossRate_Real > 1, 1,0)]
+datCredit_valid_sub <- datCredit_valid_sub[, OOB_Ind := ifelse(LossRate_Real <= 0 | LossRate_Real > 1, 1,0)]
 
 # - Subset to include only relevant data
 datCredit_train <- subset(datCredit_train, OOB_Ind == 0)
 datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
+datCredit_train_sub <- subset(datCredit_train_sub, OOB_Ind == 0)
+datCredit_valid_sub <- subset(datCredit_valid_sub, OOB_Ind == 0)
 
 # - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+rm(datCredit_train_CDH, datCredit_valid_CDH,
+   datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 # - Fit a base model for analyses
 modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
@@ -497,61 +508,102 @@ evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 ###             [Balance_Real_1]; [g0_Delinq_SD_6]; [AgeToTerm_Aggr_Mean];
 ###             [slc_acct_arr_dir_3]; [PrevDefaults];
 ###             [M_RealIncome_Growth_12]; [NewLoans_Aggr_Prop]; [Instalment_Real];
-###             [M_DTI_Growth_3]
+###             [M_DTI_Growth_3]; [DefSpell_Age]
 
 
 
 
-# ============ 9. Final model ============
-
-# --- 9.1 Preliminaries
-# - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
-
-# - Use only default spells 
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key) & DefSpellResol_Type_Hist=="WOFF",]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key) & DefSpellResol_Type_Hist=="WOFF",]
-
-# - Filter to maximum spell counter
-datCredit_train <- datCredit_train[, .SD[which.max(DefSpell_Counter)], by = LoanID]
-datCredit_valid <- datCredit_valid[, .SD[which.max(DefSpell_Counter)], by = LoanID]
-
-# - Identify where the loss rate is out of bounds and not feasible
-datCredit_train <- datCredit_train[, OOB_Ind := ifelse(LossRate_Real <=0 | LossRate_Real > 1, 1,0)]
-datCredit_valid <- datCredit_valid[, OOB_Ind := ifelse(LossRate_Real <= 0 | LossRate_Real > 1, 1,0)]
-
-# - Subset to include only relevant data
-datCredit_train <- subset(datCredit_train, OOB_Ind == 0)
-datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
-
-# - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+# ============ 7. Adjusting the model training period ============
+### NOTE: We change the training period to 2008-01-01 -> 2019-12-31, which
+###       ensures an out-of-time and out-of-sample back-testing/assessment.
 
 # - Fit a base model for analyses
-modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train)
+modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train_sub)
 
-
-# --- 9.2 Fit and evaluate final model
 # - Initialize variables to be tested
 vars <- c("pmnt_method_grp", "Principal_Real",
           "Balance_Real_1", "g0_Delinq_SD_6", "AgeToTerm_Aggr_Mean",
           "slc_acct_arr_dir_3", "PrevDefaults",
           "M_RealIncome_Growth_12", "NewLoans_Aggr_Prop", "Instalment_Real",
-          "M_DTI_Growth_3", "DefSpell_Age"
-)
+          "M_DTI_Growth_3", "DefSpell_Age")
 
 # - Fit model
 modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-               data=datCredit_train)
+               data=datCredit_train_sub)
+
+# - Evaluate model
 summary(modGLM)
-evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: 398.49; R^2: 22.45%; RMSE: 27.45%; MAE: 22.34%
+evalLS(modGLM,datCredit_train, targetFld="LossRate_Real", modGLM_base)
+### RESULTS: - No insignificant variables
+###          - AIC: 224.8352; R^2: 18.02%; RMSE: 28.23%; MAE: 22.81%
+
+### CONCLUSION: Select variables:
+###             [pmnt_method_grp]; [Principal_Real]
+###             [Balance_Real_1]; [g0_Delinq_SD_6]; [AgeToTerm_Aggr_Mean];
+###             [slc_acct_arr_dir_3]; [PrevDefaults];
+###             [M_RealIncome_Growth_12]; [NewLoans_Aggr_Prop]; [Instalment_Real];
+###             [M_DTI_Growth_3]; [DefSpell_Age]
 
 
-# --- 9.3 Save objects
+
+
+# ============ 8. Final model ============
+
+# --- 8.1 Preliminaries
+# - Confirm prepared datasets are loaded into memory
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath); gc()
+
+# - Use only default spells 
+datCredit_train_sub <- datCredit_train_CDH_sub[!is.na(DefSpell_Key) & DefSpellResol_Type_Hist=="WOFF",]
+datCredit_valid_sub <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key) & DefSpellResol_Type_Hist=="WOFF",]
+
+# - Filter to maximum spell counter
+datCredit_train_sub <- datCredit_train_sub[, .SD[which.max(DefSpell_Counter)], by = LoanID]
+datCredit_valid_sub <- datCredit_valid_sub[, .SD[which.max(DefSpell_Counter)], by = LoanID]
+
+# - Identify where the loss rate is out of bounds and not feasible
+datCredit_train_sub <- datCredit_train_sub[, OOB_Ind := ifelse(LossRate_Real <=0 | LossRate_Real > 1, 1,0)]
+datCredit_valid_sub <- datCredit_valid_sub[, OOB_Ind := ifelse(LossRate_Real <= 0 | LossRate_Real > 1, 1,0)]
+
+# - Subset to include only relevant data
+datCredit_train_sub <- subset(datCredit_train_sub, OOB_Ind == 0)
+datCredit_valid_sub <- subset(datCredit_valid_sub, OOB_Ind == 0)
+
+# - Remove previous objects from memory
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
+
+# - Fit a base model for analyses
+modGLM_base <- cpglm(LossRate_Real ~ 1, data=datCredit_train_sub)
+
+
+# --- 8.2 Fit and evaluate final model
+# - Initialize variables to be tested
+vars <- c("pmnt_method_grp", "Principal_Real",
+          "Balance_Real_1", "g0_Delinq_SD_6", "AgeToTerm_Aggr_Mean",
+          "slc_acct_arr_dir_3", "PrevDefaults",
+          "M_RealIncome_Growth_12", "NewLoans_Aggr_Prop", "Instalment_Real",
+          "M_DTI_Growth_3", "DefSpell_Age")
+
+# - Fit model
+modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
+               data=datCredit_train_sub)
+summary(modGLM)
+evalLS(modGLM, datCredit_train,targetFld="LossRate_Real", modGLM_base)
+### RESULTS: - No insignificant variables
+###          - AIC: 224.8352; R^2: 18.02%; RMSE: 28.23%; MAE: 22.81%
+
+
+# --- 8.3 Save objects
 modGLM_Severity_CPG <- copy(modGLM); rm(modGLM); gc()
-saveRDS(modGLM_Severity_CPG, file=paste0(genObjPath,"Severity_CPH_Model.rds"))
+saveRDS(modGLM_Severity_CPG, file=paste0(genObjPath, "Severity_CPH_Model.rds"))
 
-# - Cleanup
+
+
+
+# ============ 9. Housekeeping ============
+
 cleanEnviron()
+
+
+

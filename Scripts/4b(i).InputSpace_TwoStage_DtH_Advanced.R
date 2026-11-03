@@ -750,15 +750,13 @@ coeftest(modLR, vcov.=robust_se)
 
 # - Test goodness-of-fit using AIC-measure from single-factor models
 (aicTable_CoxDisc <- aicTable(datCredit_train_sub, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [g0_Delinq_Lag_1]
-###     [log(TimeInDefSpell)*DefSpell_Num_binned]; [DefaultStatus1_Aggr_Prop_Lag_12];
-###     [g0_Delinq_Ave]; [InterestRate_Margin_Aggr_Med_2]
+### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [log(TimeInDefSpell)*DefSpell_Num_binned ]
+###     [g0_Delinq_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12]; [Principal_Rea]; [g0_Delinq_Ave]
 
 # - Test accuracy using c-statistic from single-factor models
 (concTable_CoxDisc <- concTable(datCredit_train_sub, datCredit_valid_sub, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
 ### RESULTS: Top variables: [InterestRate_Nom]; [Time_Binned]; [log(TimeInDefSpell)*DefSpell_Num_binned];
-###     [g0_Delinq_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12];
-###     [Principal_Real]; [g0_Delinq_Ave]
+###     [g0_Delinq_Lag_1]; [DefaultStatus1_Aggr_Prop_Lag_12]; [Principal_Real]; [g0_Delinq_Ave]
 
 # - Combine results into a single object
 (Table_CoxDisc <- concTable_CoxDisc[,1:2] %>% left_join(aicTable_CoxDisc, by ="Variable"))
@@ -771,5 +769,9 @@ pack.ffdf(paste0(genObjPath,"CoxDisc_advanced_fits"), Table_CoxDisc)
 modLR_Adv <- copy(modLR); rm(modLR); gc()
 saveRDS(modLR_Adv, file=paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
-# - Cleanup
+
+
+
+# ------ 11. Housekeeping  ------ 
+
 cleanEnviron()
