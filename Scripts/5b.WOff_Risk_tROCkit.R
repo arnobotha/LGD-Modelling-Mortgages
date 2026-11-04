@@ -1004,7 +1004,7 @@ chosenFont <- "Cambria"
     theme(text = element_text(family=chosenFont), legend.position="inside", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
-          legend.position.inside = c(0.725,0.2),
+          legend.position.inside = c(0.65,0.3),
           legend.background = element_rect(fill="snow2", color="black",
                                            linetype="solid", linewidth=0.1)) +
     labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
