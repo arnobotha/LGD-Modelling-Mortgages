@@ -89,7 +89,8 @@ if (!exists('datSurv2')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompR
 # ============ 2. Constructing the term-structures of write-off ============
 
 # --- 2.1 Estimate event rates amidst competing risks
-# MLR-based DtH-Multinomial model, multinomial survival tree (conditional inference tree)
+# Models: MLR-based DtH-Multinomial model, multinomial survival tree (conditional inference tree)
+
 # - Predict cause-specific hazard h_g(t) = P(T=t, G=g | T >= t) in discrete-time | DtH-Multinomial
 matPredictions <- predict(modMLR, newdata=datCredit, type = "probs")
 datCredit[, Hazard_WriteOff:=matPredictions[,"Write-off"]]
