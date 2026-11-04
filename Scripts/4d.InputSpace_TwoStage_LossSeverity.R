@@ -589,9 +589,9 @@ vars <- c("pmnt_method_grp", "Principal_Real",
 modGLM <-cpglm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
                data=datCredit_train_sub)
 summary(modGLM)
-evalLS(modGLM, datCredit_train,targetFld="LossRate_Real", modGLM_base)
+evalLS(modGLM, datCredit_train_sub, targetFld="LossRate_Real", modGLM_base)
 ### RESULTS: - No insignificant variables
-###          - AIC: 224.8352; R^2: 18.02%; RMSE: 28.23%; MAE: 22.81%
+###          - AIC: 224.8352; R^2: 22.79%; RMSE: 27.05%; MAE: 22.00%
 
 
 # --- 8.3 Save objects
@@ -604,6 +604,3 @@ saveRDS(modGLM_Severity_CPG, file=paste0(genObjPath, "Severity_CPH_Model.rds"))
 # ============ 9. Housekeeping ============
 
 cleanEnviron()
-
-
-
