@@ -32,26 +32,22 @@
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath);gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath);gc()
 
 # - Ensure order of data is correct
-setorder(datCredit_train_CDH, LoanID, Date)
-setorder(datCredit_valid_CDH, LoanID, Date)
-
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
+setorder(datCredit_train_CDH_sub, LoanID, Date)
+setorder(datCredit_valid_CDH_sub, LoanID, Date)
 
 # - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
+datCredit_train <- subset(datCredit_train_CDH_sub, !is.na(DefSpell_Key))
+datCredit_valid <- subset(datCredit_valid_CDH_sub, !is.na(DefSpell_Key))
 
 # - Combine training and validation datasets to facilitate "better" graphs with smoother line graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
 
 # - Remove objects
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 # - Recalculate counter variable with respect to new sampling window
 datCredit[, Counter_Artificial := 1:.N, by=.(LoanID)]

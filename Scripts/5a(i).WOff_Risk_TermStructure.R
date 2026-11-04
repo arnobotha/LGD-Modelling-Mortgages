@@ -33,16 +33,12 @@
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
-
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath); gc()
 
 # - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
+datCredit_train <- subset(datCredit_train_CDH_sub, !is.na(DefSpell_Key))
+datCredit_valid <- subset(datCredit_valid_CDH_sub, !is.na(DefSpell_Key))
 
 
 # --- 1.2 Data preparation for prediction purposes
@@ -74,7 +70,7 @@ datAdd[, Counter_Artificial:=0]
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
 
 # - Remove objects
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 
 # --- 1.3 Load models
