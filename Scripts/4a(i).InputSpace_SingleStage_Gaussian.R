@@ -27,23 +27,30 @@
 
 
 
-# ------ 1. Preliminaries
+# ============ 1. Preliminaries ============
 
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath);gc()
-if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath);gc()
+if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath); gc()
+if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath); gc()
+if (!exists('datCredit_train_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CS_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS_sub"), tempPath); gc()
 
 # - Identify where the loss rate is out of bounds and not feasible
 datCredit_train_CS[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
 datCredit_valid_CS[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_train_CS_sub[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_valid_CS_sub[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
 
 # - Subset to exclude nonsensical loss-rates
 datCredit_train <- subset(datCredit_train_CS, OOB_Ind == 0)
 datCredit_valid <- subset(datCredit_valid_CS, OOB_Ind == 0)
+datCredit_train_sub <- subset(datCredit_train_CS_sub, OOB_Ind == 0)
+datCredit_valid_sub <- subset(datCredit_valid_CS_sub, OOB_Ind == 0)
 ### NOTE: The training- and validation datasets are reduced by ~14% due to these out-of-bound observations
 
 # - Remove previous objects from memory
-rm(datCredit_train_CS, datCredit_valid_CS); gc()
+rm(datCredit_train_CS, datCredit_valid_CS,
+   datCredit_train_CS_sub, datCredit_valid_CS_sub); gc()
 
 # - Fit an empty model to use for analyses
 modGLM_base <- glm(LossRate_Real ~ 1, data=datCredit_train, family=gaussian(link="identity"))
@@ -51,7 +58,7 @@ modGLM_base <- glm(LossRate_Real ~ 1, data=datCredit_train, family=gaussian(link
 
 
 
-# ------ 2. Delinquency-themed variables
+# ============ 2. Delinquency-themed variables ============
 
 # --- 2.1 Selection of delinquency volatility variables
 # - Initialize variables to be tested
@@ -182,7 +189,8 @@ evalLS(modGLM_step, datCredit_train,targetFld="LossRate_Real", modGLM_base)
 
 
 
-# ------ 3. Other portfolio-level variables
+
+# ============ 3. Other portfolio-level variables ============
 
 # --- 3.1 Median portfolio-level interest rates
 # - Initialize variables to be tested
@@ -249,7 +257,7 @@ evalLS(modGLM_step, datCredit_train,targetFld="LossRate_Real", modGLM_base)
 
 
 
-# ------ 4. Account-level variables
+# ============ 4. Account-level variables ============
 
 # --- 4.1 How do various non-delinquency account-level variables fare as single-factor models?
 # - Initialize variables to be tested
@@ -298,7 +306,7 @@ table_Assess[order(C, decreasing=T)]
 
 
 
-# ------ 5. Macroeconomic variables
+# ============ 5. Macroeconomic variables ============
 
 # --- 5.1 Which lag order is the best for: M_Repo_Rate
 # - Initialize variables to be tested
@@ -448,7 +456,7 @@ evalLS(modGLM_step, datCredit_train,targetFld="LossRate_Real", modGLM_base)
 
 
 
-# ------ 6. Combine variables from all themes
+# ============ 6. Combine variables from all themes ============
 
 # --- 6.1 Run an automated selection procedure on the entire set
 # - Initialise set of variables
@@ -492,12 +500,12 @@ evalLS(modGLM_step,datCredit_train,targetFld="LossRate_Real",modGLM_base)
 
 
 # --- 6.2 Model refinements | Adjusting the input space based on expert judgement
+# - Specify inputs
 vars <- c("PrevDefaults", "slc_acct_arr_dir_3", "slc_past_due_amt_imputed_med",
           "g0_Delinq_Ave", "g0_Delinq_Lag_1", "g0_Delinq_Num", "g0_Delinq_SD_6",
           "TimeInDelinqState", "InterestRate_Nom", "DefSpell_Maturity_Aggr_Mean", "Principal_Real", 
           "AgeToTerm_Aggr_Mean", "AgeToTerm", "DefaultStatus1_Aggr_Prop",
-          "M_Repo_Rate_12", "M_Emp_Growth", "M_RealGDP_Growth"
-)
+          "M_Repo_Rate_12", "M_Emp_Growth", "M_RealGDP_Growth")
 
 # - Fit model
 modGLM_full <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
@@ -506,65 +514,115 @@ modGLM_full <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " 
 # - Evaluate model
 summary(modGLM_full)
 evalLS(modGLM_full, datCredit_train,targetFld="LossRate_Real", modGLM_base)
-### RESULTS: AIC: -37 265; R^2: 13.03; RMSE: 19.42%; MAE: 10.71%
+### RESULTS: - No insignificant variables
+###          - AIC: -37 265; R^2: 13.03; RMSE: 19.42%; MAE: 10.71%
 
 
 
 
+# ============ 7. Adjusting the model training period ============
+### NOTE: We change the training period to 2008-01-01 -> 2019-12-31, which
+###       ensures an out-of-time and out-of-sample back-testing/assessment.
 
-# ------ 9. Final model
+# --- 7.1 Initial fit
+# - Fit an empty model to use for analyses
+modGLM_base <- glm(LossRate_Real ~ 1, data=datCredit_train_sub, family=gaussian(link="identity"))
 
-# --- 9.1 Preliminaries
+# - Specify inputs
+vars <- c("PrevDefaults", "slc_acct_arr_dir_3", "slc_past_due_amt_imputed_med",
+          "g0_Delinq_Ave", "g0_Delinq_Lag_1", "g0_Delinq_Num", "g0_Delinq_SD_6",
+          "TimeInDelinqState", "InterestRate_Nom", "DefSpell_Maturity_Aggr_Mean", "Principal_Real", 
+          "AgeToTerm_Aggr_Mean", "AgeToTerm", "DefaultStatus1_Aggr_Prop",
+          "M_Repo_Rate_12", "M_Emp_Growth", "M_RealGDP_Growth")
+
+# - Fit model
+modGLM <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse=" + "))),
+              data=datCredit_train_sub, family=gaussian(link="identity"))
+
+# - Evaluate model
+summary(modGLM)
+evalLS(modGLM, datCredit_train,targetFld="LossRate_Real", modGLM_base)
+### RESULTS: - Insignificant variables:
+###             [AgeToTerm]; [M_Repo_Rate_12]; [M_RealGDP_Growth]
+###          - AIC: -37 265; R^2: 13.03; RMSE: 19.42%; MAE: 10.71%
+
+
+# --- 7.2 Refined input space
+# - Refine input space
+vars <- vars[!(vars %in% c("AgeToTerm", "M_Repo_Rate_12", "M_RealGDP_Growth"))]
+
+# - Fit model
+modGLM <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse=" + "))),
+              data=datCredit_train_sub, family=gaussian(link="identity"))
+
+# - Evaluate model
+summary(modGLM)
+evalLS(modGLM, datCredit_train_sub, targetFld="LossRate_Real", modGLM_base)
+### RESULTS: - Insignificant variables:
+###             None
+###          - AIC: -28560; R^2: 16.45; RMSE: 19.52%; MAE: 11.05%
+
+### CONCLUSION: Final input space:
+###     [PrevDefaults]; [slc_acct_arr_dir_3]; [slc_past_due_amt_imputed_med];
+###     [g0_Delinq_Ave]; [g0_Delinq_Lag_1]; [g0_Delinq_Num]; [g0_Delinq_SD_6];
+###     [TimeInDelinqState]; [InterestRate_Nom]; [DefSpell_Maturity_Aggr_Mean]; [Principal_Real]; 
+###     [AgeToTerm_Aggr_Mean]; [DefaultStatus1_Aggr_Prop]; [M_Emp_Growth]
+
+
+
+
+# ============ 8. Final model ============
+
+# --- 8.1 Preliminaries
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath);gc()
-if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath);gc()
-
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
-
-# - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CS, Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CS, Date >= sDateStr & Date <= sDateStp)
+if (!exists('datCredit_train_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CS_sub"), tempPath);gc()
+if (!exists('datCredit_valid_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS_sub"), tempPath);gc()
 
 # - Identify where the loss rate is out of bounds and not feasible
-datCredit_train[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
-datCredit_valid[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_train_CS_sub[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
+datCredit_valid_CS_sub[, OOB_Ind := ifelse(LossRate_Real < 0 | LossRate_Real > 1, 1,0)]
 
 # - Subset to exclude nonsensical loss-rates
-datCredit_train <- subset(datCredit_train, OOB_Ind == 0)
-datCredit_valid <- subset(datCredit_valid, OOB_Ind == 0)
+datCredit_train_sub <- subset(datCredit_train_CS_sub, OOB_Ind == 0)
+datCredit_valid_sub <- subset(datCredit_valid_CS_sub, OOB_Ind == 0)
 ### NOTE: The training- and validation datasets are reduced by ~14% due to these out-of-bound observations
 
 # - Remove previous objects from memory
-rm(datCredit_train_CS, datCredit_valid_CS); gc()
+rm(datCredit_train_CS_sub, datCredit_valid_CS_sub); gc()
 
 # - Fit an empty model to use for analyses
-modGLM_base <- glm(LossRate_Real~1, data=datCredit_train, family=gaussian(link="identity"))
+modGLM_base <- glm(LossRate_Real~1, data=datCredit_train_sub, family=gaussian(link="identity"))
 
 
-# --- 9.2 Fit and evaluate final model
+# --- 8.2 Fit and evaluate final model
 # - Initialize and curate final list variables
 # Removed AgeToTerm_Aggr_Mean since it proved insignificant once restricted sampling window is imposed
 # Removed M_RealGDP_Growth since it proved insignificant once restricted sampling window is imposed
 vars <- c("PrevDefaults", "slc_acct_arr_dir_3", "slc_past_due_amt_imputed_med",
           "g0_Delinq_Ave", "g0_Delinq_Lag_1", "g0_Delinq_Num", "g0_Delinq_SD_6",
           "TimeInDelinqState", "InterestRate_Nom", "DefSpell_Maturity_Aggr_Mean", "Principal_Real", 
-          "AgeToTerm", "DefaultStatus1_Aggr_Prop",
-          "M_Repo_Rate_12", "M_Emp_Growth"
-)
+          "AgeToTerm_Aggr_Mean", "DefaultStatus1_Aggr_Prop", "M_Emp_Growth")
 
 # - Fit and evaluate model
 modGLM <- glm(as.formula(paste("LossRate_Real ~", paste(vars, collapse = " + "))),
-              data=datCredit_train,family = gaussian(link = "identity"))
+              data=datCredit_train_sub, family=gaussian(link="identity"))
 summary(modGLM)
-evalLS(modGLM,datCredit_train,targetFld="LossRate_Real",modGLM_base)
-### RESULTS: AIC: -26615.67; R^2: 16.22; RMSE: 19.9%; MAE: 11.39%
+evalLS(modGLM, datCredit_train_sub, targetFld="LossRate_Real", modGLM_base)
+### RESULTS: - Insignificant variables:
+###             None
+###          - AIC: -28560; R^2: 16.45; RMSE: 19.52%; MAE: 11.05%
 
 
-# --- 9.3 Save objects
+# --- 8.3 Save objects
 modGLM_OneStage_Gaus <- copy(modGLM); rm(modGLM); gc()
 saveRDS(modGLM_OneStage_Gaus, file=paste0(genObjPath,"OneStage_Gaus_Model.rds"))
 
-# - Cleanup
+
+
+
+# ============ 9. Housekeeping ============
+
 cleanEnviron()
+
+
+

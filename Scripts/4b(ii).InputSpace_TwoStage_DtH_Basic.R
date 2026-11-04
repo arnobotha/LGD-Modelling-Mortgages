@@ -79,7 +79,7 @@ coeftest(modLR_basic, vcov.=robust_se)
 # - Test goodness-of-fit using AIC-measure over single-factor models
 (aicTable_CoxDisc_basic <- aicTable(datCredit_train, vars_basic,
                                     TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables (ranked in order): [[log(TimeInDefSpell)]]; [g0_Delinq_Lag_1]; [DefSpell_Num_binned];
+### RESULTS: Top variables (ranked in order): [g0_Delinq_Lag_1]; [[log(TimeInDefSpell)]]; [DefSpell_Num_binned];
 ###                                           [M_Inflation_Growth_9]; [g0_Delinq_Any_Aggr_Prop_Lag_1] 
 
 # - Test accuracy using c-statistic over single-factor models
@@ -97,7 +97,11 @@ pack.ffdf(paste0(genObjPath,"CoxDisc_basic_fits"), Table_CoxDisc_basic)
 # Modeling object
 saveRDS(modLR_basic, file=paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
 
-# - Cleanup
+
+
+
+# ============ 3. Cleanup ============
+
 cleanEnviron()
 
 

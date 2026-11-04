@@ -576,26 +576,29 @@ coeftest(modLR, vcov.=robust_se)
 
 # - Test goodness-of-fit using AIC-measure over single-factor models
 (aicTable_LR <- aicTable(datCredit_train_CS_sub, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [PrevDefaults]; [Arrears]; [slc_past_due_amt_imputed_med]; [g0_Delinq_SD_6]; [Balance_Real_1];
-###                         [M_Repo_Rate_1]; [M_Inflation_Growth_12]
+### RESULTS: Top variables: [PrevDefaults]; [Arrears]; [slc_past_due_amt_imputed_med]; [g0_Delinq_Lag_1];
+###                         [g0_Delinq_SD_6]; [Balance_Real_1]; [M_Repo_Rate_12]; [M_Inflation_Growth_12]
 
 # - Test accuracy using c-statistic over single-factor models
-(concTable_LR <- concTable(datCredit_train_CS_sub, datCredit_valid_CS, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
-### RESULTS: Top variables: [PrevDefaults]; [Arrears]; [slc_past_due_amt_imputed_med]; [g0_Delinq_SD_6]; [Balance_Real_1]
-###                         [TimeInDefSpell]; [M_Repo_Rate_12]
+(concTable_LR <- concTable(datCredit_train_CS_sub, datCredit_valid_CS_sub, vars, TimeDef=c("Cox_Discrete","DefSpell_Event"), genPath=genObjPath, modelType="Cox_Discrete"))
+### RESULTS: Top variables: [PrevDefaults]; [Arrears]; [ g0_Delinq_Lag_1]; [Balance_Real_1];
+###                         [g0_Delinq_SD_6]; [TimeInDefSpell]; [M_Repo_Rate_12]
 
 # - Combine results into a single object
 Table_LR <- merge(concTable_LR[,1:2], aicTable_LR, by="Variable")
 
 
-# --- 8.4 Housekeeping
-# - Save objects
-# Model analytics
+# --- 8.4 Save objects
+# - Model analytics
 pack.ffdf(paste0(genObjPath,"LR_fits"), Table_LR)
-# Modeling object
+
+# - Modeling object
 saveRDS(modLR, file=paste0(genObjPath,"LR_Model.rds"))
 
-# - Clean-up
+
+
+# ============ 9. Housekeeping ============
+
 cleanEnviron()
 
 
