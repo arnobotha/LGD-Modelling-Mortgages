@@ -1,4 +1,4 @@
-# ============================== CONSTRUCTING TERM-STUCTURES ===================
+# ======================== CONSTRUCTING TERM-STUCTURES =========================
 # Construct and compare empirical and expected term-structures of default risk
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
@@ -32,26 +32,22 @@
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_valid_CDH_sub"), tempPath); gc()
 
 # - Ensure order of data is correct
-setorder(datCredit_train_CDH, LoanID, Date)
-setorder(datCredit_valid_CDH, LoanID, Date)
-
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
+setorder(datCredit_train_CDH_sub, LoanID, Date)
+setorder(datCredit_valid_CDH_sub, LoanID, Date)
 
 # - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
+datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
+datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
+
+# - Remove redundant objects
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 # - Combine training and validation datasets to facilitate "better" graphs with smoother line graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
-
-# - Remove objects
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 # - Recalculate counter variable with respect to new sampling window
 datCredit[, Counter_Artificial := 1:.N, by=.(LoanID)]
@@ -68,7 +64,6 @@ datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
 
 
 # --- 1.2 Final data preparations
-
 # - Transform categorical variables to factor
 # Payment method
 datCredit[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
@@ -81,7 +76,8 @@ datCredit[,Time_Binned_fac:=as.factor(Time_Binned)]
 # --- 1.3 Load models
 if (!exists('modMLR')) unpack.ffdf(paste0(genPath,"MultiDtH_WOff"), tempPath)
 if (!exists('modMultiSurvTree')) unpack.ffdf(paste0(genPath,"MultiCI_Tree"), tempPath)
-if (!exists('datSurv2')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompRisks"), tempPath);gc()
+if (!exists('datSurv2')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompRisks"), tempPath)
+gc()
 
 
 
@@ -89,7 +85,7 @@ if (!exists('datSurv2')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompR
 # ============ 2. Constructing the term-structures of write-off ============
 
 # --- 2.1 Estimate event rates amidst competing risks
-# Models: MLR-based DtH-Multinomial model, multinomial survival tree (conditional inference tree)
+### Models: MLR-based DtH-Multinomial model, multinomial survival tree (conditional inference tree)
 
 # - Predict cause-specific hazard h_g(t) = P(T=t, G=g | T >= t) in discrete-time | DtH-Multinomial
 matPredictions <- predict(modMLR, newdata=datCredit, type = "probs")
@@ -126,7 +122,6 @@ setorder(datSurv_exp, TimeInDefSpell)
 
 
 # --- 2.4 Create graph
-
 # - Preliminaries
 # - Cut-offs for analysis and graphs 
 sMaxSpellAge <- 84 # Max for [DefSpell_Age], as determined in earlier analyses (script 3c)
@@ -193,5 +188,12 @@ dpi <- 335 # reset
 ggsave(gsurv_ft, file=paste0(genFigPath, "EventProb_Write-Off_ActVsExp_CompRisks.png"),
        width=2400/dpi, height=1800/dpi,dpi=dpi, bg="white")
 
-# - Cleanup
+
+
+
+# ============ 3. Housekeeping ============
+
 cleanEnviron()
+
+
+

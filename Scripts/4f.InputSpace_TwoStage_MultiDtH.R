@@ -29,19 +29,26 @@
 
 # --- 1.1 Load and subset data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
+if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath); gc()
+
 
 # - Ensure order of data is correct
-setorder(datCredit_train_CDH, LoanID, Date)
-setorder(datCredit_valid_CDH, LoanID, Date)
+setorder(datCredit_train_CDH, LoanID, Date); setorder(datCredit_valid_CDH, LoanID, Date)
+setorder(datCredit_train_CDH_sub, LoanID, Date); setorder(datCredit_valid_CDH_sub, LoanID, Date)
 
 # - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
+datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key)]
+datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key)]
+datCredit_train_sub <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
+datCredit_valid_sub <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
 
 # - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+rm(datCredit_train_CDH, datCredit_valid_CDH,
+   datCredit_train_CDH_sub, datCredit_valid_CDH_sub)
+gc()
 
 
 # --- 1.2 Fit preliminary models
@@ -123,31 +130,14 @@ evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", pre
 
 
 
-# ------ 3 Final Model | Expert Judgment ------
 
-# - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+# ------ 3. Model refinements ------
 
-# - Ensure order of data is correct
-setorder(datCredit_train_CDH, LoanID, Date)
-setorder(datCredit_valid_CDH, LoanID, Date)
+# --- 3.1 Expert judgement
+### NOTE: We make use of the full input space from the final advanced DtH model and
+###       adjust the inputs as required (see script 4b(i))
 
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
-
-# - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) &  Date >= sDateStr & Date <= sDateStp )
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
-
-# - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
-
-# - Fit an "empty" model as a performance gain, used within some diagnostic functions
-modMLR_base <- multinom(DefSpell_EventType ~  1, data = datCredit_train, maxit=1000)
-
-# - Final variables
+# - Set variables
 ### NOTE: Variable selection is dependent on single-risk DtH-model for write-off
 # Rebinned time to a finer grain
 # Removed g0_Delinq_Lag_1 due to adverse effect on term-structure
@@ -168,13 +158,71 @@ vars <- c("Time_Binned", "DefSpell_Num_binned", "log(TimeInDefSpell):DefSpell_Nu
 modMLR <- multinom(as.formula(paste("DefSpell_EventType ~", paste(vars, collapse = " + "))),
                    data = datCredit_train, family="binomial", maxit=1000)
 evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", predClass=1, predType="probs")
+### RESULTS: AIC:  584,745; McFadden R^2: 27.01%; AUC: 81.55%
+
+
+# --- 3.2 Adjusting the model training period
+### NOTE: We change the training period to 2008-01-01 -> 2019-12-31, which
+###       ensures an out-of-time and out-of-sample back-testing/assessment.
+
+# - Fit an "empty" model as a performance gain, used within some diagnostic functions
+modMLR_base <- multinom(DefSpell_EventType ~  1, data = datCredit_train_sub, maxit=1000)
+
+# - Set variables
+vars <- c("Time_Binned", "DefSpell_Num_binned", "log(TimeInDefSpell):DefSpell_Num_binned",
+          "InterestRate_Nom", 
+          "M_Repo_Rate_12", "M_DTI_Growth_12", "M_RealIncome_Growth_9", "M_Inflation_Growth_12",
+          "NewLoans_Aggr_Prop")
+
+# - Fit model
+modMLR <- multinom(as.formula(paste("DefSpell_EventType ~", paste(vars, collapse = " + "))),
+                   data = datCredit_train_sub, family="binomial", maxit=1000)
+evalLR(modMLR, modMLR_base, datCredit_train_sub, targetFld="DefSpell_EventType", predClass=1, predType="probs")
+### RESULTS: AIC:  471,976; McFadden R^2: 27.63%; AUC: 81.69%
+
+
+
+
+# ------ 4. Final Model ------
+
+# --- 4.1 Preliminaries
+# - Confirm prepared datasets are loaded into memory
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_valid_CDH_sub"), tempPath); gc()
+
+# - Ensure order of data is correct
+setorder(datCredit_train_CDH_sub, LoanID, Date)
+setorder(datCredit_valid_CDH_sub, LoanID, Date)
+
+# - Filter data for default spells and date selections
+datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
+datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
+
+# - Remove redundant objects
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
+
+# - Fit an "empty" model as a performance gain, used within some diagnostic functions
+modMLR_base <- multinom(DefSpell_EventType ~  1, data = datCredit_train_sub, maxit=1000)
+
+
+# --- 4.2 Fit model
+# - Final variables
+vars <- c("Time_Binned", "DefSpell_Num_binned", "log(TimeInDefSpell):DefSpell_Num_binned",
+          "InterestRate_Nom", 
+          "M_Repo_Rate_12", "M_DTI_Growth_12", "M_RealIncome_Growth_9", "M_Inflation_Growth_12",
+          "NewLoans_Aggr_Prop")
+
+# - Fit model
+modMLR <- multinom(as.formula(paste("DefSpell_EventType ~", paste(vars, collapse = " + "))),
+                   data = datCredit_train, family="binomial", maxit=1000)
+evalLR(modMLR, modMLR_base, datCredit_train, targetFld="DefSpell_EventType", predClass=1, predType="probs")
 ### RESULTS: AIC:  471,97; McFadden R^2: 27.63%; AUC: 81.69%
 
 # - Store objects on disc
 pack.ffdf(paste0(genPath,"MultiDtH_WOff"), modMLR)
 
 
-# --- Statistical significance: Likelihood Ratio Test
+# --- 4.3 Statistical significance: Likelihood Ratio Test
 ptm <- proc.time() # for runtime calculations (ignore)
 modMLR_Result  <- dropterm(modMLR, trace=F, test="Chisq", maxit=50)
 pack.ffdf(paste0(genObjPath,"MLR_DtH_results"), modMLR_Result)
@@ -193,8 +241,15 @@ ggplot(datResult, aes(x=reorder(rn,AIC), y=AIC)) + geom_col(fill="steelblue") + 
 # g0_Delinq_Ave, Balance_Real_1, Principal_Real
 
 ### NOTE: Model complexity matters in this ranking; categorical variables are penalized more 
-# heavily by AIC, so the (binned) spell time variable and its interaction are therefore ranked 
-# much lower, despite their strategic importance in qualifying the MLR-model as a DtH-model.
+###       heavily by AIC, so the (binned) spell time variable and its interaction are therefore ranked 
+###       much lower, despite their strategic importance in qualifying the MLR-model as a DtH-model.
 
-# - Cleanup
+
+
+
+# ------ 5. Housekeeping ------
+
 cleanEnviron()
+
+
+

@@ -47,6 +47,8 @@ datCredit <- subset(datCredit_real, !is.na(DefSpell_Key) & Date >= sDateStr & Da
 rm(datCredit_real); gc()
 
 
+
+
 # ============ 2. Kaplan-Meier analysis across all default spells | Left-truncation included ============
 
 # --- 2.1 Fit Kaplan-Meier (KM) nonparametric model

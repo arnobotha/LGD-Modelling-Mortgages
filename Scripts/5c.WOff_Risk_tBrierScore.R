@@ -35,16 +35,19 @@
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_valid_CDH_sub"), tempPath); gc()
 
 # - Ensure order of data is correct
-setorder(datCredit_train_CDH, LoanID, Date)
-setorder(datCredit_valid_CDH, LoanID, Date)
+setorder(datCredit_train_CDH_sub, LoanID, Date)
+setorder(datCredit_valid_CDH_sub, LoanID, Date)
 
-# - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
+# - Filter data for default spells and date selections
+datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
+datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
+
+# - Remove redundant objects
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 # - Create a spell-level target variable for write-off instance
 datCredit_train[, DefSpell_Event2:=DefSpell_Event]; datCredit_valid[, DefSpell_Event2:=DefSpell_Event]
@@ -59,19 +62,31 @@ datCredit_train[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 datCredit_valid[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
-datCredit <- rbind(datCredit_train, datCredit_valid)
+datCredit <- rbind(data.table(datCredit_train, Sample="Train"), 
+                   data.table(datCredit_valid, Sample="Validation"))
+
+# - Create a spell-level target variable for write-off instance
+datCredit[, DefSpell_Event2:=DefSpell_Event]
+datCredit[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
+
+# - Transform categorical variables to factor
+# Payment method
+datCredit[, pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+# Previous defaults
+datCredit[, PrevDefaults_fac:=as.factor(PrevDefaults)]
+
+# - Recalculate counter variable with respect to new sampling window
+datCredit[, Counter_Artificial:= 1:.N, by=.(LoanID)]
 
 # - Handle left-truncated spells by adding a starting record 
 ### NOTE:  This is necessary for calculating certain survival quantities later
 # Create an additional record for each default spell
-datAdd <- subset(datCredit, Counter==1 & TimeInDefSpell>1)
+datAdd <- subset(datCredit, Counter_Artificial==1 & TimeInDefSpell>1)
 datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
-datAdd[, Counter:=0]
+datAdd[, Time_Binned := timeBinning(TimeInDefSpell)]
+datAdd[, Counter_Artificial:=0]
 # Add record to main dataset
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
-
-# - Remove objects
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 
 # --- 1.2 Load models
@@ -92,20 +107,20 @@ SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
-datCredit[, Hazard_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
 # - Derive survival probability S(t) = prod(1 - hazard)
 datCredit[, Survival_adv:=cumprod(1-Hazard_adv), by=list(DefSpell_Key)]
 datCredit[, Survival_bas:=cumprod(1-Hazard_bas), by=list(DefSpell_Key)]
-datCredit[, Survival_classic:=cumprod(1-Hazard_classic), by=list(DefSpell_Key)]
 
 # - Derive discrete density, or event probability f(t) = S(t-1) - S(t)
 datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Survival_adv, by=list(DefSpell_Key)]
 datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=list(DefSpell_Key)]
-datCredit[, EventRate_classic:=shift(Survival_classic, type="lag", n=1, fill=1) - Survival_classic, by=list(DefSpell_Key)]
+
+# - Derive residual CIF F_Res(t,M) = 1 - S(M)/S(t)
+datCredit[, CIF_res_cslr:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
 # - Remove added rows
-datCredit <- subset(datCredit, Counter>0)
+datCredit <- subset(datCredit, Counter_Artificial>0) %>% setorder(LoanID, Date)
 
 
 # --- 1.4 Predict survival quantities using survival tree

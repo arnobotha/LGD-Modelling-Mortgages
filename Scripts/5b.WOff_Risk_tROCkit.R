@@ -35,27 +35,23 @@
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_valid_CDH_sub"), tempPath); gc()
 
 # - Ensure order of data is correct
-setorder(datCredit_train_CDH, LoanID, Date)
-setorder(datCredit_valid_CDH, LoanID, Date)
-
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
+setorder(datCredit_train_CDH_sub, LoanID, Date)
+setorder(datCredit_valid_CDH_sub, LoanID, Date)
 
 # - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
+datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
+datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
+
+# - Remove redundant objects
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(data.table(datCredit_train, Sample="Train"), 
                    data.table(datCredit_valid, Sample="Validation"))
-
-# - Remove objects
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
 
 # - Create a spell-level target variable for write-off instance
 datCredit[, DefSpell_Event2:=DefSpell_Event]
@@ -63,12 +59,12 @@ datCredit[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
 
 # - Transform categorical variables to factor
 # Payment method
-datCredit[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+datCredit[, pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
 # Previous defaults
-datCredit[,PrevDefaults_fac:=as.factor(PrevDefaults)]
+datCredit[, PrevDefaults_fac:=as.factor(PrevDefaults)]
 
 # - Recalculate counter variable with respect to new sampling window
-datCredit[, Counter_Artificial := 1:.N, by=.(LoanID)]
+datCredit[, Counter_Artificial:= 1:.N, by=.(LoanID)]
 
 # - Handle left-truncated spells by adding a starting record 
 ### NOTE:  This is necessary for calculating certain survival quantities later
@@ -105,7 +101,6 @@ unpack.ffdf(paste0(genPath,"MultiCI_Tree"),tempPath)
 # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
 datCredit[, Hazard_adv:=predict(modLR_Adv, newdata=datCredit, type = "response")]
 datCredit[, Hazard_bas:=predict(modLR_Bas, newdata=datCredit, type = "response")]
-datCredit[, Hazard_CSLR:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
 # - Predict cause-specific hazard h_g(t) = P(T=t, G=g | T >= t) in discrete-time | DtH-Multinomial
 matPredictions <- predict(modMLR, newdata=datCredit, type = "probs")
@@ -132,6 +127,9 @@ datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Surviv
 # - Derive event rates as f_1(t) = S(t-1) . h_1(t)
 datCredit[, EventRate_WriteOff := shift(Survival_overall, n=1,fill=1) * Hazard_WriteOff, by=.(DefSpell_Key)]
 datCredit[, EventRate_WriteOff_tree := shift(Survival_overall_tree, n=1,fill=1) * Hazard_WriteOff_tree, by=.(DefSpell_Key)]
+
+# - Derive residual CIF F_Res(t,M) = 1 - S(M)/S(t)
+datCredit[, CIF_res_cslr:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
 # - Remove added rows
 datCredit <- subset(datCredit, Counter_Artificial>0) %>% setorder(LoanID, Date)
@@ -571,9 +569,9 @@ ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel-Combi
 # - Create an event indicator
 datCredit[, DefSpell_Event2 := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
 
-# - Run ROC analyses on the subet data
+# - Run ROC analyses on the subset data
 ptm <- proc.time() #IGNORE: for computation time calculation
-objROC_LR <- roc(response=datCredit[DefSpell_Counter==1, DefSpell_Event2], predictor=datCredit[DefSpell_Counter==1, Hazard_CSLR])
+objROC_LR <- roc(response=datCredit[DefSpell_Counter==1, DefSpell_Event2], predictor=datCredit[DefSpell_Counter==1, CIF_res_cslr])
 proc.time() - ptm
 objROC_LR$auc; plot(objROC_LR)
 ### RESULTS: AUC up to t: 86.29%, achieved in 1 secs

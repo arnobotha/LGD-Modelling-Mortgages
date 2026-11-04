@@ -33,16 +33,15 @@
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath); gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath); gc()
-
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath); gc()
 
 # - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
+datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
+datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
+
+# - Remove redundant objects
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 
 # --- 1.2 Data preparation for prediction purposes
@@ -56,12 +55,12 @@ datCredit[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
 
 # - Transform categorical variables to factor
 # Payment method
-datCredit[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+datCredit[, pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
 # Previous defaults
-datCredit[,PrevDefaults_fac:=as.factor(PrevDefaults)]
+datCredit[, PrevDefaults_fac:=as.factor(PrevDefaults)]
 
 # - Recalculate counter variable with respect to new sampling window
-datCredit[, Counter_Artificial := 1:.N, by=.(LoanID)]
+datCredit[, Counter_Artificial:=1:.N, by=.(LoanID)]
 
 # - Handle left-truncated spells by adding a starting record 
 ### NOTE:  This is necessary for calculating certain survival quantities later
@@ -87,7 +86,7 @@ modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 # - Tree model
 SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 
-# Km-estimator of survival probability and related quantities
+# - Load KM-estimator of survival probability and related quantities
 if (!exists('datSurv')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), tempPath);gc()
 
 
@@ -113,9 +112,9 @@ datCredit[, EventRate_adv:=shift(Survival_adv, type="lag", n=1, fill=1) - Surviv
 datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Survival_bas, by=.(DefSpell_Key)]
 
 # - Remove added rows
-datCredit <- subset(datCredit, Counter_Artificial>0)
+datCredit <- subset(datCredit, Counter_Artificial>0) %>% setorder(LoanID, Date)
 
-# [SANITY CHECK]
+# - [SANITY CHECK]
 lookup <- subset(datCredit, LoanID == unique(datCredit[DefSpell_Num==1 & DefSpell_Age >= 12, LoanID])[1],
                  select=c("DefSpell_Num", "TimeInDefSpell", "Hazard_adv", "EventRate_adv", "Survival_adv"))
 
@@ -167,14 +166,15 @@ plot(datSurv_exp[TimeInDefSpell<=120, Hazard_Emp], type="b", col="green") ### MM
 lines(datSurv[Time<=120, EventRate], type="b", col="red") ### MM: Event rate as calculated by KM-estimator (S(t-1)*h(t))
 lines(datSurv[Time<=120, Hazard_Actual], type="b", col="blue") ### MM: Hazard rate as calculated by KM-estimator
 all(datSurv_exp[TimeInDefSpell<=120, Hazard_Emp]==datSurv[Time<=120, Hazard_Actual]) # should be TRUE
-### RESULTS: The hazard rate calculated by d(t)/n(t) is exactly the same as the hazard rate we get from the KM-estimator
+### RESULTS: - The hazard rate calculated by d(t)/n(t) are exactly the same as the hazard rate from the KM-estimator
+### MM: This is no longer the case, not sure why? I checked both root datasets and they seem identical
 
 # - Plotting event rates for actuals and all expected values
 plot(datSurv[Time<=120, EventRate], type="b")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_adv], type="b", col="red")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_bas], type="b", col="green")
 lines(datSurv_exp[TimeInDefSpell<=120, EventRate_survtree], type="b", col="blue")
-### CONCLUSION: Note that the output from the CS-LR
+### CONCLUSION: Rates look reasonable
 
 
 
@@ -251,3 +251,6 @@ ggsave(gsurv_ft2, file=paste0(genFigPath, "EventProb_Write-Off_ActVsExp_CoxDisc_
 # ============ 4. Housekeeping ============
 
 cleanEnviron()
+
+
+

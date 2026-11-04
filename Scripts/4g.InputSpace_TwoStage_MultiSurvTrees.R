@@ -19,27 +19,26 @@
 # =======================================================================================
 
 
-# ------ 1. Preliminaries
+# ------ 1. Preliminaries ------
 
 # --- 1.1 Load data
 # - Confirm prepared datasets are loaded into memory
-# Training set
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath)
-# Validation set
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath)
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_valid_CDH_sub"), tempPath); gc()
 
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
+# - Ensure order of data is correct
+setorder(datCredit_train_CDH_sub, LoanID, Date)
+setorder(datCredit_valid_CDH_sub, LoanID, Date)
 
 # - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CDH, !is.na(DefSpell_Key) & Date >= sDateStr & Date <= sDateStp)
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
+datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
+
+# - Remove redundant objects
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 
 # --- 1.2 Final data preparations
-
 # - Transform categorical variables to factor
 # Payment method
 datCredit_train[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
@@ -63,7 +62,8 @@ if (!exists('datSurv2')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompR
 
 
 
-# ------ 2. Fitting a survival tree and rendering predictions
+
+# ------ 2. Fitting a survival tree and rendering predictions ------
 
 # --- 2.1 Fit tree
 # - Input space of multinomial DtH-model
@@ -92,16 +92,14 @@ proc.time() - start_time # Runtime = 1 sec
 # - Visualise tree
 plot(modMultiSurvTree)
 ### NOTE: Variables included in fitted model:
-# InterestRate_Nom, pmnt_method_grp_fac, M_DTI_Growth_12, M_RealIncome_Growth_9, TimeInDefSpell,
-# NewLoans_Aggr_Prop, 
+###        InterestRate_Nom, pmnt_method_grp_fac, M_DTI_Growth_12, M_RealIncome_Growth_9,
+###        TimeInDefSpell, NewLoans_Aggr_Prop, 
 
 # - Save model
 pack.ffdf(paste0(genPath,"MultiCI_Tree"), modMultiSurvTree)
 
 
-
 # --- 2.2 Obtain predictions from tree
-
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
 
@@ -173,6 +171,11 @@ objROC44_MultiST$AUC ;objROC44_MultiST$ROC_graph
 ### RESULTS: AUC up to t: 94.36%, achieved in 27 secs (maximum node depth=4)
 
 
-# --- Cleanup
+
+
+# ------ 3. Clean-up ------
+
 cleanEnviron()
+
+
 
