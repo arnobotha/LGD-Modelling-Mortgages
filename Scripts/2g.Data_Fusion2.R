@@ -89,10 +89,6 @@ if (all(is.na(stratifiers))){ # No stratifiers
 # - Save intermediary snapshots to disk (zip) for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final_CDH_keys"), datKeys)
 
-# - Set subsampling parameters for restricting the model training data to be ion a certain period
-date_sub_start <- as.Date("2008-01-01")
-date_sub_end <- as.Date("2019-12-31")
-
 
 
 
@@ -803,7 +799,7 @@ pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), datCredit_prep)
 
 
 
-# ============ 4. Apply a cross-validation clustered resampling scheme | Using all spell observations ============
+# ============ 4. Apply a clustered (LoanID) resampling scheme | Using all spell observations ============
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_prep')) unpack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), tempPath)
@@ -873,14 +869,15 @@ suppressWarnings(rm(smp_perc, datKeys, datKeys_sampled, dat_train_keys, check.2,
                     datCredit_prep_prior, dat_keys_exc, class_type, excCond, excCond2, datCredit_prep))
 
 
-# --- 4.2 Saving the cross-validation scheme
+# --- 4.2 Saving the resampled sets
 pack.ffdf(paste0(genPath,"creditdata_train_CDH"), datCredit_train_CDH)
 pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
 
 
 
 
-# ============ 5. Apply a cross-validation clustered resampling scheme | Selecting random spell observations ============
+# ============ 5. Apply a cross-validation clustered resampling schema ============
+# Selecting random spell observations
 
 # - Confirm that required data objects are loaded into memory
 if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath, "creditdata_train_CDH"), tempPath); gc()
@@ -912,25 +909,34 @@ cat(((check2a & check2b) %?% "SAFE: Training and validation datasets contain all
        'WARNING: Training and validation datasets do not contain all write-off instances of the larger sets. \n' ))
 
 
-# --- 5.2 Saving the cross-validation scheme
-# - Training dataset
+# --- 5.2 Saving the resampled sets
 pack.ffdf(paste0(genPath,"creditdata_train_CS"), datCredit_train_CS)
-
-# - Validation dataset
 pack.ffdf(paste0(genPath,"creditdata_valid_CS"), datCredit_valid_CS)
 
 
 
 
-# ============ 6. Split data into training, validation, and out-of-time samples ============
+# ============ 6. Partition data into training, validation, and out-of-time samples ============
 ### NOTE: - The training and validation samples are restricted to the specified period in section 1
 ###       - An out-of-time (OOT) dataset is created for out-of-time testing diagnostics
-###       - For the full data we include all observations of a default spell before the specified end date
+###       - For the full panel data we include all observations of a default spell before the specified end date
 ###         in the training and validation sets, whilst the OOT gets all observations past the specified end date
 ###       - For the cross-sectional sets, only resolved default spells in the specified window are include in the
 ###         training and validation sets since the model needs to be trained on resolved spells only
+
+# --- 6.0 Preliminaries
+
+# - Confirm that required data objects are loaded into memory
+if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath, "creditdata_train_CDH"), tempPath); gc()
+if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath, "creditdata_valid_CDH"), tempPath); gc()
+if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath, "creditdata_train_CS"), tempPath); gc()
+if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath, "creditdata_valid_CS"), tempPath); gc()
+
+# - Set subsampling parameters for restricting the model training data to be ion a certain period
+date_sub_start <- as.Date("2008-01-01")
+date_sub_end <- as.Date("2019-12-31")
   
-  
+
 # --- 6.1 Full samples
 # - Subsample data
 datCredit_train_CDH_sub <- datCredit_train_CDH[Date>=date_sub_start & Date<=date_sub_end]

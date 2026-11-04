@@ -49,7 +49,8 @@ datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
 # - Remove redundant objects
 rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
-# - Combine training and validation datasets to facilitate "better" (smooth) graphs
+# - Combine training and validation datasets to facilitate combined data preparation and prediction
+### NOTE: tROC-analyses will still be performed on the validation set
 datCredit <- rbind(data.table(datCredit_train, Sample="Train"), 
                    data.table(datCredit_valid, Sample="Validation"))
 
@@ -167,8 +168,9 @@ objROC6_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit[Sample=="Validation"],
                                       Marker = datCredit[Sample=="Validation", Hazard_bas],
                                       month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
                                       fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                      caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=4, logPath=genPath, 
-                                      Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"))
+                                      caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                      Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                      graphName = "DtH_Basic")
 proc.time() - ptm
 objROC6_CDH_CoxDisc_bas$AUC; objROC6_CDH_CoxDisc_bas$ROC_graph
 ### RESULTS: AUC up to t: 49.27%, achieved in 134.63 secs
@@ -181,8 +183,9 @@ objROC12_CDH_CoxDisc_bas <-   tROC.multi(datGiven=datCredit[Sample=="Validation"
                                          Marker = datCredit[Sample=="Validation", Hazard_bas],
                                          month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
                                          fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                         caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=4, logPath=genPath, 
-                                         Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"))
+                                         caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                         Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                         graphName = "DtH_Basic")
 proc.time() - ptm
 objROC12_CDH_CoxDisc_bas$AUC; objROC12_CDH_CoxDisc_bas$ROC_graph
 ### RESULTS: AUC up to t: 56.89%, achieved in 150.97  secs
@@ -195,8 +198,9 @@ objROC24_CDH_CoxDisc_bas <-  tROC.multi(datGiven=datCredit[Sample=="Validation"]
                                         Marker = datCredit[Sample=="Validation", Hazard_bas],
                                         month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
                                         fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=4, logPath=genPath, 
-                                        Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"))
+                                        caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                        Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                        graphName = "DtH_Basic")
 proc.time() - ptm
 objROC24_CDH_CoxDisc_bas$AUC; objROC24_CDH_CoxDisc_bas$ROC_graph
 ### RESULTS: AUC up to t: 63.97%, achieved in 247.96 secs
@@ -209,8 +213,9 @@ objROC48_CDH_CoxDisc_bas <-  tROC.multi(datGiven=datCredit[Sample=="Validation"]
                                         Marker = datCredit[Sample=="Validation", Hazard_bas],
                                         month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
                                         fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                        caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=4, logPath=genPath, 
-                                        Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"))
+                                        caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                        Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                        graphName = "DtH_Basic")
 proc.time() - ptm
 objROC48_CDH_CoxDisc_bas$AUC; objROC48_CDH_CoxDisc_bas$ROC_graph
 ### RESULTS: AUC up to t: 59.48%, achieved in 363.83  secs
@@ -238,8 +243,9 @@ objROC6_CDH_CoxDisc_adv <-  tROC.multi(datGiven=datCredit[Sample=="Validation"],
                                        Marker = datCredit[Sample=="Validation", Hazard_adv],
                                        month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
                                        fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                       caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=4, logPath=genPath, 
-                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"))
+                                       caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                       graphName = "DtH_Advanced")
 proc.time() - ptm
 objROC6_CDH_CoxDisc_adv$AUC; objROC6_CDH_CoxDisc_adv$ROC_graph
 ### RESULTS: AUC up to t: 96.24%, achieved in 1591.73  secs
@@ -252,8 +258,9 @@ objROC12_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit[Sample=="Validation"],
                                        Marker = datCredit[Sample=="Validation", Hazard_adv],
                                        month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
                                        fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                       caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=4, logPath=genPath, 
-                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"))
+                                       caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                       graphName = "DtH_Advanced")
 proc.time() - ptm
 objROC12_CDH_CoxDisc_adv$AUC; objROC12_CDH_CoxDisc_adv$ROC_graph
 ### RESULTS: AUC up to t: 94.42%, achieved in 1951.69  secs
@@ -266,11 +273,12 @@ objROC24_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit[Sample=="Validation"],
                                        Marker = datCredit[Sample=="Validation", Hazard_adv],
                                        month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
                                        fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                       caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=4, logPath=genPath, 
-                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"))
+                                       caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                       graphName = "DtH_Advanced")
 proc.time() - ptm
 objROC24_CDH_CoxDisc_adv$AUC; objROC24_CDH_CoxDisc_adv$ROC_grap
-### RESULTS: AUC up to t: 96.70%, achieved in 9720 secs
+### RESULTS: AUC up to t: 92.43%, achieved in 2690.39 secs
 
 
 # --- 3.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
@@ -280,11 +288,12 @@ objROC48_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit[Sample=="Validation"],
                                        Marker = datCredit[Sample=="Validation", Hazard_adv],
                                        month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
                                        fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                                       caseStudyName=paste0("CoxDisc_CDH_", predictTime), numThreads=4, logPath=genPath, 
-                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"))
+                                       caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                       graphName = "DtH_Advanced")
 proc.time() - ptm
 objROC48_CDH_CoxDisc_adv$AUC; objROC48_CDH_CoxDisc_adv$ROC_graph
-### RESULTS: AUC up to t: 97.37%, achieved in 19325 secs
+### RESULTS: AUC up to t: 88.89%, achieved in 4392.67 secs
 
 
 # --- 3.5 Store experimental objects | Memory optimisation
@@ -296,7 +305,7 @@ saveRDS(objROC48_CDH_CoxDisc_adv, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_
 
 
 
-# ============ 4. tROC analyses | Survival tree ============
+# ============ 4. tROC analyses | Conditional Inference Survival tree ============
 ### NOTE: - Using custom tROC()-function from script 0b(iii) under the CD-approach with an NN-estimator and 0/1-kernel
 ###       - Uses the superior Nearest Neighbour Estimator (NNE) method for S(t) with a 0/1-kernel NNE-based for S(t)
 ###       - Assume dependence (by specifying ID-field) amongst certain observations clustered around ID-values
@@ -304,53 +313,61 @@ saveRDS(objROC48_CDH_CoxDisc_adv, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_
 # --- 4.1 tROC analyses using the CD-approach | Time-window chosen as first 6 months in default
 predictTime <- 6
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC6_CDH_st <- tROC.multi(datGiven=datCredit, modGiven=NA, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
-                         fld_ID="DefSpell_Key", fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                         graphName="WOffSurvModel-ROC_SurvTree_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
-                         caseStudyName=paste0("SurvTree_", predictTime), numThreads=12, logPath=genPath, 
-                         predType="response", MarkerGiven="Hazard_survtree")
+objROC6_CDH_st <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                             Marker = datCredit[Sample=="Validation", Hazard_survtree],
+                             month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                             fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                             caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                             Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                             graphName = "CI_Tree")
 proc.time() - ptm
 objROC6_CDH_st$AUC; objROC6_CDH_st$ROC_graph
-### RESULTS: AUC up to t: 54.17%, achieved in 554 secs
+### RESULTS: AUC up to t: 90.72%, achieved in 108.71 secs
 
 
 # --- 4.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
 predictTime <- 12
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC12_CDH_st <- tROC.multi(datGiven=datCredit, modGiven=NA, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
-                              fld_ID="DefSpell_Key", fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                              graphName="WOffSurvModel-ROC_SurvTree_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
-                              caseStudyName=paste0("SurvTree_", predictTime), numThreads=12, logPath=genPath, 
-                              predType="response", MarkerGiven="Hazard_survtree")
+objROC12_CDH_st <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                              Marker = datCredit[Sample=="Validation", Hazard_survtree],
+                              month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                              fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                              caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                              Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                              graphName = "CI_Tree")
 proc.time() - ptm
 objROC12_CDH_st$AUC; objROC12_CDH_st$ROC_graph
-### RESULTS: AUC up to t: 66.81%, achieved in 749 secs
+### RESULTS: AUC up to t: 89.97%, achieved in 123.66 secs
 
 
 # --- 4.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
 predictTime <- 24
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC24_CDH_st <- tROC.multi(datGiven=datCredit, modGiven=NA, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
-                              fld_ID="DefSpell_Key", fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                              graphName="WOffSurvModel-ROC_SurvTree_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
-                              caseStudyName=paste0("SurvTree_", predictTime), numThreads=12, logPath=genPath, 
-                              predType="response", MarkerGiven="Hazard_survtree")
+objROC24_CDH_st <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                              Marker = datCredit[Sample=="Validation", Hazard_survtree],
+                              month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                              fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                              caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                              Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                              graphName = "CI_Tree")
 proc.time() - ptm
 objROC24_CDH_st$AUC; objROC24_CDH_st$ROC_graph
-### RESULTS: AUC up to t: 73.93%, achieved in 1680 secs
+### RESULTS: AUC up to t: 83.26%, achieved in 180.04 secs
 
 
 # --- 4.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
 predictTime <- 48
 ptm <- proc.time() #IGNORE: for computation time calculation;
-objROC48_CDH_st <- tROC.multi(datGiven=datCredit, modGiven=NA, month_End=predictTime, sLambda=0.05, estMethod="NN-0/1", numDigits=4, 
-                              fld_ID="DefSpell_Key", fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
-                              graphName="WOffSurvModel-ROC_SurvTree_TimeVar", genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"), 
-                              caseStudyName=paste0("SurvTree_", predictTime), numThreads=12, logPath=genPath, 
-                              predType="response", MarkerGiven="Hazard_survtree")
+objROC48_CDH_st <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                              Marker = datCredit[Sample=="Validation", Hazard_survtree],
+                              month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                              fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                              caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                              Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                              graphName = "CI_Tree")
 proc.time() - ptm
 objROC48_CDH_st$AUC; objROC48_CDH_st$ROC_graph
-### RESULTS: AUC up to t: 75.67%, achieved in 2582 secs
+### RESULTS: AUC up to t: 73.29%, achieved in 276.68  secs
 
 
 # --- 4.5 Store experimental objects | Memory optimisation
@@ -362,13 +379,163 @@ saveRDS(objROC48_CDH_st, paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedend
 
 
 
-# ============ 5. Create combined ROC-graphs across multiple prediction times ============
 
-# --- 5.1 Basic discrete-time hazard model
+# ============ 5. tROC analyses | Multinomial discrete-time hazard model ============
+### NOTE: - Using custom tROC()-function from script 0b(iii) under the CD-approach with an NN-estimator and 0/1-kernel
+###       - Uses the superior Nearest Neighbour Estimator (NNE) method for S(t) with a 0/1-kernel NNE-based for S(t)
+###       - Assume dependence (by specifying ID-field) amongst certain observations clustered around ID-values
+
+# --- 5.1 tROC analyses using the CD-approach | Time-window chosen as first 6 months in default
+predictTime <- 6
+ptm <- proc.time() #IGNORE: for computation time calculation;
+objROC6_CDH_DtH_Multi <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                             Marker = datCredit[Sample=="Validation", Hazard_WriteOff],
+                             month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                             fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                             caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                             Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                             graphName = "DtH_Multinomial")
+proc.time() - ptm
+objROC6_CDH_DtH_Multi$AUC; objROC6_CDH_DtH_Multi$ROC_graph
+### RESULTS: AUC up to t: 95.89%, achieved in 935.86 secs
+
+
+# --- 5.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
+predictTime <- 12
+ptm <- proc.time() #IGNORE: for computation time calculation;
+objROC12_CDH_DtH_Multi <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                              Marker = datCredit[Sample=="Validation", Hazard_WriteOff],
+                              month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                              fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                              caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                              Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                              graphName = "DtH_Multinomial")
+proc.time() - ptm
+objROC12_CDH_DtH_Multi$AUC; objROC12_CDH_DtH_Multi$ROC_graph
+### RESULTS: AUC up to t: 94.82%, achieved in 1143.50 secs
+
+
+# --- 5.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
+predictTime <- 24
+ptm <- proc.time() #IGNORE: for computation time calculation;
+objROC24_CDH_DtH_Multi <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                              Marker = datCredit[Sample=="Validation", Hazard_WriteOff],
+                              month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                              fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                              caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                              Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                              graphName = "DtH_Multinomial")
+proc.time() - ptm
+objROC24_CDH_DtH_Multi$AUC; objROC24_CDH_DtH_Multi$ROC_graph
+### RESULTS: AUC up to t: 93.30%, achieved in 1729.17 secs
+
+
+# --- 5.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
+predictTime <- 48
+ptm <- proc.time() #IGNORE: for computation time calculation;
+objROC48_CDH_DtH_Multi <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                              Marker = datCredit[Sample=="Validation", Hazard_WriteOff],
+                              month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                              fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                              caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                              Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                              graphName = "DtH_Multinomial")
+proc.time() - ptm
+objROC48_CDH_DtH_Multi$AUC; objROC48_CDH_DtH_Multi$ROC_graph
+### RESULTS: AUC up to t: 90.73%, achieved in 2773.77 secs
+
+
+# --- 4.5 Store experimental objects | Memory optimisation
+saveRDS(objROC6_CDH_DtH_Multi, paste0(genPath,"WOffSurvModel-CDH-DtHMulti-ROC_Depedendence_06.rds"))
+saveRDS(objROC12_CDH_DtH_Multi, paste0(genPath,"WOffSurvModel-CDH-DtHMulti-ROC_Depedendence_12.rds"))
+saveRDS(objROC24_CDH_DtH_Multi, paste0(genPath,"WOffSurvModel-CDH-DtHMulti-ROC_Depedendence_24.rds"))
+saveRDS(objROC48_CDH_DtH_Multi, paste0(genPath,"WOffSurvModel-CDH-DtHMulti-ROC_Depedendence_48.rds"))
+
+
+
+
+# ============ 6. tROC analyses | Multinomial discrete-time hazard model ============
+### NOTE: - Using custom tROC()-function from script 0b(iii) under the CD-approach with an NN-estimator and 0/1-kernel
+###       - Uses the superior Nearest Neighbour Estimator (NNE) method for S(t) with a 0/1-kernel NNE-based for S(t)
+###       - Assume dependence (by specifying ID-field) amongst certain observations clustered around ID-values
+
+# --- 6.1 tROC analyses using the CD-approach | Time-window chosen as first 6 months in default
+predictTime <- 6
+ptm <- proc.time() #IGNORE: for computation time calculation;
+objROC6_CDH_MultiCI <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                                    Marker = datCredit[Sample=="Validation", Hazard_WriteOff_tree],
+                                    month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                                    fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                                    caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                    Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                    graphName = "Multi_CI_Tree")
+proc.time() - ptm
+objROC6_CDH_MultiCI$AUC; objROC6_CDH_MultiCI$ROC_graph
+### RESULTS: AUC up to t: 98.69%, achieved in 23.48  secs
+
+
+# --- 6.2 tROC analyses using the CD-approach | Time-window chosen as first 12 months in default
+predictTime <- 12
+ptm <- proc.time() #IGNORE: for computation time calculation;
+objROC12_CDH_MultiCI <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                                     Marker = datCredit[Sample=="Validation", Hazard_WriteOff_tree],
+                                     month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                                     fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                                     caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                     Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                     graphName = "Multi_CI_Tree")
+proc.time() - ptm
+objROC12_CDH_MultiCI$AUC; objROC12_CDH_MultiCI$ROC_graph
+### RESULTS: AUC up to t: 98.49%, achieved in 24.79  secs
+
+
+# --- 6.3 tROC analyses using the CD-approach | Time-window chosen as first 24 months in default
+predictTime <- 24
+ptm <- proc.time() #IGNORE: for computation time calculation;
+objROC24_CDH_MultiCI <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                                     Marker = datCredit[Sample=="Validation", Hazard_WriteOff_tree],
+                                     month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                                     fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                                     caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                     Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                     graphName = "Multi_CI_Tree")
+proc.time() - ptm
+objROC24_CDH_MultiCI$AUC; objROC24_CDH_MultiCI$ROC_graph
+### RESULTS: AUC up to t: 96.99%, achieved in 27.62  secs
+
+
+# --- 6.4 tROC analyses using the CD-approach | Time-window chosen as first 48 months in default
+predictTime <- 48
+ptm <- proc.time() #IGNORE: for computation time calculation;
+objROC48_CDH_MultiCI <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                                     Marker = datCredit[Sample=="Validation", Hazard_WriteOff_tree],
+                                     month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                                     fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                                     caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                     Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                     graphName = "Multi_CI_Tree")
+proc.time() - ptm
+objROC48_CDH_MultiCI$AUC; objROC48_CDH_MultiCI$ROC_graph
+### RESULTS: AUC up to t: 0.93.44%, achieved in 30.89  secs
+
+
+# --- 4.5 Store experimental objects | Memory optimisation
+saveRDS(objROC6_CDH_MultiCI, paste0(genPath,"WOffSurvModel-CDH-MultiCI_Tree-ROC_Depedendence_06.rds"))
+saveRDS(objROC12_CDH_MultiCI, paste0(genPath,"WOffSurvModel-CDH-MultiCI_Tree-ROC_Depedendence_12.rds"))
+saveRDS(objROC24_CDH_MultiCI, paste0(genPath,"WOffSurvModel-CDH-MultiCI_Tree-ROC_Depedendence_24.rds"))
+saveRDS(objROC48_CDH_MultiCI, paste0(genPath,"WOffSurvModel-CDH-MultiCI_Tree-ROC_Depedendence_48.rds"))
+
+
+
+
+
+# ============ 7. Create combined ROC-graphs across multiple prediction times ============
+
+# --- 7.1 Basic discrete-time hazard model
 # - Ensure required objects exist in memory
-if (!exists('objROC6_CDH_CoxDisc_bas')) objROC6_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_06_bas.rds")); gc()
-if (!exists('objROC12_CDH_CoxDisc_bas')) objROC12_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_12_bas.rds")); gc()
-if (!exists('objROC24_CDH_CoxDisc_bas')) objROC24_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_24_bas.rds")); gc()
+if (!exists('objROC6_CDH_CoxDisc_bas')) objROC6_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_06_bas.rds"))
+if (!exists('objROC12_CDH_CoxDisc_bas')) objROC12_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_12_bas.rds"))
+if (!exists('objROC24_CDH_CoxDisc_bas')) objROC24_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_24_bas.rds"))
 if (!exists('objROC48_CDH_CoxDisc_bas')) objROC48_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_48_bas.rds")); gc()
 
 # - Set ROC-parameters and initialize data structures
@@ -396,7 +563,7 @@ for (i in 1:length(vecPercTimepoint)) {
 
 # - Graph a combined ROC-graph across prediction times t
 # Aesthetic parameters
-datGraph[, FacetLabel:="Basic discrete-time hazard model - A"]
+datGraph[, FacetLabel:="Basic discrete-time hazard model"]
 vCol <- brewer.pal(8,"Set1")
 vLabels_F <- setNames(vLabels, paste0(letters[1:length(vecPercTimepoint)],"_", vecPercTimepoint))
 chosenFont <- "Cambria"
@@ -405,7 +572,7 @@ chosenFont <- "Cambria"
     theme(text = element_text(family=chosenFont), legend.position="inside", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
-          legend.position.inside=c(0.75,0.25),
+          legend.position.inside=c(0.65,0.25),
           legend.background=element_rect(fill="snow2", color="black",
                                          linetype="solid", linewidth=0.1)) +
     labs(x=bquote("False Positive Rate "*italic(F^"+")),
@@ -423,16 +590,16 @@ chosenFont <- "Cambria"
     scale_y_continuous(label=percent) + scale_x_continuous(label=percent))
 
 # - Save graph
-dpi <- 300
-ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel-CoxDisc-CDH-CombinedROC_Depedendence_bas.png")), 
+dpi <- 250
+ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel_CombinedROC_DtH_Basic.png")), 
        width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
-# --- 5.2 Advanced discrete-time hazard model
+# --- 7.2 Advanced discrete-time hazard model
 # - Ensure required objects exist in memory
-if (!exists('objROC6_CDH_CoxDisc_adv')) objROC6_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_06_adv.rds")); gc()
-if (!exists('objROC12_CDH_CoxDisc_adv')) objROC12_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_12_adv.rds")); gc()
-if (!exists('objROC24_CDH_CoxDisc_adv')) objROC24_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_24_adv.rds")); gc()
+if (!exists('objROC6_CDH_CoxDisc_adv')) objROC6_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_06_adv.rds"))
+if (!exists('objROC12_CDH_CoxDisc_adv')) objROC12_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_12_adv.rds"))
+if (!exists('objROC24_CDH_CoxDisc_adv')) objROC24_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_24_adv.rds"))
 if (!exists('objROC48_CDH_CoxDisc_adv')) objROC48_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_48_adv.rds")); gc()
 
 # - Set ROC-parameters and initialize data structures
@@ -461,7 +628,7 @@ for (i in 1:length(vecPercTimepoint)) {
 
 # - Graph a combined ROC-graph across prediction times t
 #  Aesthetic parameters
-datGraph[, FacetLabel := "Advanced discrete-time hazard model - A"]
+datGraph[, FacetLabel := "Advanced discrete-time hazard model"]
 vCol <- brewer.pal(8,"Set1")
 vLabels_F <- setNames(vLabels, paste0(letters[1:length(vecPercTimepoint)],"_", vecPercTimepoint))
 chosenFont <- "Cambria"
@@ -470,7 +637,7 @@ chosenFont <- "Cambria"
     theme(text = element_text(family=chosenFont), legend.position="inside", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
-          legend.position.inside = c(0.55,0.45),
+          legend.position.inside = c(0.65,0.25),
           legend.background = element_rect(fill="snow2", color="black",
                                            linetype="solid", linewidth=0.1)) +
     labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
@@ -488,16 +655,16 @@ chosenFont <- "Cambria"
     scale_y_continuous(label=percent) + scale_x_continuous(label=percent))
 
 # - Save graph
-dpi <- 300
-ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel-CoxDisc-CDH-CombinedROC_Depedendence_adv.png")), 
+dpi <- 250
+ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel_CombinedROC_DtH_Advanced.png")), 
        width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
-# --- 5.3 Survival tree
+# --- 7.3 Survival tree
 # - Ensure required objects exist in memory
-if (!exists('objROC6_SurvTree')) objROC6_CDH_st <- readRDS(paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedendence_06.rds")); gc()
-if (!exists('objROC12_SurvTree')) objROC12_CDH_st <- readRDS(paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedendence_12.rds")); gc()
-if (!exists('objROC24_SurvTree')) objROC24_CDH_st <- readRDS(paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedendence_24.rds")); gc()
+if (!exists('objROC6_SurvTree')) objROC6_CDH_st <- readRDS(paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedendence_06.rds"))
+if (!exists('objROC12_SurvTree')) objROC12_CDH_st <- readRDS(paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedendence_12.rds"))
+if (!exists('objROC24_SurvTree')) objROC24_CDH_st <- readRDS(paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedendence_24.rds"))
 if (!exists('objROC48_SurvTree')) objROC48_CDH_st <- readRDS(paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedendence_48.rds")); gc()
 
 # - Set ROC-parameters and initialize data structures
@@ -526,7 +693,7 @@ for (i in 1:length(vecPercTimepoint)) {
 
 # - Graph a combined ROC-graph across prediction times t
 #  Aesthetic parameters
-datGraph[, FacetLabel := "Survival Tree"]
+datGraph[, FacetLabel := "Conditional inference survival tree"]
 vCol <- brewer.pal(8,"Set1")
 vLabels_F <- setNames(vLabels, paste0(letters[1:length(vecPercTimepoint)],"_", vecPercTimepoint))
 chosenFont <- "Cambria"
@@ -535,7 +702,7 @@ chosenFont <- "Cambria"
     theme(text = element_text(family=chosenFont), legend.position="inside", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
-          legend.position.inside = c(0.55,0.45),
+          legend.position.inside = c(0.65,0.25),
           legend.background = element_rect(fill="snow2", color="black",
                                            linetype="solid", linewidth=0.1)) +
     labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
@@ -553,12 +720,19 @@ chosenFont <- "Cambria"
     scale_y_continuous(label=percent) + scale_x_continuous(label=percent))
 
 # - Save graph
-dpi <- 300
-ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel-CombinedROC_Depedendence_st.png")), 
+dpi <- 250
+ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel_CombinedROC_SurvTree.png")), 
        width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
+# --- 7.4 Multinomial discrete-time hazard model
+# - Ensure required objects exist in memory
+if (!exists('objROC6_CDH_DtH_Multi')) objROC6_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CDH-DtHMulti-ROC_Depedendence_06.rds"))
+if (!exists('objROC12_CDH_DtH_Multi')) objROC12_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CDH-DtHMulti-ROC_Depedendence_12.rds"))
+if (!exists('objROC24_CDH_DtH_Multi')) objROC24_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CDH-DtHMulti-ROC_Depedendence_24.rds"))
+if (!exists('objROC48_CDH_DtH_Multi')) objROC48_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CDH-DtHMulti-ROC_Depedendence_48.rds")); gc()
 
+<<<<<<< HEAD
 
 # ============ 6. Comparing ROC analyses at t=44 for all models ============
 ### NOTE: - Using custom tROC()-function from script 0b(iii) under the CD-approach with an NN-estimator and 0/1-kernel
@@ -633,55 +807,282 @@ if (!exists('objROC44_CDH_CoxDisc_bas')) objROC44_CDH_CoxDisc_bas <- readRDS(pas
 if (!exists('objROC44_CDH_CoxDisc_adv')) objROC44_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_44_adv.rds")); gc()
 if (!exists('objROC44_CDH_st')) objROC44_CDH_st <- readRDS(paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedendence_44.rds")); gc()
 
+
 # --- 7.2 Compare ROCs of the A-series models
 # - Set ROC-parameters and initialize data structures
-vecPercTimepoint <- c(44,44,44,44)
-vecTROC <- list(objROC44_CDH_CoxDisc_adv, objROC44_CDH_CoxDisc_bas ,objROC44_LR, objROC44_CDH_st)
+vecPercTimepoint <- c(6,12,24,48)
+vecTROC <- list(objROC6_CDH_DtH_Multi, objROC12_CDH_DtH_Multi,
+                objROC24_CDH_DtH_Multi, objROC48_CDH_DtH_Multi)
 vLabels <- vector("list", length=length(vecPercTimepoint))
-vModel <- c("DtH-Advanced A","DtH-Basic A", "Logistic Regression A", "Survival Tree")
 
 # - Create a combined data object for plotting purposes
 for (i in 1:length(vecPercTimepoint)) {
   # i <-1 # testing condition
   # datGraph <- data.frame(x = vFPR[-(nThresh+1)], y=vTPR[-1])
   
-  # Create a data object for the current prediction time
-  if (i==1) {
+  # - Create a data object for the current prediction time
+  if (i == 1) {
     datGraph <- data.table(PredictTime=paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
                            x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR)
-    vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$AUC * 100, format = "f", digits = 2)) * "%")
-    
-  } else if (i==2) {
+  } else {
     datGraph <- rbind(datGraph, 
                       data.table(PredictTime= paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
                                  x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR))
-    vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$AUC * 100, format = "f", digits = 2)) * "%")
-  } else if (i==3) {
-    datGraph <- rbind(datGraph, 
-                      data.table(PredictTime= paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$thresholds, 
-                                 x=1-vecTROC[[i]]$specificities, y=vecTROC[[i]]$sensitivities))
-    vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$auc * 100, format = "f", digits = 2)) * "%")
-  } else if (i==4) {
-    datGraph <- rbind(datGraph,
-                      data.table(PredictTime=paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
-                                 x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR))
-    vLabels[[i]] <- bquote(.(vModel[i]) * "; AUC: " * .(formatC(vecTROC[[i]]$AUC * 100, format = "f", digits = 2)) * "%")
   }
-  
+  vLabels[[i]] <- bquote("Prediction time "*italic(t)==.(vecPercTimepoint[i])*"; AUC: "*.(percent(vecTROC[[i]]$AUC, accuracy=0.01)))
 }
 
-# - Set graphing parameters
-datGraph[, FacetLabel := "ROC(italic(t))~'Prediction time t=44'"]
-vCol <- brewer.pal(6,"Set1")
+# - Graph a combined ROC-graph across prediction times t
+# Aesthetic parameters
+datGraph[, FacetLabel:="Multinomial discrete-time hazard model"]
+vCol <- brewer.pal(8,"Set1")
 vLabels_F <- setNames(vLabels, paste0(letters[1:length(vecPercTimepoint)],"_", vecPercTimepoint))
 chosenFont <- "Cambria"
-
-# - Create ROC-graph
+# Create ROC-graph
 (gg <- ggplot(datGraph, aes(x=x,y=y,group=PredictTime)) + theme_minimal() + 
     theme(text = element_text(family=chosenFont), legend.position="inside", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
-          legend.position.inside = c(0.725,0.2),
+          legend.position.inside=c(0.65,0.25),
+          legend.background=element_rect(fill="snow2", color="black",
+                                         linetype="solid", linewidth=0.1)) +
+    labs(x=bquote("False Positive Rate "*italic(F^"+")),
+         y=bquote("True Positive Rate "*italic(T^"+"))) + 
+    # Add 45-degree line
+    geom_segment(x=0, y=0, xend=1, yend=1, color="grey", linewidth=0.2) +
+    # Main line graph
+    geom_step(aes(x=x, y=y, linetype=PredictTime, colour=PredictTime), linewidth=0.5) + 
+    #geom_point(aes(x=x, y=y, shape=PredictTime, colour=PredictTime), size=0.25) +
+    # Facets and scales
+    facet_grid(FacetLabel ~ .) +  
+    scale_color_manual(name=bquote("ROC"*(italic(t))), values=vCol, labels=vLabels) + 
+    scale_linetype_discrete(name=bquote("ROC"*(italic(t))), labels=vLabels) + 
+    scale_shape_discrete(name=bquote("ROC"*(italic(t))), labels=vLabels) + 
+    scale_y_continuous(label=percent) + scale_x_continuous(label=percent))
+
+# - Save graph
+dpi <- 250
+ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel_CombinedROC_DtH_Multinomial.png")), 
+       width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
+
+
+# --- 7.5 Multinomial conditional inference tree
+# - Ensure required objects exist in memory
+if (!exists('objROC6_CDH_MultiCI')) objROC6_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CDH-MultiCI_Tree-ROC_Depedendence_06.rds"))
+if (!exists('objROC12_CDH_MultiCI')) objROC12_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CDH-MultiCI_Tree-ROC_Depedendence_12.rds"))
+if (!exists('objROC24_CDH_MultiCI')) objROC24_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CDH-MultiCI_Tree-ROC_Depedendence_24.rds"))
+if (!exists('objROC48_CDH_MultiCI')) objROC48_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CDH-MultiCI_Tree-ROC_Depedendence_48.rds")); gc()
+
+# - Set ROC-parameters and initialize data structures
+vecPercTimepoint <- c(6,12,24,48)
+vecTROC <- list(objROC6_CDH_MultiCI, objROC12_CDH_MultiCI,
+                objROC24_CDH_MultiCI, objROC48_CDH_MultiCI)
+vLabels <- vector("list", length=length(vecPercTimepoint))
+
+# - Create a combined data object for plotting purposes
+for (i in 1:length(vecPercTimepoint)) {
+  # i <-1 # testing condition
+  # datGraph <- data.frame(x = vFPR[-(nThresh+1)], y=vTPR[-1])
+  
+  # - Create a data object for the current prediction time
+  if (i == 1) {
+    datGraph <- data.table(PredictTime=paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
+                           x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR)
+  } else {
+    datGraph <- rbind(datGraph, 
+                      data.table(PredictTime= paste0(letters[i], "_", vecPercTimepoint[i]), Threshold=vecTROC[[i]]$Thresholds, 
+                                 x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR))
+  }
+  vLabels[[i]] <- bquote("Prediction time "*italic(t)==.(vecPercTimepoint[i])*"; AUC: "*.(percent(vecTROC[[i]]$AUC, accuracy=0.01)))
+}
+
+# - Graph a combined ROC-graph across prediction times t
+# Aesthetic parameters
+datGraph[, FacetLabel:="Multinomial conditional inference tree"]
+vCol <- brewer.pal(8,"Set1")
+vLabels_F <- setNames(vLabels, paste0(letters[1:length(vecPercTimepoint)],"_", vecPercTimepoint))
+chosenFont <- "Cambria"
+# Create ROC-graph
+(gg <- ggplot(datGraph, aes(x=x,y=y,group=PredictTime)) + theme_minimal() + 
+    theme(text = element_text(family=chosenFont), legend.position="inside", 
+          strip.background=element_rect(fill="snow2", colour="snow2"),
+          strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
+          legend.position.inside=c(0.65,0.25),
+          legend.background=element_rect(fill="snow2", color="black",
+                                         linetype="solid", linewidth=0.1)) +
+    labs(x=bquote("False Positive Rate "*italic(F^"+")),
+         y=bquote("True Positive Rate "*italic(T^"+"))) + 
+    # Add 45-degree line
+    geom_segment(x=0, y=0, xend=1, yend=1, color="grey", linewidth=0.2) +
+    # Main line graph
+    geom_step(aes(x=x, y=y, linetype=PredictTime, colour=PredictTime), linewidth=0.5) + 
+    #geom_point(aes(x=x, y=y, shape=PredictTime, colour=PredictTime), size=0.25) +
+    # Facets and scales
+    facet_grid(FacetLabel ~ .) +  
+    scale_color_manual(name=bquote("ROC"*(italic(t))), values=vCol, labels=vLabels) + 
+    scale_linetype_discrete(name=bquote("ROC"*(italic(t))), labels=vLabels) + 
+    scale_shape_discrete(name=bquote("ROC"*(italic(t))), labels=vLabels) + 
+    scale_y_continuous(label=percent) + scale_x_continuous(label=percent))
+
+# - Save graph
+dpi <- 250
+ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffSurvModel_CombinedROC_MultiCI_Tree.png")), 
+       width=1200/dpi, height=1000/dpi, dpi=dpi, bg="white")
+
+
+
+
+# ============ 8. Comparing ROC analyses at a specific spell time for all models ============
+### NOTE: - Using custom tROC()-function from script 0b(iii) under the CD-approach with an NN-estimator and 0/1-kernel
+###       - Uses the superior Nearest Neighbour Estimator (NNE) method for S(t) with a 0/1-kernel NNE-based for S(t)
+###       - Assume dependence (by specifying ID-field) amongst certain observations clustered around ID-values
+
+# --- 8.1 Classical logistic regression model
+# - Create an event indicator
+datCredit[, DefSpell_Event3 := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
+
+# - Run ROC analyses on the subet data
+ptm <- proc.time() #IGNORE: for computation time calculation
+objROC_CSLR <- roc(response=datCredit[DefSpell_Counter==1, DefSpell_Event3], 
+                 predictor=datCredit[DefSpell_Counter==1, Hazard_CSLR])
+proc.time() - ptm
+objROC_CSLR$auc; plot(objROC_CSLR)
+### RESULTS: AUC up to t: 80.81%, achieved in 1 secs
+
+
+# --- 8.2 Basic discrete-time hazard model
+predictTime <- 41
+ptm <- proc.time() #IGNORE: for computation time calculation
+objROC41_CDH_CoxDisc_bas <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                                       Marker = datCredit[Sample=="Validation", Hazard_bas],
+                                       month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                                       fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                                       caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                       graphName = "DtH_Basic")
+proc.time() - ptm
+objROC41_CDH_CoxDisc_bas$AUC; objROC41_CDH_CoxDisc_bas$ROC_graph
+### RESULTS: AUC up to t: 61.93%, achieved in 360.73 secs
+
+
+# --- 8.3 Advanced discrete-time hazard model
+ptm <- proc.time() #IGNORE: for computation time calculation
+objROC41_CDH_CoxDisc_adv <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                                       Marker = datCredit[Sample=="Validation", Hazard_adv],
+                                       month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                                       fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                                       caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                       graphName = "DtH_Advanced")
+proc.time() - ptm
+objROC41_CDH_CoxDisc_adv$AUC; objROC41_CDH_CoxDisc_adv$ROC_graph
+### RESULTS: AUC up to t: 97.15%, achieved in 16 785  secs
+
+
+# --- 8.4 Conditional inference survival tree
+ptm <- proc.time() #IGNORE: for computation time calculation;
+objROC41_CDH_st <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                              Marker = datCredit[Sample=="Validation", Hazard_survtree],
+                              month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                              fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                              caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                              Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                              graphName = "CI_Tree")
+proc.time() - ptm
+objROC41_CDH_st$AUC; objROC41_CDH_st$ROC_graph
+### RESULTS: AUC up to t: 75.75%, achieved in 3049 secs
+
+
+# --- 8.5 Multinomial discrete-time hazard model
+ptm <- proc.time() #IGNORE: for computation time calculation
+objROC41_CDH_CoxDisc_Multi <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                                       Marker = datCredit[Sample=="Validation", Hazard_WriteOff],
+                                       month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                                       fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                                       caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                                       Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                                       graphName = "DtH_Multinomial")
+proc.time() - ptm
+objROC41_CDH_CoxDisc_Multi$AUC; objROC41_CDH_CoxDisc_Multi$ROC_graph
+### RESULTS: AUC up to t: 97.15%, achieved in 16 785  secs
+
+
+# --- 8.6 Multinomial Conditional inference tree
+ptm <- proc.time() #IGNORE: for computation time calculation;
+objROC41_CDH_Multi_CI <- tROC.multi(datGiven=datCredit[Sample=="Validation"], 
+                              Marker = datCredit[Sample=="Validation", Hazard_WriteOff_tree],
+                              month_End=predictTime, sLambda=0.05, numDigits=4, fld_ID="DefSpell_Key", 
+                              fld_Event="DefSpell_Event2", eventVal=1, fld_StartTime="Start", fld_EndTime="TimeInDefSpell",
+                              caseStudyName=paste0("tROC_", predictTime), numThreads=4, logPath=genPath, 
+                              Graph=T, genFigPathGiven=paste0(genFigPath, "tROC-Analyses/"),
+                              graphName = "Multi_CI_Tree")
+proc.time() - ptm
+objROC41_CDH_Multi_CI$AUC; objROC41_CDH_Multi_CI$ROC_graph
+### RESULTS: AUC up to t: 75.75%, achieved in 3049 secs
+
+
+# --- 6.5 Save objects
+saveRDS(objROC_CSLR, paste0(genPath,"WOffSurvModel-CSLR-ROC.rds"))
+saveRDS(objROC41_CDH_CoxDisc_bas, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_41_bas.rds"))
+saveRDS(objROC41_CDH_CoxDisc_adv, paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_41_adv.rds"))
+saveRDS(objROC41_CDH_st, paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedendence_41.rds"))
+saveRDS(objROC41_CDH_CoxDisc_Multi, paste0(genPath,"WOffSurvModel-CDH-DtH_Multi-ROC_Depedendence_41.rds"))
+saveRDS(objROC41_CDH_Multi_CI, paste0(genPath,"WOffSurvModel-CDH-MultiCI_Tree-ROC_Depedendence_41.rds"))
+
+
+
+# ============ 9. Create combined ROC-graphs across multiple prediction times ============
+
+# --- 9.1 Ensure required objects exist in memory
+if (!exists('objROC_CSLR')) objROC41_LR <- readRDS(paste0(genPath,"WOffSurvModel-CSLR-ROC.rds"))
+if (!exists('objROC41_CDH_CoxDisc_bas')) objROC41_CDH_CoxDisc_bas <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_41_bas.rds"))
+if (!exists('objROC41_CDH_CoxDisc_adv')) objROC41_CDH_CoxDisc_adv <- readRDS(paste0(genPath,"WOffSurvModel-CoxDisc-CDH-ROC_Depedendence_41_adv.rds"))
+if (!exists('objROC41_CDH_st')) objROC41_CDH_st <- readRDS(paste0(genPath,"WOffSurvModel-CDH-SurvTree-ROC_Depedendence_41.rds"))
+if (!exists('objROC41_CDH_CoxDisc_Multi')) objROC41_CDH_CoxDisc_Multi <- readRDS(paste0(genPath,"WOffSurvModel-CDH-DtH_Multi-ROC_Depedendence_41.rds"))
+if (!exists('objROC41_CDH_Multi_CI')) objROC41_CDH_Multi_CI <- readRDS(paste0(genPath,"WOffSurvModel-CDH-MultiCI_Tree-ROC_Depedendence_41.rds")); gc()
+
+# --- 9.2 Compare ROCs of the A-series models
+# - Recast ROC-object from CSLR-model into a common format in accordance with the tROC-objects
+objROC_CSLR_recast <- data.table(Thresholds=objROC_CSLR$thresholds, TPR=(objROC_CSLR$sensitivities),
+                           FPR=rev(objROC_CSLR$specificities), AUC=objROC_CSLR$auc)
+
+# - Initialize data structure
+vecTROC <- list(objROC_CSLR_recast, objROC41_CDH_CoxDisc_bas, objROC41_CDH_CoxDisc_adv, objROC41_CDH_st,
+                objROC41_CDH_CoxDisc_Multi,objROC41_CDH_Multi_CI)
+vLabels <- vector("list", length=length(vecPercTimepoint))
+vModel <- c("CS-LR", "DtH-Basic","DtH-Advanced", "CI-tree", "DtH-Multinomial", "Multinomial CI-tree")
+
+# - Create a combined data object for plotting purposes
+for (i in 1:length(vecTROC)) {
+  # i <- 1 # testing condition
+  # datGraph <- data.frame(x = vFPR[-(nThresh+1)], y=vTPR[-1])
+  
+  # - Create a data object for the current prediction time
+  if (i == 1) {
+    datGraph <- data.table(PredictTime=paste0(letters[i], "_", predictTime), Threshold=vecTROC[[i]]$Thresholds, 
+                           x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR, Model=paste0(letters[i],"_", predictTime),
+                           ModelName=vModel[i])
+  } else {
+    datGraph <- rbind(datGraph, 
+                      data.table(PredictTime= paste0(letters[i], "_", predictTime), Threshold=vecTROC[[i]]$Thresholds, 
+                                 x=vecTROC[[i]]$FPR, y=vecTROC[[i]]$TPR, Model=paste0(letters[i],"_", predictTime),
+                                 ModelName=vModel[i]))
+  }
+  vLabels[[i]] <- bquote(.(vModel[i])*" AUC: "*.(round(vecTROC[[i]]$AUC*100, digits=2))*"%")
+}
+
+# - Set graphing parameters
+datGraph[, FacetLabel := paste0("ROC(italic(t))~' at prediction time of t = ", predictTime, "'")]
+vCol <- brewer.pal(6,"Dark2")
+vLabels_F <- setNames(vLabels, paste0(letters[1:length(vecTROC)],"_", predictTime))
+chosenFont <- "Cambria"
+
+# - Create ROC-graph
+(gg <- ggplot(datGraph, aes(x=x,y=y,group=Model)) + theme_minimal() + 
+    theme(text = element_text(family=chosenFont), legend.position="inside", 
+          strip.background=element_rect(fill="snow2", colour="snow2"),
+          strip.text=element_text(size=8, colour="gray50"), strip.text.y.right=element_text(angle=90),
+          legend.position.inside = c(0.65,0.3),
           legend.background = element_rect(fill="snow2", color="black",
                                            linetype="solid", linewidth=0.1)) +
     labs(x = bquote("False Positive Rate "*italic(F^"+")), y = 
@@ -689,26 +1090,23 @@ chosenFont <- "Cambria"
     # Add 45-degree line
     geom_segment(x = 0, y = 0, xend = 1, yend = 1, color = "grey", linewidth=0.2) +
     # Main line graph
-    geom_step(aes(x=x, y=y, linetype=PredictTime, colour=PredictTime), linewidth=0.5) + 
+    geom_step(aes(x=x, y=y, linetype=Model, colour=Model), linewidth=0.5) + 
     #geom_point(aes(x=x, y=y, shape=PredictTime, colour=PredictTime), size=0.25) +
     # Facets and scales
-    facet_grid(FacetLabel ~ .) +  
-    facet_wrap(~FacetLabel, labeller = label_parsed, strip.position = "right")+
-    scale_color_manual(name=bquote("ROC"*(italic(t))), values=vCol, labels=vLabels) + 
-    scale_linetype_discrete(name=bquote("ROC"*(italic(t))), labels=vLabels) + 
-    scale_shape_discrete(name=bquote("ROC"*(italic(t))), labels=vLabels) + 
+    facet_grid(FacetLabel ~ ., labeller = label_parsed) +  
+    #facet_wrap(~FacetLabel, labeller = label_parsed, strip.position = "right") +
+    scale_color_manual(name="", values=vCol, labels=vLabels_F) + 
+    scale_linetype_discrete(name="", labels=vLabels_F) + 
+    scale_shape_discrete(name="", labels=vLabels_F) + 
     scale_y_continuous(label=percent) + scale_x_continuous(label=percent))
 
 # - Save graph
-dpi <- 300
+dpi <- 250
 ggsave(gg, file=paste0(paste0(genFigPath,"/tROC-Analyses/", "WOffModel-Combined.png")), 
        width=1800/dpi, height=1500/dpi, dpi=dpi, bg="white")
 
 
 
-# ============ 8. Housekeeping ============
+# ============ 9. Housekeeping ============
 
 cleanEnviron()
-
-
-

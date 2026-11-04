@@ -50,7 +50,7 @@ rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 datCredit <- rbind(datCredit_train, datCredit_valid)
 
 # - Recalculate counter variable with respect to new sampling window
-datCredit[, Counter_Artificial := 1:.N, by=.(LoanID)]
+datCredit[, Counter_Artificial:=1:.N, by=.(LoanID)]
 
 # - Handle left-truncated spells by adding a starting record 
 ### NOTE:  This is necessary for calculating certain survival quantities later

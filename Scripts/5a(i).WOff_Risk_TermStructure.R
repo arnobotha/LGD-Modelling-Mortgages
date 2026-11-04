@@ -73,7 +73,7 @@ datAdd[, Counter_Artificial:=0]
 datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
 
 # - Remove objects
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 
 # --- 1.3 Load models
