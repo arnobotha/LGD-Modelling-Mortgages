@@ -4,9 +4,9 @@
 # the discrimination power (prediction accuracy) of a given Cox regression model,
 # or marker values arising from such a model.
 # --------------------------------------------------------------------------------
-# PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
+# PROJECT TITLE: Default Survival Modelling
 # SCRIPT AUTHOR(S): Dr Arno Botha (AB), Bernard Scheepers (BS)
-# VERSION: 3.0 (Sept-2026)
+# VERSION: 3.1 (Nov-2026)
 # ================================================================================
 
 
@@ -424,13 +424,12 @@ S_t.estimator <- function(vMarkers, vMarkers_unique, vStartTimes, vEventTimes, v
   
   # Iterate over event times
   for (jj in 1:length(vEventTimes_Filtered)) {
+    tt <- vEventTimes_Filtered[jj]
     # jj <- 2   # - At each filtered event time s, calculate the number of at-risk cases within the current neighbourhood
-    n_values <- sum(weights * (vStartTimes <= vEventTimes_Filtered[jj]) &
-                      (vEventTimes >= vEventTimes_Filtered[jj]), na.rm=T)
+    n_values <- sum(weights * (vStartTimes <= tt & vEventTimes >= tt), na.rm=T)
     # - At each filtered event time s, calculate the number of cases within the current neighbourhood
     # that experienced the event exactly at the current s
-    d_values <- sum(weights * (vStartTimes <= vEventTimes_Filtered[jj]) &
-                      (vEventTimes == vEventTimes_Filtered[jj])*(vEventInds==eventVal),na.rm=T)
+    d_values <- sum(weights * (vStartTimes <= tt & vEventTimes == tt & vEventInds==eventVal),na.rm=T)
     
     # - Calculate the well-known KM-based survival factor vector given the current filtered event time s
     if (n_values>0) S_0 <- S_0 * (1 - (d_values / n_values)) else 1
