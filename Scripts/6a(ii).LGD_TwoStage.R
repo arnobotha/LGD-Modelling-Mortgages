@@ -143,6 +143,8 @@ datCredit[, `:=`(CIF_res_adv=calc_residual_CIF(EventRate_adv, Survival_adv, M=RM
                  CIF_res_survtree=calc_residual_CIF(EventRate_survtree, Survival_survtree, M=RMST)),
           by=list(DefSpell_Key)]
 
+
+
 # - Classical model
 ### NOTE: Te prediction from the classical model is inherently the residual CIF since it
 ###       is calibrated to give the spell-level probability of write-off given account survival until t

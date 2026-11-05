@@ -36,6 +36,10 @@
 if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath); gc()
 if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath); gc()
 
+# - Ensure order of data is correct
+setorder(datCredit_train_CDH_sub, LoanID, Date)
+setorder(datCredit_valid_CDH_sub, LoanID, Date)
+
 # - Filter data for default spells and date selections
 datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
 datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
@@ -87,7 +91,7 @@ modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 
 # - Load KM-estimator of survival probability and related quantities
-if (!exists('datSurv')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), tempPath);gc()
+if (!exists('datSurv')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), tempPath); gc()
 
 
 # --- 1.4 Estimate event rates for DtH models
@@ -166,8 +170,7 @@ plot(datSurv_exp[TimeInDefSpell<=120, Hazard_Emp], type="b", col="green") ### MM
 lines(datSurv[Time<=120, EventRate], type="b", col="red") ### MM: Event rate as calculated by KM-estimator (S(t-1)*h(t))
 lines(datSurv[Time<=120, Hazard_Actual], type="b", col="blue") ### MM: Hazard rate as calculated by KM-estimator
 all(datSurv_exp[TimeInDefSpell<=120, Hazard_Emp]==datSurv[Time<=120, Hazard_Actual]) # should be TRUE
-### RESULTS: - The hazard rate calculated by d(t)/n(t) are exactly the same as the hazard rate from the KM-estimator
-### MM: This is no longer the case, not sure why? I checked both root datasets and they seem identical
+### CONCLUSION: Quantities look reasonable
 
 # - Plotting event rates for actuals and all expected values
 plot(datSurv[Time<=120, EventRate], type="b")

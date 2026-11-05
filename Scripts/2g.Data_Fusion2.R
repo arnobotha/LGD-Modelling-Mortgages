@@ -792,6 +792,21 @@ datCredit_prep[DefSpell_Counter==1,.N]==datCredit_prep[DefSpellResol_DateEnd==Da
 ### RESULTS: [DefSpellResol_DateEnd] created correctly, total default spells equals number of instances
 ###          where [DefSpellResol_DateEnd]==[Date], which indicates there is on resolution date for each spell
 
+# - Write-off indicators
+# Create fields
+datCredit_prep[, `:=`(WOff_Ind_3_max=imputeLastKnown(frollapply(x=WOff_Ind, n=4, align="left", FUN=max)),
+                      WOff_Ind_6_max=imputeLastKnown(frollapply(x=WOff_Ind, n=7, align="left", FUN=max)),
+                      WOff_Ind_12_max=imputeLastKnown(frollapply(x=WOff_Ind, n=13, align="left", FUN=max))), by=list(LoanID)]
+# [SANITY CHECK]
+datCredit_prep$WOff_Ind %>% table() %>% prop.table()
+datCredit_prep$WOff_Ind_3_max %>% table() %>% prop.table()
+datCredit_prep$WOff_Ind_6_max %>% table() %>% prop.table()
+datCredit_prep$WOff_Ind_12_max %>% table() %>% prop.table()
+### RESULTS: Prevalence: 0.06603791%
+###          3-month: 0.02627974
+###          6-month: 0.04573076%
+###          12-month: 0.08375432%
+
 
 # --- 3.11 Save fused- and enriched subsampled dataset for quick disk-based retrieval later
 pack.ffdf(paste0(genPath,"creditdata_final_CDH_smp2"), datCredit_prep)

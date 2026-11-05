@@ -270,18 +270,20 @@ calcRMST <- function(km, tau=NA, t=1) {
 }
 
 
-# --- Function to calculate the residual hazard
 # -- Helper function for summing future redisual CIF to the horizon end M
 forward_sum <- function(x, M) {
-  # Unit test conditions
-  # x<-event; M<-M
-  
   x <- fcoalesce(x, 0)
   
   n <- length(x)
   
-  sapply(seq_len(n), function(i) {sum(x[i:min(n, i + M[i] - 1)])})
+  if (length(M) == 1L)
+    M <- rep(M, n)
+  
+  vapply(seq_len(n),
+         \(i) sum(x[i:min(n, i + M[i] - 1)]),
+         numeric(1))
 }
+
 
 # -- Function for calculating the residual hazard
 calc_residual_CIF <- function(event, surv, M) {

@@ -26,58 +26,98 @@
 
 
 
-# ------ 1. Preliminaries
+# ============ 1. Preliminaries ============
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath); gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath); gc()
 
-# - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
+# - Filter data for default spells and date selections
+datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
+datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key)]
 
-# - Remove previous objects from memory
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
-
-# - Weigh write-off cases
-datCredit_train[, Weight:=ifelse(DefSpell_Event==1,1,1)]
-datCredit_valid[, Weight:=ifelse(DefSpell_Event==1,1,1)]
+# - Remove redundant objects
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 
-# --- 1.2 Create a dataset for classic write-off risk modelling | Grain = One observation per default spell
-# - Create subset of performing spells towards modelling each spell as a single record | classic write-off risk modelling
-datTrain_classic <- subset(datCredit_train, DefSpell_Counter==1)
-datValid_classic <- subset(datCredit_valid, DefSpell_Counter==1)
+# --- 1.2 Data preparation for prediction purposes
+# - Combine training and validation datasets to facilitate "better" (smooth) graphs
+datCredit <- rbind(datCredit_train, datCredit_valid)
+setorder(datCredit, LoanID, Date)
 
-# - Assign target/response field for the classic write-off risk modelling
-datTrain_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
-datValid_classic[, DefSpell_Event := ifelse(DefSpellResol_Type_Hist=="WOFF", 1, 0)]
+# - Create a spell-level target variable for write-off instance
+datCredit[, DefSpell_Event2:=DefSpell_Event]
+datCredit[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
 
-# - Create a copy of [DefSpell_Age] to serve as an input into the classic LGD-model
-datTrain_classic[, DefSpell_Age2 := DefSpell_Age]
-datValid_classic[, DefSpell_Age2 := DefSpell_Age]
+# - Transform categorical variables to factor
+# Payment method
+datCredit[, pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+# Previous defaults
+datCredit[, PrevDefaults_fac:=as.factor(PrevDefaults)]
+
+# - Recalculate counter variable with respect to new sampling window
+datCredit[, Counter_Artificial:=1:.N, by=.(LoanID)]
+
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter_Artificial==1 & TimeInDefSpell>1)
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Time_Binned := timeBinning(TimeInDefSpell)]
+datAdd[, Counter_Artificial:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
+
+# - Remove objects
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
+
+
+# --- 1.2 Data preparation for prediction purposes
+# - Combine training and validation datasets to facilitate "better" (smooth) graphs
+datCredit <- rbind(datCredit_train, datCredit_valid)
+setorder(datCredit, LoanID, Date)
+
+# - Create a spell-level target variable for write-off instance
+datCredit[, DefSpell_Event2:=DefSpell_Event]
+datCredit[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
+
+# - Transform categorical variables to factor
+# Payment method
+datCredit[, pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+# Previous defaults
+datCredit[, PrevDefaults_fac:=as.factor(PrevDefaults)]
+
+# - Recalculate counter variable with respect to new sampling window
+datCredit[, Counter_Artificial:=1:.N, by=.(LoanID)]
+
+# - Handle left-truncated spells by adding a starting record 
+### NOTE:  This is necessary for calculating certain survival quantities later
+# Create an additional record for each default spell
+datAdd <- subset(datCredit, Counter_Artificial==1 & TimeInDefSpell>1)
+datAdd[, TimeInDefSpell:=TimeInDefSpell-1]
+datAdd[, Time_Binned := timeBinning(TimeInDefSpell)]
+datAdd[, Counter_Artificial:=0]
+# Add record to main dataset
+datCredit <- rbind(datCredit, datAdd); setorder(datCredit, DefSpell_Key, Date)
+
+# - Remove objects
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 
 # --- 1.3 Load models
 # - Basic discrete-time hazard model
-modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
+modLR_Bas <- readRDS(paste0(genObjPath,"CoxDisc_Basic_Model.rds"))
 
 # - Advanced discrete-time hazard model
 modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 
-# - classic logit model
-modLR_Classic <- readRDS(paste0(genObjPath,"LR_Model.rds"))
+# - Tree model
+SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 
+# - Load KM-estimator of survival probability and related quantities
+if (!exists('datSurv')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell"), tempPath);gc()
 
-# --- 1.4 Additional parameters
-# - Youden Index cut-offs
-# Basic discrete-time model
-thresh_dth <-0.1037777
-# Advanced discrete-time model
-thresh_dth_bas <- 0.00795927
-# Classical logit model
-thres_classic <- 0.2352999
 
 
 
