@@ -329,7 +329,7 @@ datPlot <- data.table(Statistic="Models ",
                       Value=as.numeric(sub("%","",c(datBrier$Brier)))/100)
 
 # - Aesthetic engineering
-datPlot[, Label:=paste0(sprintf("%.2f", Value*100),"%")]
+datPlot[, Label:=paste0(sprintf("%.2f", Value*100))]
 
 # - Graphing parameters
 chosenFont <- "Cambria"
