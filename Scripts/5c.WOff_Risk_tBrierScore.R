@@ -83,6 +83,9 @@ modLR_Adv <- readRDS(paste0(genObjPath,"CoxDisc_Advanced_Model.rds"))
 # - CI-tree model
 SurvTree_CTree <- readRDS(paste0(genObjPath,"SurvTree_CTree.rds"))
 
+# - Cross-sectional logistic regression model
+modLR <- readRDS(paste0(genObjPath,"LR_Model.rds"))
+
 # - Multinomial discrete-time hazard model
 if (!exists('modMLR')) unpack.ffdf(paste0(genPath,"MultiDtH_WOff"), tempPath)
 
@@ -120,6 +123,9 @@ datCredit[, EventRate_bas:=shift(Survival_bas, type="lag", n=1, fill=1) - Surviv
 # - Derive event rates as f_1(t) = S(t-1) . h_1(t)
 datCredit[, EventRate_WriteOff := shift(Survival_overall, n=1,fill=1) * Hazard_WriteOff, by=.(DefSpell_Key)]
 datCredit[, EventRate_WriteOff_tree := shift(Survival_overall_tree, n=1,fill=1) * Hazard_WriteOff_tree, by=.(DefSpell_Key)]
+
+# - Derive overall event probabilities from CS-LR model
+datCredit[, EventRate_WriteOff_CSLR := predict(modLR, newdata=.SD[], type="response")]
 
 # - Remove added rows
 datCredit <- subset(datCredit, Counter_Artificial>0) %>% setorder(LoanID, Date)
@@ -290,19 +296,26 @@ ggsave(plot.full, file=paste0(genFigPath,"tBrierScores_SurvModels.png"), width=1
 
 # --- 3.1 Create a object for comparing Brier scores
 # - Extract time-dependent Brier scores for each model
-tBS_Bas <- objCoxDisc_bas$tBS; tBS_Adv <- objCoxDisc_adv$tBS
-tBS_Classic <- objCoxDisc_classic$tBS; tBS_ST <- objCoxDisc_survtree$tBS
+tBS_Bas <- objCoxDisc_bas$tBS
+tBS_Adv <- objCoxDisc_adv$tBS
+tBS_CI_Tree <- objCoxDisc_survtree$tBS
+tBS_Multi_DtH <- objCoxDisc_Multi_DtH$tBS
+tBS_Multi_CI_Tree <- objCoxDisc_Multi_CI_Tree$tBS
 
 # - Extract time-dependent Brier scores at time 44 for each model
-(tBrier_Bas <- as.numeric(tBS_Bas[TimeInDefSpell==44,Brier]))
-(tBrier_Adv <- as.numeric(tBS_Adv[TimeInDefSpell==44,Brier]))
-### MM: Again, I do not think this is valid as this value is calculated using full write-off probabilities from the classical model
-(tBrier_Classic <- as.numeric(tBS_Classic[TimeInDefSpell==44,Brier]))
-(tBrier_ST <- as.numeric(tBS_ST[TimeInDefSpell==44,Brier]))
+(tBrier_Bas <- as.numeric(tBS_Bas[TimeInDefSpell==41,Brier]))
+(tBrier_Adv <- as.numeric(tBS_Adv[TimeInDefSpell==41,Brier]))
+(Brier_CSLR <- mean((datCredit[TimeInDefSpell==41, as.integer(DefSpellResol_Type_Hist=="WOFF")] - 
+    datCredit[TimeInDefSpell==41, EventRate_WriteOff_CSLR])^2, na.rm=T))
+(tBrier_CI_Tree <- as.numeric(tBS_CI_Tree[TimeInDefSpell==41,Brier]))
+(tBrier_Multi_DtH <- as.numeric(tBS_Multi_DtH[TimeInDefSpell==41,Brier]))
+(tBrier_Multi_CI_Tree <- as.numeric(tBS_Multi_CI_Tree[TimeInDefSpell==41,Brier]))
 
 # - Create a single table containing the three R^2 measures for each of the models
-(datBrier <- data.table(Model=c("DtH-Basic A","DtH-Advanced", "CS-LR", "ST"),
-                        Brier=c(tBrier_Bas, tBrier_Adv, tBrier_Classic, tBrier_ST)))
+(datBrier <- data.table(Model=c("DtH-Basic","DtH-Advanced", "CS-LR", "CI-tree",
+                                "DtH-Multinomial", "Multinomial CI-tree"),
+                        Brier=c(tBrier_Bas, tBrier_Adv, Brier_CSLR, tBrier_CI_Tree,
+                                tBrier_Multi_DtH, tBrier_Multi_CI_Tree)))
 
 # - Save table to specified path
 saveRDS(datBrier, paste0(genObjPath,"Brier_Table.rds"))
@@ -310,8 +323,9 @@ saveRDS(datBrier, paste0(genObjPath,"Brier_Table.rds"))
 
 # --- 3.2 Visualise the time-dependent Brier scores at the chosen time point (44)
 # - Create plotting dataset
-datPlot <- data.table(Statistic=rep(c("Models "),each=4),
-                      Model=rep(c("a_Basic","b_Advanced", "c_Logistic_Regression", "d_ST"), times=1),
+datPlot <- data.table(Statistic="Models ",
+                      Model=c("a_Basic","b_Advanced", "c_CSLR", "d_CI_Tree",
+                              "e_Multi_DtH", "f_Multi_CI_Tree"),
                       Value=as.numeric(sub("%","",c(datBrier$Brier)))/100)
 
 # - Aesthetic engineering
@@ -319,16 +333,12 @@ datPlot[, Label:=paste0(sprintf("%.2f", Value*100),"%")]
 
 # - Graphing parameters
 chosenFont <- "Cambria"
-vCol1 <- c("a_Basic"=brewer.pal(9, "BuGn")[5],
-           "b_Advanced"=brewer.pal(9, "BuGn")[7],
-           "c_Logistic_Regression"=brewer.pal(9, "BuGn")[9],
-           "d_ST"=brewer.pal(9, "BuGn")[4])
+vCol1 <- brewer.pal(8, "Dark2")[1:6]
 vCol2 <- vCol1 
-vCol3 <- rep("white", 4)  
-vLabel <- list("a_Basic"="DtH-Basic",
-               "b_Advanced"="DtH-Advanced",
-               "c_Logistic_Regression"="CS-LR",
-               "d_ST"="ST")
+vCol3 <- rep("white", 6)  
+vLabel <- list("a_Basic"="DtH-Basic", "b_Advanced"="DtH-Advanced",
+               "c_CSLR"="CS-LR", "d_CI_Tree"="CI-tree",
+               "e_Multi_DtH"="DtH-Multinomial", "f_Multi_CI_Tree"="Multinomial CI-tree")
 
 # - Plot
 (gPlot <- ggplot(datPlot, aes(x=Statistic, y=Value, group=Model)) + 
@@ -339,9 +349,11 @@ vLabel <- list("a_Basic"="DtH-Basic",
     geom_col(aes(colour=Model, fill=Model), position=position_dodge(width=0.9)) +
     geom_label(aes(label=Label), fill=vCol2, colour=vCol3, position=position_dodge(width=0.9),
                size=3, label.padding=unit(0.15, "lines")) +
-  scale_colour_manual(name="Model:", values=vCol1, labels=vLabel) +
-  scale_fill_manual(name="Model:", values=vCol1, labels=vLabel) +
-  scale_y_continuous(labels=scales::percent_format(accuracy=1)))
+  scale_colour_manual(name="Model", values=vCol1, labels=vLabel) +
+  scale_fill_manual(name="Model", values=vCol1, labels=vLabel) +
+  scale_y_continuous(labels=scales::percent_format(accuracy=1)) + 
+  guides(col=guide_legend(nrows=2))
+)
 
 # - Save graph
 dpi <- 180
