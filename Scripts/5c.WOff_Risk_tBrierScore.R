@@ -44,7 +44,7 @@ setorder(datCredit_train_CDH_sub, LoanID, Date)
 datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key)]
 
 # - Remove redundant objects
-rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
+rm(datCredit_train_CDH_sub); gc()
 
 # - Create central pointer to the selected dataset (can be combined with validation set)
 datCredit <- datCredit_train
@@ -156,42 +156,44 @@ datCredit <- merge(datCredit, datHaz[, list(Node, Time, Survival_survtree=Surv, 
 
 # --- 2.1 Calculate time-dependent Brier scores across write-off models
 # - Basic discrete-time hazard model
-(objCoxDisc_bas <- tBrierScore(datCredit, modGiven=modLR_Bas, spellPeriodMax=84, fldKey="DefSpell_Key", 
+(objCoxDisc_bas <- tBrierScore(datCredit, spellPeriodMax=84, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist", 
-                               fldEvent="DefSpell_Event", brierType="Survival", empiricalType="KM"))
-### RESULTS: Integrated Brier Score = 2.119179
+                               fldEvent="DefSpell_Event", empiricalType="KM",
+                               fldPrediction="Survival_bas"))
+### RESULTS: Integrated Brier Score = 2.277499
 
 # - Advanced discrete-time hazard model
-(objCoxDisc_adv <- tBrierScore(datCredit, modGiven=modLR_Adv, spellPeriodMax=84, fldKey="DefSpell_Key", 
+(objCoxDisc_adv <- tBrierScore(datCredit, spellPeriodMax=84, fldKey="DefSpell_Key", 
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist", 
-                               fldEvent="DefSpell_Event",  brierType="Survival", empiricalType="KM"))
-### RESULTS: Integrated Brier Score = 0.6952368
+                               fldEvent="DefSpell_Event", empiricalType="KM",
+                               fldPrediction="Survival_adv"))
+### RESULTS: Integrated Brier Score = 0.5637591
 
 # - CI-tree
-(objCoxDisc_survtree <- tBrierScore(datCredit, fldKey="DefSpell_Key", spellPeriodMax=84,
+(objCoxDisc_survtree <- tBrierScore(datCredit, spellPeriodMax=84, fldKey="DefSpell_Key", 
                                     fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                     fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist", 
-                                    fldEvent="DefSpell_Event", brierType="Given-Survival", empiricalType="KM",
-                                    fldSurvival="Survival_survtree", fldHazard="Hazard_survtree"))
-### RESULTS: Integrated Brier Score = 1.456852
+                                    fldEvent="DefSpell_Event", empiricalType="KM",
+                                    fldPrediction="Survival_survtree"))
+### RESULTS: Integrated Brier Score = 1.422164
 
 # - Multinomial discrete-time hazard model
-(objCoxDisc_Multi_DtH <- tBrierScore(datCredit, fldKey="DefSpell_Key", spellPeriodMax=84, 
+(objCoxDisc_Multi_DtH <- tBrierScore(datCredit, spellPeriodMax=84, fldKey="DefSpell_Key",
                                fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist", 
-                               fldEvent="DefSpell_EventType", brierType="Given-Survival", empiricalType="AJ",
-                               fldSurvival="Survival_overall", fldHazard="Hazard_WriteOff"))
-### RESULTS: Integrated Brier Score = 3.340883
+                               fldEvent="DefSpell_EventType", empiricalType="AJ",
+                               fldPrediction="Survival_overall"))
+### RESULTS: Integrated Brier Score = 3.260448
 
 # - Multinomial CI-tree
-(objCoxDisc_Multi_CI_Tree <- tBrierScore(datCredit, fldKey="DefSpell_Key", spellPeriodMax=84,
+(objCoxDisc_Multi_CI_Tree <- tBrierScore(datCredit, spellPeriodMax=84, fldKey="DefSpell_Key",
                                      fldStart="Start", fldStop="TimeInDefSpell",fldCensored="DefSpell_Censored", 
                                      fldSpellAge="DefSpell_Age", fldSpellOutcome="DefSpellResol_Type_Hist", 
-                                     fldEvent="DefSpell_EventType", brierType="Given-Survival", empiricalType="AJ",
-                                     fldSurvival="Survival_overall_tree", fldHazard="Hazard_WriteOff_tree"))
-### RESULTS: Integrated Brier Score = 3.366442
+                                     fldEvent="DefSpell_EventType", empiricalType="AJ",
+                                     fldPrediction="Survival_overall_tree"))
+### RESULTS: Integrated Brier Score = 3.286724
 
 
 
@@ -209,11 +211,11 @@ datGraph[, FacetLabel:="Survival models"]
 specified_SpellAge <- 48
 
 # - Recalculate Integrated tBS over zoomed spell age
-(ibs_bas <- mean(objCoxDisc_bas$tBS[TimeInDefSpell<=specified_SpellAge, Brier]))
-(ibs_adv <- mean(objCoxDisc_adv$tBS[TimeInDefSpell<=specified_SpellAge, Brier]))
-(ibs_survtree <- mean(objCoxDisc_survtree$tBS[TimeInDefSpell<=specified_SpellAge, Brier]))
-(ibs_multi_DtH <- mean(objCoxDisc_Multi_DtH$tBS[TimeInDefSpell<=specified_SpellAge, Brier]))
-(ibs_multi_CI_Tree <- mean(objCoxDisc_Multi_CI_Tree$tBS[TimeInDefSpell<=specified_SpellAge, Brier]))
+(ibs_bas <- mean(objCoxDisc_bas$tBS[Time<=specified_SpellAge, Brier]))
+(ibs_adv <- mean(objCoxDisc_adv$tBS[Time<=specified_SpellAge, Brier]))
+(ibs_survtree <- mean(objCoxDisc_survtree$tBS[Time<=specified_SpellAge, Brier]))
+(ibs_multi_DtH <- mean(objCoxDisc_Multi_DtH$tBS[Time<=specified_SpellAge, Brier]))
+(ibs_multi_CI_Tree <- mean(objCoxDisc_Multi_CI_Tree$tBS[Time<=specified_SpellAge, Brier]))
 
 # - Graphing Parameters
 chosenFont <- "Cambria"
@@ -223,7 +225,7 @@ vLabel <- c("a_Basic"="DtH-Basic", "b_Advanced"="DtH-Advanced",
             "e_Multinomial_CI_Tree"="Multinomial CI-tree")
 
 # - Main graph of tBS
-(gOuter <- ggplot(datGraph, aes(x=TimeInDefSpell, y=Brier, group=Type)) + theme_minimal() + 
+(gOuter <- ggplot(datGraph, aes(x=Time, y=Brier, group=Type)) + theme_minimal() + 
     labs(y=bquote("Time-dependent Brier Score "*italic(B)[s](italic(t))), x=bquote("Spell time (months)"*~italic(t))) + 
     theme(text=element_text(family=chosenFont),legend.position="bottom", 
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -251,7 +253,7 @@ vLabel <- c("a_Basic"="DtH-Basic", "b_Advanced"="DtH-Advanced",
 )
 
 # - Zoomed inset graph of tBS on a smaller time scale
-(gInner <- ggplot(datGraph[TimeInDefSpell<=specified_SpellAge,], aes(x=TimeInDefSpell, y=Brier, group=Type)) + 
+(gInner <- ggplot(datGraph[Time<=specified_SpellAge,], aes(x=Time, y=Brier, group=Type)) + 
     theme_bw() + labs(y="", x="") + 
     theme(legend.position.inside=c(0.75,0.40), text=element_text(size=12, family="Cambria"),
           #specific for plot-in-plot
@@ -303,18 +305,18 @@ tBS_Multi_DtH <- objCoxDisc_Multi_DtH$tBS
 tBS_Multi_CI_Tree <- objCoxDisc_Multi_CI_Tree$tBS
 
 # - Extract time-dependent Brier scores at time 44 for each model
-(tBrier_Bas <- as.numeric(tBS_Bas[TimeInDefSpell==41,Brier]))
-(tBrier_Adv <- as.numeric(tBS_Adv[TimeInDefSpell==41,Brier]))
+(tBrier_Bas <- as.numeric(tBS_Bas[Time==41,Brier]))
+(tBrier_Adv <- as.numeric(tBS_Adv[Time==41,Brier]))
 (Brier_CSLR <- mean((datCredit[TimeInDefSpell==41, as.integer(DefSpellResol_Type_Hist=="WOFF")] - 
     datCredit[TimeInDefSpell==41, EventRate_WriteOff_CSLR])^2, na.rm=T))
-(tBrier_CI_Tree <- as.numeric(tBS_CI_Tree[TimeInDefSpell==41,Brier]))
-(tBrier_Multi_DtH <- as.numeric(tBS_Multi_DtH[TimeInDefSpell==41,Brier]))
-(tBrier_Multi_CI_Tree <- as.numeric(tBS_Multi_CI_Tree[TimeInDefSpell==41,Brier]))
+(tBrier_CI_Tree <- as.numeric(tBS_CI_Tree[Time==41,Brier]))
+(tBrier_Multi_DtH <- as.numeric(tBS_Multi_DtH[Time==41,Brier]))
+(tBrier_Multi_CI_Tree <- as.numeric(tBS_Multi_CI_Tree[Time==41,Brier]))
 
 # - Create a single table containing the three R^2 measures for each of the models
-(datBrier <- data.table(Model=c("DtH-Basic","DtH-Advanced", "CS-LR", "CI-tree",
+(datBrier <- data.table(Model=c( "CS-LR","DtH-Basic","DtH-Advanced", "CI-tree",
                                 "DtH-Multinomial", "Multinomial CI-tree"),
-                        Brier=c(tBrier_Bas, tBrier_Adv, Brier_CSLR, tBrier_CI_Tree,
+                        Brier=c(Brier_CSLR, tBrier_Bas, tBrier_Adv, tBrier_CI_Tree,
                                 tBrier_Multi_DtH, tBrier_Multi_CI_Tree)))
 
 # - Save table to specified path
@@ -324,7 +326,7 @@ saveRDS(datBrier, paste0(genObjPath,"Brier_Table.rds"))
 # --- 3.2 Visualise the time-dependent Brier scores at the chosen time point (44)
 # - Create plotting dataset
 datPlot <- data.table(Statistic="Models ",
-                      Model=c("a_Basic","b_Advanced", "c_CSLR", "d_CI_Tree",
+                      Model=c("a_CSLR", "b_Basic","c_Advanced", "d_CI_Tree",
                               "e_Multi_DtH", "f_Multi_CI_Tree"),
                       Value=as.numeric(sub("%","",c(datBrier$Brier)))/100)
 
@@ -336,8 +338,8 @@ chosenFont <- "Cambria"
 vCol1 <- brewer.pal(8, "Dark2")[1:6]
 vCol2 <- vCol1 
 vCol3 <- rep("white", 6)  
-vLabel <- list("a_Basic"="DtH-Basic", "b_Advanced"="DtH-Advanced",
-               "c_CSLR"="CS-LR", "d_CI_Tree"="CI-tree",
+vLabel <- list("a_CSLR"="CS-LR", "b_Basic"="DtH-Basic",
+               "c_Advanced"="DtH-Advanced", "d_CI_Tree"="CI-tree",
                "e_Multi_DtH"="DtH-Multinomial", "f_Multi_CI_Tree"="Multinomial CI-tree")
 
 # - Plot

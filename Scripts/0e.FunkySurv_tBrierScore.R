@@ -1,5 +1,5 @@
 # ============================== SURVIVAL FUNCTIONS ==============================
-# Defining bespoke time-dependent Brier score function, capable of working with
+# Defining bespoke time-specific Brier score function, capable of working with
 # time-to-event left-truncated data in the counting process style
 # --------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
@@ -12,167 +12,182 @@
 # --- Function to calculate time-dependent Brier Score (tBS) for a given object's predictions
 # Crafted using Graff1999 (DOI: 10.1002/(sici)1097-0258(19990915/30)18:17/18<2529::aid-sim274>3.0.co;2-5)
 # Input:    [datGiven]: given loan history
-#           [modGiven]: fitted cox PH or discrete-time hazard model
-#           [predType]: option to pass to predict()
 #           [spellPeriodMax]: maximum period to impose upon spell ages
 #           <fldNames>: Various field names for quantities of interest
 #           [threshold]: Threshold against which to dichotomise the model predictions
-#           [brierType]: The survival quantity to used in estimating the tBrier score; either
-#                         1) "Survival": The survival probability
-#                         2) "EventRate": The event rate
-#                         3) "Given-Survival: The survival probabilities have been pre-calculated
-#                         4) "Given-EventRate: The event rates have been pre-calculated
 #           [empiricalType]: Specify which estimator to use to calculate the overall survival probability:
 #                         1) "KM": Kaplan-Meier for single-risks survival model
 #                         2) "AJ": Aalen-Johansen for competing risks survival model
 
 # Output:   Vector of tBS-values; Integrated Brier Score (IBS)
-tBrierScore <- function(datGiven, modGiven=NA, predType="response", spellPeriodMax=300,
-                        fldKey="DefSpell_Key", fldStart = "Start", fldStop="TimeInDefSpell", fldCounter="Counter",
+tBrierScore <- function(datGiven, spellPeriodMax=300, fldKey="DefSpell_Key", fldStart = "Start", 
+                        fldStop="TimeInDefSpell", fldCounter="Counter", fldPrediction="Survival_bas",
                         fldEvent="DefSpell_Event", fldCensored="DefSpell_Censored", fldSpellAge="DefSpell_Age",
                         fldSpellOutcome="DefSpellResol_Type_Hist", fldSpellOutcomeVal="WOFF",
-                        threshold=NA, brierType="Survival",
-                        fldSurvival=NA, fldHazard=NA, empiricalType="KM") {
+                        empiricalType="KM") {
   # Testing conditions
-  # datGiven <- datCredit; modGiven <- cox_PWPST_basic ; predType <- "exp"; spellPeriodMax <- 300
-  # fldKey <- "PerfSpell_Key"; fldStart <- "Start"; fldStop<-"TimeInPerfSpell";
-  # fldCensored<-"PerfSpell_Censored"; fldSpellAge<-"PerfSpell_Age"; fldSpellOutcome<-"PerfSpellResol_Type_Hist"
-  # fldEvent="PerfSpell_Event"; brierType<-"Survival"; fldSurvival<-NA; fldHazard<-NA; fldEventRate<-NA
+  # datGiven <- datCredit; spellPeriodMax <- 84; empiricalType="KM"; fldSpellOutcomeVal<- "WOFF"
+  # fldKey <- "DefSpell_Key"; fldStart <- "Start"; fldStop<-"TimeInDefSpell"; fldCounter<-"Counter"
+  # fldCensored<-"DefSpell_Censored"; fldSpellAge<-"DefSpell_Age"; fldSpellOutcome<-"DefSpellResol_Type_Hist"
+  # fldEvent="DefSpell_Event"; brierType<-"Survival"; fldPrediction<-"Survival_bas";
   
+  # --- Prepare dataset
+  # Create copy of given dataset and select only relevant fields
+  dat <- copy(subset(datGiven, select=c(fldKey, fldStart, fldStop, fldCounter, fldPrediction,
+                                        fldEvent, fldCensored, fldSpellAge, fldSpellOutcome)))
+  
+  # Remove artificial observations, if not genuine risk intervals
+  dat <- dat[get(fldCounter) > 0]
+  
+  # Verify uniqueness of spell-period observations
+  stopifnot(!anyDuplicated(dat, by=c(fldKey, fldStop)),
+    all(is.finite(dat[[fldPrediction]])),
+    all(dat[[fldPrediction]] >= 0 & dat[[fldPrediction]] <= 1) )
+  
+  # Evaluation times
+  datTimes <- data.table(Time=sort(unique(dat[get(fldStop) <= spellPeriodMax, get(fldStop)])))
   
   # --- Estimate survival rate of the censoring event G(t) = P(C >= t) for time-to-censoring variable C
   # This prepares for implementing the Inverse Probability of Censoring Weighting (IPCW) scheme,
   # as an adjustment to event rates (discrete density), as well as for the time-dependent Brier score
   
   # - Compute Kaplan-Meier survival estimates (product-limit) for censoring-event | Spell-level with right-censoring & left-truncation
-  km_Censoring <- survfit(
-    as.formula(paste0("Surv(time=",fldStart,", time2=", fldStop, ", event=", fldCensored, "==1, type='counting') ~ 1")), 
-    id=get(fldKey), data=datGiven)
+  cat(paste0("\nFitting Kaplan-Meier estimator towards deriving the empirical survival probability of",
+              "the censoring event for IPC-weighting.. "))
+  formCens <- as.formula(sprintf("Surv(%s, %s, %s == 1, type='counting') ~ 1",fldStart, fldStop, fldCensored))
+  km_Censoring <- survfit(formCens, id=get(fldKey), data=dat)
   # summary(km_Censoring)$table # overall summary statistics
   # plot(km_Censoring, conf.int = T) # survival curve
-  datG <- data.table(summary(km_Censoring)$time, summary(km_Censoring)$surv)
-  setnames(datG, c(fldStop, "G_t"))
-  datG_ti <- data.table(EventTime = summary(km_Censoring)$time, G_Ti = summary(km_Censoring)$surv)
+  
+  # - Include all required evaluation and terminal ages
+  evalTime <- sort(unique(c(0, dat[[fldStop]],dat[[fldSpellAge]])))
+  
+  # - Right-continuous and left-limit indices for handling tied events
+  # Get positions of most recent KM times less than or equal to evaluation time
+  idxR <- findInterval(evalTime, km_Censoring$time)
+  # Get positions of most recent KM times strictly less than evaluation time
+  idxL <- findInterval(evalTime, km_Censoring$time, left.open=TRUE)
+  
+  # Consolidate censoring survival probabilities
+  datG <- data.table(Time = evalTime,
+    G_t = c(1, km_Censoring$surv)[idxR + 1L],
+    G_Ti_left = c(1, km_Censoring$surv)[idxL + 1L])
+  
+  # Merge quqntities with main dataset
+  dat <- merge(dat, datG[, .(Time, G_t)], by.x=fldStop, by.y="Time",
+    all.x=TRUE, sort=FALSE)
+  dat <- merge(dat, datG[, .(Time, G_Ti_left)], by.x=fldSpellAge, by.y="Time",
+                    all.x=TRUE, sort=FALSE)
   
   
   # --- Estimate survival rate of the main event S(t) = P(T >= t) for time-to-event variable T
   # This serves as a baseline model towards calculating the pseudo R^2-measure
   
   if (empiricalType=="KM") {
-    cat("\nFitting Kaplan-Meier estimator towards deriving the empirical survival probability")
+    cat("\nFitting Kaplan-Meier estimator towards deriving the empirical survival probability .. ")
+    
     # - Compute Kaplan-Meier survival estimates (product-limit) for main-event | Spell-level with right-censoring & left-truncation
-    km_main <- survfit(
-      as.formula(paste0("Surv(time=",fldStart,", time2=", fldStop, ", event=", fldEvent, "==1, type='counting') ~ 1")), 
-      id=get(fldKey), data=datGiven)
-    # summary(km_main)$table # overall summary statistics
-    # plot(km_main, conf.int = T) # survival curve
-    datT <- data.table(summary(km_main)$time, summary(km_main)$surv)
-    setnames(datT, c(fldStop, "Survival_0"))  
+    formKM <- as.formula(sprintf("Surv(%s, %s, %s == 1, type='counting') ~ 1",fldStart, fldStop, fldEvent))
+    km_main <- survfit(formKM, id=get(fldKey), data=dat)
+
+    # - Extract survival probabilities and collate into central object over all times
+    datT <- data.table(Time = c(0, km_main$time), T_t = c(1, km_main$surv))
+    
   } else if (empiricalType=="AJ") {
-    cat("\nFitting Aalen-Johansen estimator towards deriving the overall event-free empirical survival probability")
-    # - Fit Aalen-Johansen estimator for S(t) amidst competing risks | Spell-level with right-censoring & left-truncation
-    aj_All <- survfit(
-      as.formula(paste0("Surv(time=",fldStart,", time2=", fldStop, ", event=", fldEvent, ") ~ 1")),
-      id=get(fldKey), data=datGiven)
-    datT <- data.table(aj_All$time, aj_All$pstate[,"(s0)"])
-    setnames(datT, c(fldStop, "Survival_0"))  
+    cat(paste0("\nFitting Aalen-Johansen estimator towards deriving the overall event-free empirical",
+                "survival probability amidst competing risks .. "))
+    
+    # - Fit Aalen-Johansen estimator for S(t)amidst competing risks | Spell-level with right-censoring & left-truncation
+    formAJ <- as.formula(sprintf("Surv(%s, %s, %s, type='mstate') ~ 1", fldStart, fldStop, fldEvent))
+    aj_All <- survfit(formAJ, id=get(fldKey), data=dat)
+    
+    # - Extract survival probabilities and collate into central object over all times
+    datT <- data.table(Time = c(0, aj_All$time), T_t = c(1, aj_All$pstate[, "(s0)"]))
+
   } else stop("Uknown estimator specified for estimating the overall empirical survival probability")
   
   
-  # --- Calculate survival quantities of interest
-  if (brierType %in% c("Survival","EventRate")){
-    # - Predict hazard h(t) = P(T=t | T>= t) in discrete-time
-    datGiven[, Hazard := predict(modGiven, newdata=datGiven, type=predType)]
-    
-    if (predType=="response") {
-      # - Derive survival probability S(t) = \prod ( 1- hazard), based on output of predict()
-      datGiven[, Survival := cumprod(1-Hazard), by=list(get(fldKey))]
-      
-    } else if (predType=="exp") {
-      # - Calculate survival probability S(t,x)=exp(-H(t,x)), based on output of predict()
-      # NOTE: Hazard is actually the cumulative hazard in this context
-      datGiven[, Survival := exp(-Hazard), by=list(get(fldKey))] 
-    }
-    
-    # - Estimate the event rate if specified
-    if (brierType=="EventRate"){
-      datGiven[, EventRate:=shift(Survival,fill=1,n=1,type="lag")-Survival, by=list(get(fldKey))]
-    }
-    
-  } else if (brierType=="Given-Survival"){
-    # - Rename given fields if fields for evaluation are specified | Survival probabilities
-    datGiven[, Survival := get(fldSurvival)]
-    datGiven[, Hazard := get(fldHazard)]
-    
-  }
+  # --- Map empirical survival onto evaluation periods
+  # Include zero to initialise the survival step function
+  datT_eval <- merge( data.table(Time=sort(unique(c(0, datTimes$Time)))), 
+                      datT, by="Time", all.x=TRUE, sort=TRUE )
   
-  # - Remove additional observations created for left-truncated spells
-  datGiven <- subset(datGiven, get(fldCounter)>0)
+  datT_eval[, T_t := nafill(T_t, type="locf")] # fill NAs with last non-NA value in vector
+  setnames(datT_eval, "T_t", "Survival_0")
   
-  # - Dichotomise the event rate if specified
-  if (!is.na(threshold)){
-    datGiven[, Dichotomised_Ind:=ifelse(EventRate>threshold,1,0)]
-  }
-  
-  # - Merge censoring survival probability unto main set
-  datGiven <- merge(datGiven, datG, by=fldStop, all.x=T)
-  datGiven[is.na(G_t), G_t := 1] # Fill any missing G_t with 1 (no censoring information)
-  
-  # - Merge event survival probability unto main set
-  datGiven <- merge(datGiven, datT, by=fldStop, all.x=T)
-  datGiven[is.na(Survival_0), Survival_0 := 1] # Fill any missing G_t with 1 (no censoring information)
+  # - Merge main event / event-free survival probabilities unto main set
+  dat <- merge(dat, datT_eval, by.x=fldStop, by.y="Time", all.x=TRUE,sort=FALSE)
   
   
-  # --- Compute Censoring survival probability at age T_i for each subject (i,j), i..e, G_hat(T_i)
-  # This requires mapping each subject's observed event time (Spell age) to g_hat(T_i)
-  datGiven <- merge(datGiven, datG_ti, by.x=fldSpellAge, by.y="EventTime", all.x=T)
-  datGiven[is.na(G_Ti), G_Ti := 1]
+  # --- Retrieve predictions from given field
+  dat[, Survival := get(fldPrediction)]
+
   
-  
-  # --- Compute constituent quantities of time-dependent Brier score (tBS)
+  # --- Compute constituent quantities of time-specific Brier score (tBS)
   # - Compute binary event indicator at time t: y(t) = I(T>t)
-  datGiven[, y_t := as.integer(get(fldSpellAge) > get(fldStop))]
-  # - Compute weight/contribution to the Brier score at each time point, according to the 3 categories of Graff1999
-  datGiven[, Weight_w := fifelse( 
+  dat[, y_t := as.integer(get(fldSpellAge) > get(fldStop))]
+  
+  # - Terminal event Boolean indicator for the chosen target
+  dat[, EventTerminal := (get(fldSpellOutcome) == fldSpellOutcomeVal)]  
+  
+  # - Compute weight/contribution to the Brier score at each time point,
+  # according to the 3 categories of Graff1999:
+  # 1. Observed event at or before t
+  # 2. 
+  dat[, Weight_w := fifelse( 
     # Category 1: T_i <= t^* & \delta_i =1; should get weight 1/G(T_i) since subject experienced the event
-    get(fldSpellAge) <= get(fldStop) & get(fldSpellOutcome)==fldSpellOutcomeVal, 1/G_Ti,
+    get(fldSpellAge) <= get(fldStop) & EventTerminal, 1/G_Ti_left,
     # Category 2: T_i > t^*; should get weight 1/G(t) since subject has survived  (still at-risk)
     fifelse( get(fldSpellAge) > get(fldStop), 1/G_t, 
              # Category 3: T_i <= t^* & \delta_i=0; should get weight 0 for censored subject
-             0)), by=list(get(fldKey))]  
+             0))]  
   
-  # -- Compute squared error loss per row ---
-  if (brierType %in% c("EventRate","Given-EventRate")){
-    if (is.na(threshold)){
-      datGiven[, SquaredError := (y_t - EventRate)^2]
-      datGiven[, SquaredError_0 := (y_t - 0)^2]
-    } else {
-      datGiven[, SquaredError := (y_t - Dichotomised_Ind)^2]
-      datGiven[, SquaredError_0 := (y_t - 0)^2]
-    }
-  } else if (brierType %in% c("Survival","Given-Survival")) {
-    datGiven[, SquaredError := (y_t - Survival)^2]
-    datGiven[, SquaredError_0 := (y_t - Survival_0)^2]
+  # -- Compute squared error loss per spell period
+  dat[, SquaredError := (y_t - Survival)^2]
+  dat[, SquaredError_0 := (y_t - Survival_0)^2]
+  
+  
+  # --- Restrict scoring to requested evaluation horizon
+  datScore <- dat[get(fldStop) <= spellPeriodMax]
+
+  # Check IPCW positivity for contributing records
+  if (any(!is.finite(datScore$Weight_w))) {
+    stop("Non-finite IPCW weights: check G(t) positivity.")
   }
   
+  if (anyNA(datScore$Survival_0)) {
+    stop("Missing empirical baseline survival probabilities.")
+  }
   
   # --- Aggregate and compute weighted Brier score per time point
-  datTBS <- datGiven[Weight_w > 0 & get(fldStop)<=spellPeriodMax, .(
-    mean(Weight_w * SquaredError, na.rm = TRUE),
-    mean(Weight_w * SquaredError_0, na.rm = TRUE)
-  ), by=list(get(fldStop))]
-  setnames(datTBS, c(fldStop, "Brier", "Brier_0"))
-  
-  # --- Calculate pseudo R^2
-  datTBS[, RSquared := 1 - Brier/Brier_0]
-  #plot(datTBS$RSquared)
+  datTBS <- datScore[, .(Brier = mean(Weight_w * SquaredError),
+    Brier_0 = mean(Weight_w * SquaredError_0),
+    N= .N, N_Events = sum(EventTerminal & get(fldSpellAge) == get(fldStop)),
+    Weight_Mean = mean(Weight_w)
+  ), by=.(get(fldStop))]
+  setnames(datTBS, "get", "Time") # change field names ("get)" to given stop-time field
+  setorder(datTBS, Time)
   
   # --- Calculate Integrated Brier Score assuming uniform weights
-  IBS <- mean(datTBS$Brier, na.rm=T)
   
-  return(list(tBS=datTBS, IBS=IBS))
+  # - Check for completeness
+  stopifnot( identical(datTBS$Time, seq_len(spellPeriodMax)), all(is.finite(datTBS$Brier)) )
+  
+  # - Calculate IBS assuming equal/uniform weights
+  IBS <- mean(datTBS$Brier, na.rm=T) # Emanating from fitted survival model
+  IBS_0 <- mean(datTBS$Brier_0) # Emanating from empirical baseline survival model (KM or AJ)
+  
+  # Calculate optional relative performance measure
+  IBS_Skill <- if (IBS_0 > 0) {
+    1 - IBS / IBS_0
+  } else {
+    NA_real_
+  }
+  
+  return(list(tBS=datTBS, IBS=IBS, IBS_0=IBS_0, IBS_Skill=IBS_Skill))
   
   # - Cleanup (useful during interactive debugging of function)
-  rm(datGiven, modGiven, fldKey, fldStart, fldStop, fldCensored, fldSpellAge, predType,
-     km_Censoring, datTBS,datG, datG_ti)
+  rm(datGiven, dat, fldKey, fldStart, fldStop, fldCensored, fldSpellAge, fldPrediction,
+     km_Censoring, datTBS, datG, datG_ti, km_main, aj_All, empiricalType, fldCounter,
+     fldSpellOutcomeVal, datTimes, IBS, IBS_0, IBS_Skill)
 }
