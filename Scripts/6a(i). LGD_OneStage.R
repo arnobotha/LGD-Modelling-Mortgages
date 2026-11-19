@@ -112,7 +112,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
           panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
           panel.background = element_rect(color="black", fill="white"),
           plot.background = element_rect(color="white"), plot.margin = unit(c(0,0,0,0),"mm"),
-          plot.title = element_text(hjust=0.55,vjust=-10,margin=margin(t=-12))
+          plot.title = element_text(hjust=0.55,vjust=-10,margin=ggplot2::margin(t=-12))
     ) + 
     scale_x_continuous(breaks=pretty_breaks(), label=percent)
 )
