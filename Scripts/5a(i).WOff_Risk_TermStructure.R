@@ -252,6 +252,3 @@ ggsave(gsurv_ft2, file=paste0(genFigPath, "EventProb_Write-Off_ActVsExp_CoxDisc_
 # ============ 4. Housekeeping ============
 
 cleanEnviron()
-
-
-
