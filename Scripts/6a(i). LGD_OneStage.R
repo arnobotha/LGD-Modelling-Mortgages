@@ -321,11 +321,11 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
       strip.background=element_rect(fill="snow2", colour="snow2"),
       strip.text=element_text(size=8, colour="gray50"),
       strip.text.y.right=element_text(angle=90)) +
-    annotate("label", x=0.6, y=4, label=stats_text,
+    annotate("label", x=0.6, y=3, label=stats_text,
       hjust=0, vjust=1, family=chosenFont,
       size=4, fill="white", colour="black", label.size=0.5) +
     geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp_W*0.6,  y=4.5, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_exp_W*0.6,  y=3.5, family=chosenFont,
              label = paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +   
     labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
