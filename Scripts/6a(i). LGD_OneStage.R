@@ -30,7 +30,7 @@
 
 # ============ 1. Preliminaries ============
 
-# --- 1.1 Load and prepare datasets
+# --- 1 Load and prepare datasets
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CS_sub"), tempPath);gc()
 if (!exists('datCredit_valid_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS_sub"), tempPath);gc()
@@ -53,7 +53,7 @@ datCredit <- rbind(datCredit_train, datCredit_valid)
 datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF")
 
 
-# --- 1.2 Load models
+# --- 2 Load models
 # - GLM with Gaussian link function
 modGLM_OneStage_Gaus <- readRDS(paste0(genObjPath,"OneStage_Gaus_Model.rds"))
 
@@ -70,7 +70,7 @@ modGLM_OneStage_CPG <- readRDS(paste0(genObjPath,"OneStage_CPG_Model.rds"))
 # In this case, and under the assumption of constant discount rates, the loss rate would
 # remain the same.
 
-# --- 2.1 Create graphs
+# --- 1 Create graphs
 # - Graphing parameters
 chosenFont <- "Cambria"
 vCol <- brewer.pal(10, "Paired")[c(8,6)]
@@ -81,7 +81,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 (mix_WC_TruEnd <- datCredit_WOFFs[, .N] / datCredit[, .N] )# overall write-off probability given default of 18%
 
 # - Overall LGD distribution
-(g1 <- ggplot(datCredit, aes(x=LossRate_Real)) + theme_bw() +
+(g1 <- ggplot(datCredit, aes(x=LossRate_Real)) + theme_minimal() +
     geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=50,
                    position="identity", fill=vCol[1], colour=vCol[1]) + 
     geom_density(linewidth=1, colour=vCol[1], linetype="dotted") + 
@@ -99,7 +99,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 )
 
 # - Inset graph for write-offs only
-(g2 <- ggplot(datCredit_WOFFs, aes(x=LossRate_Real)) + theme_bw() +
+(g2 <- ggplot(datCredit_WOFFs, aes(x=LossRate_Real)) + theme_minimal() +
     geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=50, 
                    position="identity", fill=vCol[2], colour=vCol[2]) + 
     geom_density(linewidth=1, colour=vCol[2], linetype="dotted") + 
@@ -122,7 +122,7 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
 )
 
 
-# --- 2.2 Combine and save graphs
+# --- 2 Combine and save graphs
 # - Combine graphs
 ymin <- diff(ggplot_build(g1)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(g1)$layout$panel_params[[1]]$y.range) * 0.95
@@ -137,7 +137,7 @@ ggsave(plot.full, file=paste0(genFigPath,"/Actual_LGD.png"),width=1200/dpi, heig
 
 # ============ 3. LGDs from Gaussian model ============
 
-# --- 3.1 Compare overall expected LGDs with actuals
+# --- 1 Compare overall expected LGDs with actuals
 # - Render predictions with model
 datCredit[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit,type="response")]
 datCredit_WOFFs[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit_WOFFs,type="response")]
@@ -163,8 +163,8 @@ plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Gaussian"),
                         labels=c("Empirical", "Gaussian GLM"))]
 
 # - Plot
-(gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
-    theme_bw() + geom_histogram( aes(y=after_stat(density), fill=Type, colour=Type),
+(gOverlay <- ggplot(plotData, aes(x=LossRate)) + theme_minimal() + 
+    geom_histogram( aes(y=after_stat(density), fill=Type, colour=Type),
       alpha=0.35, bins=50, position="identity") +
     labs(x=bquote({Realised~loss~rate~italic(L)}), y="Histogram of loss rates" ) +
     theme(text=element_text(family=chosenFont),legend.position="bottom",
@@ -182,7 +182,7 @@ plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Gaussian"),
            colour=guide_legend(title=NULL)))
 
 
-# --- 3.2 Compare expected write-off LGDs with actuals
+# --- 2 Compare expected write-off LGDs with actuals
 # - Render predictions with model
 datCredit_WOFFs[, LossRate_Gaussian:=predict(modGLM_OneStage_Gaus, newdata=datCredit_WOFFs,type="response")]
 
@@ -200,8 +200,7 @@ plotData[, Type:=factor(Type, levels=c("LossRate_Real", "LossRate_Gaussian"),
 plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Plot
-((gOverlay_WOFF <- ggplot(plotData, aes(x=LossRate)) + 
-    theme_bw() +
+((gOverlay_WOFF <- ggplot(plotData, aes(x=LossRate)) + theme_minimal() + 
     geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type),alpha = 0.35,
                    bins=50, position="identity") +
     theme(legend.position="none",text = element_text(size = 12, family = chosenFont),
@@ -225,7 +224,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
     scale_fill_manual(values=c(vCol[1], vCol[2]))))
 
 
-# --- 3.3 Combine and save graphs
+# --- 3 Combine and save graphs
 # - Combine graphs
 ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
@@ -240,7 +239,7 @@ ggsave(plot.full, file=paste0(genFigPath,"/ActvsExp_onestage_gaussian.png"),widt
 
 # ============ 4. LGDs from Tweedie model ============
 
-# --- 4.1 Compare overall expected LGDs with actuals
+# --- 1 Compare overall expected LGDs with actuals
 # - Render predictions with model
 datCredit[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit,type="response")]
 
@@ -264,9 +263,8 @@ plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Tweedie"),
                         labels=c("Empirical", "Compound Poisson GLM"))]
 
 # - Overall LGD distribution
-(gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
-    theme_bw() + geom_histogram(
-      aes(y=after_stat(density), fill=Type, colour=Type),
+(gOverlay <- ggplot(plotData, aes(x=LossRate)) + theme_minimal() + 
+    geom_histogram( aes(y=after_stat(density), fill=Type, colour=Type),
       alpha=0.35, bins=50, position="identity") +
     labs(x=bquote({Realised~loss~rate~italic(L)}), y="Histogram of loss rates" ) +
     theme(text=element_text(family=chosenFont),legend.position="bottom",
@@ -284,7 +282,7 @@ plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Tweedie"),
          colour=guide_legend(title = NULL)))
 
 
-# --- 4.2 Compare expected write-off LGDs with actuals
+# --- 2 Compare expected write-off LGDs with actuals
 # - Render predictions with model
 datCredit_WOFFs[, LossRate_Tweedie:=predict(modGLM_OneStage_CPG, newdata=datCredit_WOFFs,type="response")]
 
@@ -302,10 +300,8 @@ plotData[, Type:=factor(Type, levels=c("LossRate_Real", "LossRate_Tweedie"),
 plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Plot
-(gOverlay_WOFF <- ggplot(plotData, aes(x=LossRate)) + 
-    theme_bw() +
-    geom_histogram(
-      aes(y=after_stat(density), fill=Type, colour=Type), alpha=0.35,
+(gOverlay_WOFF <- ggplot(plotData, aes(x=LossRate)) + theme_minimal() + 
+    geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type), alpha=0.35,
       bins=50, position="identity") +
     theme(legend.position = "none",text=element_text(size=12, family=chosenFont),
       axis.text.y=element_text(size=9, margin=unit(c(0,0,0,0),"mm")),
@@ -329,7 +325,7 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
     scale_fill_manual(values=c(vCol[1], vCol[2])))
     
 
-# --- 4.3 Combine and save graphs
+# --- 3 Combine and save graphs
 # - Combine graphs
 ymin <- diff(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.2
 ymax <- max(ggplot_build(gOverlay)$layout$panel_params[[1]]$y.range) * 0.95
