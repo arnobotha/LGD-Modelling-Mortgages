@@ -70,7 +70,7 @@ if (!exists('datSurv2')) unpack.ffdf(paste0(genPath,"datSurv_KM_MultiSpell_CompR
 # Time_Binned, DefSpell_Num_binned, log(TimeInDefSpell):DefSpell_Num_binned,
 # InterestRate_Nom, M_Repo_Rate_12, M_DTI_Growth_12, M_RealIncome_Growth_9,
 # M_Inflation_Growth_12, NewLoans_Aggr_Prop
-### NOTE: The following changes to the input space are made interactively using epxert judgment
+### NOTE: The following changes to the input space are made interactively using expert judgment
 # Added DefSpell_Num_binned
 
 # - Fit tree
