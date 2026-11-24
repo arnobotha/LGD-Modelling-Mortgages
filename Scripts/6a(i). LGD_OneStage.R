@@ -6,6 +6,13 @@
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
+#   - 1.Data_Import.R
+#   - 2a.Data_Prepare_Credit_Basic.R
+#   - 2b.Data_Prepare_Credit_Advanced.R
+#   - 2c.Data_Prepare_Credit_Advanced2.R
+#   - 2d.Data_Enrich.R
+#   - 2f.Data_Fusion1.R
+#   - 2g.Data_Fusion2.R
 #   - 4a(i).InputSpace_SingleStage_Gaussian.R
 #   - 4a(ii).InputSpace_SingleStage_CPG.R
 #
@@ -25,27 +32,19 @@
 
 # --- 1.1 Load and prepare datasets
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CS')) unpack.ffdf(paste0(genPath,"creditdata_train_CS"), tempPath);gc()
-if (!exists('datCredit_valid_CS')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS"), tempPath);gc()
-
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
-
-# - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CS, Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CS, Date >= sDateStr & Date <= sDateStp)
+if (!exists('datCredit_train_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CS_sub"), tempPath);gc()
+if (!exists('datCredit_valid_CS_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CS_sub"), tempPath);gc()
 
 # - Identify where the loss rate is out of bounds and not feasible
-datCredit_train[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
-datCredit_valid[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
+datCredit_train_CS_sub[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
+datCredit_valid_CS_sub[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
 
 # - Subset to include only relevant data
-datCredit_train <- subset(datCredit_train, OOB_Ind==0)
-datCredit_valid <- subset(datCredit_valid, OOB_Ind==0)
+datCredit_train <- subset(datCredit_train_CS_sub, OOB_Ind==0)
+datCredit_valid <- subset(datCredit_valid_CS_sub, OOB_Ind==0)
 
 # - Remove unfiltered data
-rm(datCredit_train_CS, datCredit_valid_CS); gc()
+rm(datCredit_train_CS_sub, datCredit_valid_CS_sub); gc()
 
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
@@ -64,7 +63,12 @@ modGLM_OneStage_CPG <- readRDS(paste0(genObjPath,"OneStage_CPG_Model.rds"))
 
 
 
-# ============ 2. Actual overall LGDs ============
+# ============ 2. Empirical overall LGDs ============
+### NOTE: Realized loss rates are assumed to remain constant over spell periods.
+# The reason for this is that actuarially, the EAD / default balance would have to be
+# accrued as well when moving the discounting to any point beyond the default point.
+# In this case, and under the assumption of constant discount rates, the loss rate would
+# remain the same.
 
 # --- 2.1 Create graphs
 # - Graphing parameters
@@ -72,8 +76,8 @@ chosenFont <- "Cambria"
 vCol <- brewer.pal(10, "Paired")[c(8,6)]
 
 # - Aesthetic engineering: Statistical Summaries
-(meanLoss_TruEnd <- mean(datCredit$LossRate_Real, na.rm=T))
-(MeanLoss_TruEnd_W <- mean(datCredit_WOFFs$LossRate_Real, na.rm=T))
+(meanLoss <- mean(datCredit$LossRate_Real, na.rm=T))
+(meanLoss_W <- mean(datCredit_WOFFs$LossRate_Real, na.rm=T))
 (mix_WC_TruEnd <- datCredit_WOFFs[, .N] / datCredit[, .N] )# overall write-off probability given default of 18%
 
 # - Overall LGD distribution
@@ -81,9 +85,9 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
     geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=50,
                    position="identity", fill=vCol[1], colour=vCol[1]) + 
     geom_density(linewidth=1, colour=vCol[1], linetype="dotted") + 
-    geom_vline(xintercept=meanLoss_TruEnd, linewidth=0.6, colour=vCol[1], linetype="dashed") + 
-    annotate(geom="text", x=meanLoss_TruEnd*0.8, y=20, family=chosenFont,
-             label = paste0("Mean Loss: ", sprintf("%.1f", meanLoss_TruEnd*100), "%"), size=3, colour=vCol[1], angle=90) +     
+    geom_vline(xintercept=meanLoss, linewidth=0.6, colour=vCol[1], linetype="dashed") + 
+    annotate(geom="text", x=meanLoss*0.8, y=20, family=chosenFont,
+             label = paste0("Mean Loss: ", sprintf("%.1f", meanLoss*100), "%"), size=3, colour=vCol[1], angle=90) +     
     # facets & scale options
     labs(x=bquote({Realised~loss~rate~italic(L)}), 
          y="Histogram and density of resolved defaults [cures/write-offs]") + 
@@ -99,9 +103,9 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
     geom_histogram(aes(y=after_stat(density)), alpha=0.4, bins=50, 
                    position="identity", fill=vCol[2], colour=vCol[2]) + 
     geom_density(linewidth=1, colour=vCol[2], linetype="dotted") + 
-    geom_vline(xintercept=MeanLoss_TruEnd_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_TruEnd_W*0.93,  y=2.6, family=chosenFont,
-             label = paste0("Mean Loss: ", sprintf("%.1f", MeanLoss_TruEnd_W*100), "%"), size=3, colour=vCol[2], angle=90) +     
+    geom_vline(xintercept=meanLoss_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
+    annotate(geom="text", x=meanLoss_W*0.93,  y=2.6, family=chosenFont,
+             label = paste0("Mean Loss: ", sprintf("%.1f", meanLoss_W*100), "%"), size=3, colour=vCol[2], angle=90) +     
     # facets & scale options
     labs(x="", y="", title=paste0("Write-offs only (", sprintf("%.0f", mix_WC_TruEnd*100), "%)")) + 
     theme(legend.position="none", text=element_text(size=12, family="Cambria"),
@@ -146,10 +150,8 @@ datCredit[, LossRate_Gaussian:=ifelse(LossRate_Gaussian<=1 & LossRate_Gaussian>=
 metrics <- evalModel_onestage(datCredit,"LossRate_Real", "LossRate_Gaussian", modGLM_OneStage_Gaus)
 
 # - Combine statistics
-stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
-                    "KL: ", sprintf("%.4f", metrics$KL), "\n",
-                    "JS: ", sprintf("%.4f", metrics$JS), 
-                    sep="")
+stats_text <- paste("KL: ", sprintf("%.4f", metrics$KL), "\n",
+                    "JS: ", sprintf("%.4f", metrics$JS), sep = "")
 
 # Mean expected loss
 (MeanLoss_exp <- mean(datCredit$LossRate_Gaussian, na.rm=T))
@@ -159,7 +161,6 @@ plotData <- melt(datCredit, measure.vars=c("LossRate_Real", "LossRate_Gaussian")
                  variable.name="Type",value.name="LossRate")
 plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Gaussian"),
                         labels=c("Empirical", "Gaussian GLM"))]
-plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Plot
 (gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
@@ -177,7 +178,6 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
     scale_fill_manual(values=c(vCol[1], vCol[2])) +
-    facet_grid(FacetLabel ~., scales="free")+
     guides(fill=guide_legend(title=NULL),
            colour=guide_legend(title=NULL)))
 
@@ -251,10 +251,8 @@ datCredit[, LossRate_Tweedie := ifelse(LossRate_Tweedie<=1 & LossRate_Tweedie>=0
 metrics <- evalModel_onestage(datCredit,"LossRate_Real","LossRate_Tweedie", modGLM_OneStage_CPG)
 
 # - Combine statistics
-stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
-                    "KL: ", sprintf("%.4f", metrics$KL), "\n",
-                    "JS: ", sprintf("%.4f", metrics$JS),
-                    sep = "")
+stats_text <- paste("KL: ", sprintf("%.4f", metrics$KL), "\n",
+                    "JS: ", sprintf("%.4f", metrics$JS), sep = "")
 
 # - Mean expected loss
 (MeanLoss_exp <- mean(datCredit$LossRate_Tweedie, na.rm=T))
@@ -264,7 +262,6 @@ plotData <- melt(datCredit, measure.vars=c("LossRate_Real", "LossRate_Tweedie"),
                  variable.name="Type",value.name="LossRate")
 plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Tweedie"),
                         labels=c("Empirical", "Compound Poisson GLM"))]
-plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Overall LGD distribution
 (gOverlay <- ggplot(plotData, aes(x=LossRate)) + 
@@ -283,7 +280,6 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
     scale_x_continuous(breaks=pretty_breaks(), labels = scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
     scale_fill_manual(values=c(vCol[1], vCol[2])) +
-    facet_grid(FacetLabel ~., scales="free")+
     guides(fill=guide_legend(title = NULL),
          colour=guide_legend(title = NULL)))
 

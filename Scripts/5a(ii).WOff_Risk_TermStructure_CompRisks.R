@@ -1,5 +1,6 @@
 # ======================== CONSTRUCTING TERM-STUCTURES =========================
 # Construct and compare empirical and expected term-structures of default risk
+# amidst competing risks models
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Dr Arno Botha (AB)
@@ -13,10 +14,8 @@
 #   - 2d.Data_Enrich.R
 #   - 2f.Data_Fusion1.R
 #   - 2g.Data_Fusion2.R
-#   - 4b(i).InputSpace_DiscreteCox.R
-#   - 4b(ii).InputSpace_DiscreteCox_Basic.R
-#   - 4c.InputSpace_LogisticRegression.R
-#   - 4e.SurvivalTrees.R
+#   - 4f.InputSpace_TwoStage_MultiDtH
+#   - 4g.InputSpace_TwoStage_MultiSurvTrees
 #
 # -- Inputs:
 #   - datCredit_train_CDH | Prepared from script 2g

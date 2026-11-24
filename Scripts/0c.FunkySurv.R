@@ -270,7 +270,7 @@ calcRMST <- function(km, tau=NA, t=1) {
 }
 
 
-# -- Helper function for summing future redisual CIF to the horizon end M
+# -- Helper function for summing future residual CIF to the horizon end M
 forward_sum <- function(x, M) {
   x <- fcoalesce(x, 0)
   
@@ -297,4 +297,14 @@ calc_residual_CIF <- function(event, surv, M) {
 }
 
 
-
+# - Calculate the conditional future cause-specific / single-risk probability
+### NOTE: This quantity is calculated over u up to the observed vector length,
+# which is assumed to be the spell age.
+condFutureProb <- function(u, surv, CIF) {
+  # Testing conditions
+  # u <- lookup$SelPoint[1]; surv <- lookup$Survival_bas; CIF <- lookup$Cumul_EventRate_bas
+  n <- length(surv)
+  if (!is.na(u) && u <= n && surv[u] > 0) {
+    (CIF[n] - CIF[u]) / surv[u] 
+  } else NA_real_
+}

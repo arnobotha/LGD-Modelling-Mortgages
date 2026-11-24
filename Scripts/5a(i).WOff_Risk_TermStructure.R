@@ -1,5 +1,6 @@
 # ============================== CONSTRUCTING TERM-STUCTURES ===================
 # Construct and compare empirical and expected term-structures of default risk
+# amongst classical single-risk survival models
 # ------------------------------------------------------------------------------
 # PROJECT TITLE: Loss Modelling (LGD) for Residential Mortgages
 # SCRIPT AUTHOR(S): Mohammed Gabru (MG), Marcel Muller (MM), Dr Arno Botha (AB)

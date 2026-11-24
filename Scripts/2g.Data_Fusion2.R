@@ -883,7 +883,6 @@ cat((check.3 %?% paste0("SAFE: Spells in the validation dataset are selected as 
 suppressWarnings(rm(smp_perc, datKeys, datKeys_sampled, dat_train_keys, check.2, check.3, datCredit_prep_old_n, 
                     datCredit_prep_prior, dat_keys_exc, class_type, excCond, excCond2, datCredit_prep))
 
-
 # --- 4.2 Saving the resampled sets
 pack.ffdf(paste0(genPath,"creditdata_train_CDH"), datCredit_train_CDH)
 pack.ffdf(paste0(genPath,"creditdata_valid_CDH"), datCredit_valid_CDH)
@@ -956,6 +955,16 @@ date_sub_end <- as.Date("2019-12-31")
 # - Subsample data
 datCredit_train_CDH_sub <- datCredit_train_CDH[Date>=date_sub_start & Date<=date_sub_end]
 datCredit_valid_CDH_sub <- datCredit_valid_CDH[Date>=date_sub_start & Date<=date_sub_end]
+
+# - Recalculate certain values
+# Training set
+datCredit_train_CDH_sub[, Counter := 1:.N, by=.(LoanID)]
+datCredit_train_CDH_sub[, PerfSpell_Counter := 1:.N, by=.(PerfSpell_Key)]
+datCredit_train_CDH_sub[, DefSpell_Counter := 1:.N, by=.(DefSpell_Key)]
+# Validation set
+datCredit_valid_CDH_sub[, Counter := 1:.N, by=.(LoanID)]
+datCredit_valid_CDH_sub[, PerfSpell_Counter := 1:.N, by=.(PerfSpell_Key)]
+datCredit_valid_CDH_sub[, DefSpell_Counter := 1:.N, by=.(DefSpell_Key)]
 
 # - Create out-of-time data
 datCredit_CDH_OOT <- rbind(datCredit_train_CDH[Date>date_sub_end],

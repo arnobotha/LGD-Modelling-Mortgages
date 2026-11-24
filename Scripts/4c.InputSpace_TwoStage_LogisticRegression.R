@@ -7,7 +7,6 @@
 # ------------------------------------------------------------------------------
 # -- Script dependencies:
 #   - 0.Setup.R
-#   - 0.Setup.R
 #   - 1.Data_Import.R
 #   - 2a.Data_Prepare_Credit_Basic.R
 #   - 2b.Data_Prepare_Credit_Advanced.R
