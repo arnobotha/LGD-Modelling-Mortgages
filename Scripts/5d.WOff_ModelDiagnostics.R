@@ -244,10 +244,9 @@ hist(datCredit$CIF_res_mult); describe2(datCredit$CIF_res_mult)
 hist(datCredit$CIF_res_mult_survtree); describe2(datCredit$CIF_res_mult_survtree)
 sum(is.na(datCredit$CIF_res_survtree)); sum(is.nan(datCredit$CIF_res_survtree)); sum(is.infinite(datCredit$CIF_res_survtree))
 lookup_check <-datCredit[DefSpell_Key==datCredit[is.na(CIF_res_survtree), DefSpell_Key][1],
-                          c("DefSpell_Key", "Date", "Node", "Hazard_survtree", "Survival_survtree", "EventRate_survtree", "RMST", "CIF_res_survtree", "WOff_Ind")]
-### RESULTS: - Basic DtH model, cross-sectinal logistic regression model, multinomial model, and mutinomial survival tree
+                          c("DefSpell_Key", "Date", "Node", "Hazard_survtree", "Survival_survtree", "EventRate_survtree", "CIF_res_survtree", "WOff_Ind")]
+### RESULTS: - Basic DtH model, advanced DtH model, cross-sectional logistic regression model, multinomial model, and mutinomial survival tree
 ###            produce probabilities bounded by [0,1]
-###          - Advanced DtH model has one observation over 1 and all other observations are bounded by [0,1]
 ###          - Survival has a few missing and infinite values, this happens at the end of certain spells when both
 ###            the event rates and survival probabilities are zero
 ### CONCLUSION: Correct these rates by applying ceilings of 1
@@ -580,7 +579,8 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_Classic"=bquote(italic(D[t])~": CS-LR"),
             "e_SurvTree"=bquote(italic(E[t])~": CI-tree"), "f_Mult"=bquote(italic(F[t])~": MLR"),
             "g_MultSurvTree"=bquote(italic(G[t])~": MCI-tree"))
-vShape <- c(17, 20, 4, 7, 12, 14, 24) 
+vShape <- c(17, 20, 4, 7, 12, 14, 24)
+date_forecast_start <- max(datCredit[Sample=="Train",Date])
 
 # - Plot
 (g2_ResolRate <- ggplot(data=datPlot, aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -594,6 +594,10 @@ vShape <- c(17, 20, 4, 7, 12, 14, 24)
   geom_point(aes(colour=Model, shape=Model)) +
   # Annotations
   geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T) +
+    # Forecasting period
+    geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
+    annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
+             size=3, alpha=0.5) +
   # Facets & scale options
   scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
   scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
@@ -676,6 +680,7 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "g_MultSurvTree"=bquote(italic(F[t])~": MCI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24) 
 date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(3)
+date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(3))
 
 # - Plot
 (g3_ResolRate <- ggplot(data=datPlot[Model!="d_Classic" & Date<=max(datPlot$Date) %m-% months(3)], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -699,7 +704,8 @@ date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(3)
     scale_shape_manual(name="Model", values=vShape, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_linetype_discrete(name="Model", labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
-    scale_y_continuous(breaks=pretty_breaks(), labels=percent))
+    scale_y_continuous(breaks=pretty_breaks(), labels=percent) +
+    coord_cartesian(xlim=date_xlim))
 
 # - Save graph
 dpi <-180
@@ -772,6 +778,7 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "g_MultSurvTree"=bquote(italic(F[t])~": MCI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24) 
 date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(6)
+date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(6))
 
 # - Plot
 (g4_ResolRate <- ggplot(data=datPlot[Model!="d_Classic" & Date<=max(datPlot$Date) %m-% months(6)], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -795,7 +802,8 @@ date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(6)
     scale_shape_manual(name="Model", values=vShape, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_linetype_discrete(name="Model", labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
-    scale_y_continuous(breaks=pretty_breaks(), labels=percent))
+    scale_y_continuous(breaks=pretty_breaks(), labels=percent) +
+    coord_cartesian(xlim=date_xlim))
 
 # - Save graph
 dpi <-180
@@ -868,6 +876,7 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "g_MultSurvTree"=bquote(italic(F[t])~": MCI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24) 
 date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(12)
+date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g5_ResolRate <- ggplot(data=datPlot[Model!="d_Classic" & Date<=max(datPlot$Date) %m-% months(12)], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -891,7 +900,8 @@ date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(12)
     scale_shape_manual(name="Model", values=vShape, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_linetype_discrete(name="Model", labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
-    scale_y_continuous(breaks=pretty_breaks(), labels=percent))
+    scale_y_continuous(breaks=pretty_breaks(), labels=percent) +
+    coord_cartesian(xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))))
 
 # - Save graph
 dpi <-180
@@ -901,7 +911,138 @@ ggsave(g5_ResolRate, file=paste0(genFigPath, "12Month-WriteOff_ResolRate_Reporti
 
 
 
-# ============ 8. Housekeeping ============
+# ============ 8. Write-off resolution rate | Alternative formulation ============
+### NOTE: - This resolution rate diagnostic is retrospective in that it aggregates
+###         all realised probabilities over the entire spell life.
+###       - The cumulative probability then tells us what is the probability that the
+###         spell will have been written-off.
+###       - We can compare this against the spell resolution outcome at the end of its life.
+
+# --- 8.1 Prepare data
+# - Aggregate predictions
+datCredit[, `:=`(CIF_res_bas_alt=cumsum(EventRate_bas),
+                 CIF_res_adv_alt=cumsum(EventRate_adv),
+                 CIF_res_survtree_alt=cumsum(EventRate_survtree),
+                 CIF_res_mult_alt=cumsum(EventRate_WriteOff),
+                 CIF_res_mult_survtree_alt=cumsum(EventRate_WriteOff_tree)),
+          by=list(DefSpell_Key)]
+
+# - [SANITY CHECK] Validity of predictions
+hist(datCredit$CIF_res_bas_alt); describe2(datCredit$CIF_res_bas_alt)
+hist(datCredit$CIF_res_adv_alt); describe2(datCredit$CIF_res_adv_alt)
+hist(datCredit$CIF_res_survtree_alt); describe2(datCredit$CIF_res_survtree_alt)
+hist(datCredit$CIF_res_mult_alt); describe2(datCredit$CIF_res_mult_alt)
+hist(datCredit$CIF_res_mult_survtree_alt); describe2(datCredit$CIF_res_mult_survtree_alt)
+sum(is.na(datCredit$CIF_res_survtree_alt)); sum(is.nan(datCredit$CIF_res_survtree_alt)); sum(is.infinite(datCredit$CIF_res_survtree_alt))
+lookup_check <-datCredit[DefSpell_Key==datCredit[CIF_res_survtree_alt>1, DefSpell_Key][1],
+                         c("DefSpell_Key", "Date", "Node",
+                           "EventRate_survtree", "CIF_res_survtree_alt", "WOff_Ind")]
+### RESULTS: - Basic DtH model, advanced DtH model, cross-sectional logistic regression model, multinomial model, and mutinomial survival tree
+###            produce probabilities bounded by [0,1]
+###          - Survival tree has a few missing and infinite values, this happens at the end of certain spells when both
+###            the event rates and survival probabilities are zero
+### CONCLUSION: Correct these rates by applying ceilings of 1
+
+# - Apply ceiling of one to survival tree predictions
+datCredit[CIF_res_survtree_alt>1, CIF_res_survtree_alt:=1]
+sum(datCredit[CIF_res_survtree_alt>1,.N])
+### RESULTS: Safe, all non sensical values are capped to one
+
+
+# --- 8.2 Create data for plotting
+# -- 8.1.1 Plotting data
+# - Aggregate data at default start
+datPlot <- datCredit[TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist!="Censored",
+                     .(Empirical=mean(WOff_Ind==1, na.rm=T),
+                       Basic_DtH=mean(CIF_res_bas_alt, na.rm=T),
+                       Advanced_DtH=mean(CIF_res_adv_alt, na.rm=T),
+                       SurvTree=mean(CIF_res_survtree_alt, na.rm=T),
+                       Mult=mean(CIF_res_mult_alt, na.rm=T),
+                       MultSurvTree=mean(CIF_res_mult_survtree_alt, na.rm=T)),
+                     by=list(Date)]
+
+# - Pivot data to facilitate grapging
+datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "SurvTree", "Mult", "MultSurvTree"),
+                                    values_to="WOff_Rate", names_to="Model") %>% data.table() %>% setorder(Date)
+
+
+# -- 8.1.2 Annotation data
+# - Location of annotations
+start_y <- 0.5; space <- 0.035
+y_vals <- c(start_y,start_y-space*1:4)
+
+# - Creating an annotation dataset for easier annotations
+datAnno <- data.table(MeanAUC=NULL, Dataset=c("A-B","A-C", "A-D", "A-E", "A-F"),
+                      x=rep(as.Date("2015-01-31"),5), # Text x coordinates
+                      y=y_vals)
+
+# - Estimate MAEs
+vEventRates_MAE <- c(mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="Basic_DtH", WOff_Rate]), na.rm=T),
+                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="Advanced_DtH", WOff_Rate]), na.rm=T),
+                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="SurvTree", WOff_Rate]), na.rm=T),
+                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="Mult", WOff_Rate]), na.rm=T),
+                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="MultSurvTree", WOff_Rate]), na.rm=T))
+
+# - Create and assign labels
+series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F(t)")
+vLabel_MAE <- sapply(seq_along(series_labels_mae), function(i) {
+  paste0("'MAE between '*italic(", series_labels_mae[i], ")*' and '*italic(A[t])*' : ",
+         sprintf('%.2f', vEventRates_MAE[i] * 100), "%'")
+})
+datAnno[, Label:=vLabel_MAE]
+
+
+# --- 8.3 Create plot
+# - Refactor levels
+datPlot[,Model:=case_when(Model=="Empirical"~"a_Empirical", Model=="Basic_DtH"~"b_Basic_DtH",
+                          Model=="Advanced_DtH"~"c_Advanced_DtH", Model=="SurvTree"~"d_SurvTree",
+                          Model=="Mult"~"e_Mult", Model=="MultSurvTree"~"f_MultSurvTree")]
+
+# - Graphing parameters
+chosenFont <- "Cambria"; dpi <- 180
+vCol <- brewer.pal(8, "Dark2")[c(2, 1, 3, 5, 7, 4)]
+vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquote(italic(B[t])~": DtH-Basic"),
+            "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_SurvTree"=bquote(italic(D[t])~": CI-tree"),
+            "e_Mult"=bquote(italic(E[t])~": MLR"), "f_MultSurvTree"=bquote(italic(F[t])~": MCI-tree"))
+vShape <- c(17, 20, 4, 7, 12, 14)
+date_forecast_start <- max(datCredit[Sample=="Train",Date])
+date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
+
+# - Plot
+(g2_ResolRate <- ggplot(data=datPlot, aes(x=Date, y=WOff_Rate)) + theme_minimal() +
+    labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Reporting time")) + 
+    theme(text=element_text(family=chosenFont), legend.position="bottom",
+          axis.text.x=element_text(angle=90), 
+          strip.background=element_rect(fill="snow2", colour="snow2"),
+          strip.text=element_text(size=11, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
+    # Main graph
+    geom_line(aes(colour=Model, linetype=Model)) +
+    geom_point(aes(colour=Model, shape=Model)) +
+    # Annotations
+    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T) +
+    # Forecasting period
+    geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
+    annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
+             size=3, alpha=0.5) +
+    # Facets & scale options
+    scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
+    scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
+    scale_shape_manual(name="Model", values=vShape, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
+    scale_linetype_discrete(name="Model", labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
+    scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
+    scale_y_continuous(breaks=pretty_breaks(), labels=percent) +
+    coord_cartesian(xlim=date_xlim, ylim=c(0,0.55)))
+
+# - Save graph
+dpi <-180
+ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_DefaultCohort_EndTime.png"),
+       width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
+
+
+
+
+
+# ============ 9. Housekeeping ============
 
 cleanEnviron()
 
