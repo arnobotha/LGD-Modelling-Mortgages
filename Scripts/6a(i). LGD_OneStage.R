@@ -174,7 +174,7 @@ plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Gaussian"),
           strip.text.y.right=element_text(angle=90)) +
     geom_vline(xintercept=MeanLoss_exp, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
     annotate(geom="text", x=MeanLoss_exp*0.75,  y=20, family=chosenFont,
-             label = paste0(sprintf("%.1f", MeanLoss_exp*100), "%"), size=3, colour=vCol[2], angle=90) +     
+             label = paste0("Mean: ", sprintf("%.1f", MeanLoss_exp*100), "%"), size=3, colour=vCol[2], angle=90) +     
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
     scale_fill_manual(values=c(vCol[1], vCol[2])) +
@@ -216,8 +216,8 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
              hjust=0, vjust=1, family=chosenFont,
              size=4, fill="white", colour="black", label.size = 0.5) +
     geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp_W*0.55,  y=6.5, family=chosenFont,
-            label = paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +         
+    annotate(geom="text", x=MeanLoss_exp_W*0.55,  y=5, family=chosenFont,
+            label = paste0("Mean: ", sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +         
     labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
@@ -274,7 +274,7 @@ plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossRate_Tweedie"),
           strip.text.y.right=element_text(angle = 90)) +
     geom_vline(xintercept=MeanLoss_exp, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
     annotate(geom="text", x=MeanLoss_exp*0.75,  y=20, family=chosenFont,
-             label = paste0(sprintf("%.1f", MeanLoss_exp*100), "%"), size=3, colour=vCol[2], angle=90) + 
+             label = paste0("Mean: ", sprintf("%.1f", MeanLoss_exp*100), "%"), size=3, colour=vCol[2], angle=90) + 
     scale_x_continuous(breaks=pretty_breaks(), labels = scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
     scale_fill_manual(values=c(vCol[1], vCol[2])) +
@@ -317,8 +317,8 @@ plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
       hjust=0, vjust=1, family=chosenFont,
       size=4, fill="white", colour="black", label.size=0.5) +
     geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp_W*0.6,  y=3.5, family=chosenFont,
-             label = paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +   
+    annotate(geom="text", x=MeanLoss_exp_W*0.8,  y=3.5, family=chosenFont,
+             label = paste0("Mean: ", sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +   
     labs(x="", y="", title=paste0("Write-offs only")) +
     scale_x_continuous(breaks=pretty_breaks(), labels=scales::percent) +
     scale_colour_manual(values=c(vCol[1], vCol[2])) +
