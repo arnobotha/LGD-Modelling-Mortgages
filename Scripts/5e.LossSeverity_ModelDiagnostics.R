@@ -36,34 +36,33 @@
 
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath);gc()
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath);gc()
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath);gc()
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath);gc()
 
 # - Ensure order of data is correct
-setorder(datCredit_train_CDH, LoanID, Date)
-setorder(datCredit_valid_CDH, LoanID, Date)
+setorder(datCredit_train_CDH_sub, LoanID, Date)
+setorder(datCredit_valid_CDH_sub, LoanID, Date)
 
 # - Use only default spells
-datCredit_train <- datCredit_train_CDH[!is.na(DefSpell_Key),]
-datCredit_valid <- datCredit_valid_CDH[!is.na(DefSpell_Key),]
+datCredit_train <- datCredit_train_CDH_sub[!is.na(DefSpell_Key),]
+datCredit_valid <- datCredit_valid_CDH_sub[!is.na(DefSpell_Key),]
 
-# - Create a spell-level target variable for write-off instance
-datCredit_train[, DefSpell_Event2:=DefSpell_Event]; datCredit_valid[, DefSpell_Event2:=DefSpell_Event]
-datCredit_train[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]; datCredit_valid[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
-
-# - Transform categorical variables to factor
-# Payment method
-datCredit_train[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
-datCredit_valid[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
-# Previous defaults
-datCredit_train[,PrevDefaults_fac:=as.factor(PrevDefaults)]
-datCredit_valid[,PrevDefaults_fac:=as.factor(PrevDefaults)]
+# - Remove objects
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(datCredit_train, datCredit_valid)
 
-# - Remove objects
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+# - Create a spell-level target variable for write-off instance
+datCredit[, DefSpell_Event2:=DefSpell_Event]
+datCredit[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
+
+# - Transform categorical variables to factor
+# Payment method
+datCredit[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+# Previous defaults
+datCredit[,PrevDefaults_fac:=as.factor(PrevDefaults)]
+
 
 
 # --- 1.2 Load & apply model
@@ -73,28 +72,26 @@ modGLM_Severity_CPG <- readRDS(paste0(genObjPath,"Severity_CPH_Model.rds"))
 # - Forecast loss severities
 datCredit[, LossSeverity:=predict(modGLM_Severity_CPG, newdata=datCredit, type="response")]
 
-# - Correct for nonsensical loss severities
+# - Correct for nonsensical predictions
 datCredit[, LossSeverity:=ifelse(LossSeverity<0 | LossSeverity>1, NA, LossSeverity)]
 
 
 # --- 1.3 Subset data
+# - Choose a randomly selected point during spell life and create dataset accordingly
+set.seed(1, kind="Mersenne-Twister")
+datLGD <- datCredit[, .SD[which.max(DefSpell_Counter)], by=.(DefSpell_Key)]
+
 # - Identify where the loss rate is out of bounds and not feasible
-datCredit[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
+datLGD[, OOB_Ind:=ifelse(LossRate_Real<0 | LossRate_Real>1,1,0)]
 
 # - Subset to include only relevant data
-datCredit <- subset(datCredit, OOB_Ind==0)
-
-# - Subset for write-offs only to create inset plots
-datCredit_WOFFs <- subset(datCredit, DefSpellResol_Type_Hist=="WOFF" & OOB_Ind==0)
-
-# - Filter for the last default spell observations
-datCredit_Last <- datCredit[, .SD[which.max(DefSpell_Counter)], by=DefSpell_Key]
+datLGD <- subset(datLGD, OOB_Ind==0)
 
 # - Filter for written-off spells only
-datCredit_Last_WOFFs <- datCredit_Last[DefSpellResol_Type_Hist=="WOFF"]
+datLGD_WOFFs <- datLGD[DefSpellResol_Type_Hist=="WOFF"]
 
 # - Filter for non-sensical loss rates
-datCredit_Last_WOFFs[, LossSeverity:=ifelse(LossSeverity>=0 & LossSeverity<=1, LossSeverity, NA)]
+datLGD_WOFFs[, LossSeverity:=ifelse(LossSeverity>=0 & LossSeverity<=1, LossSeverity, NA)]
 
 
 
@@ -102,34 +99,29 @@ datCredit_Last_WOFFs[, LossSeverity:=ifelse(LossSeverity>=0 & LossSeverity<=1, L
 
 # --- 2.1 Prepare data for plotting
 # - Estimate statistics on distributional differences
-metrics<-evalModel_twostage(data_train=datCredit_Last_WOFFs, actField="LossRate_Real", estField="LossSeverity")
+metrics<-evalModel_twostage(data_train=datLGD_WOFFs, actField="LossRate_Real", estField="LossSeverity")
 
 # - Create plotting data
-stats_text <- paste("KS: ", sprintf("%.1f%%", metrics$KS * 100), "\n",
-                    "KL: ", sprintf("%.4f", metrics$KL), "\n",
-                    "JS: ", sprintf("%.4f", metrics$JS),
-                    sep = "")
-
+stats_text <- paste("KL: ", sprintf("%.4f", metrics$KL), "\n",
+                    "JS: ", sprintf("%.4f", metrics$JS), sep = "")
 
 # --- 2.2 Plot
 # - Mean expected loss
-(MeanLoss_exp_W <- mean(datCredit_Last_WOFFs$LossSeverity, na.rm=T))
-(MeanLoss_act_W <- mean(datCredit_Last_WOFFs$LossRate_Real, na.rm=T))
+(MeanLoss_exp_W <- mean(datLGD_WOFFs$LossSeverity, na.rm=T))
+(MeanLoss_act_W <- mean(datLGD_WOFFs$LossRate_Real, na.rm=T))
 
 # - Create plotting data
-plotData <- melt(datCredit_Last_WOFFs, measure.vars=c("LossRate_Real", "LossSeverity"),
+plotData <- melt(datLGD_WOFFs, measure.vars=c("LossRate_Real", "LossSeverity"),
                  variable.name="Type", value.name="LossRate")
 plotData[, Type:=factor(Type,levels=c("LossRate_Real", "LossSeverity"),
                         labels=c("Actual loss rate", "Compound Poisson GLM"))]
-plotData[, FacetLabel:="Resolved defaults [cures/write-offs]"]
 
 # - Graphing parameters
 chosenFont <-"Cambria"
-vCol <- brewer.pal(10, "Paired")[c(8,6)]
+vCol <- brewer.pal(10, "Paired")[c(10,2)]
 
 # - Plot
-(g_WOFFs <- ggplot(plotData, aes(x=LossRate)) + 
-    theme_bw() +
+(g_WOFFs <- ggplot(plotData, aes(x=LossRate)) + theme_minimal() +
     theme(text=element_text(family=chosenFont),legend.position="bottom",
           strip.background=element_rect(fill="snow2", colour="snow2"),
           strip.text=element_text(size=8, colour="gray50"),
@@ -139,11 +131,8 @@ vCol <- brewer.pal(10, "Paired")[c(8,6)]
     geom_histogram(aes(y=after_stat(density), fill=Type, colour=Type), alpha=0.35,
                    bins=50, position="identity") +
     # Annotations
-    geom_vline(xintercept=MeanLoss_act_W, linewidth=0.6, colour=vCol[1], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_act_W*1.05,  y=4, family=chosenFont,
-             label = paste0(sprintf("%.1f", MeanLoss_act_W*100), "%"), size=3, colour=vCol[1], angle=90, vjust=-1.75) +       
     geom_vline(xintercept=MeanLoss_exp_W, linewidth=0.6, colour=vCol[2], linetype="dashed") + 
-    annotate(geom="text", x=MeanLoss_exp_W*1.05,  y=4, family=chosenFont,
+    annotate(geom="text", x=MeanLoss_exp_W*1.05,  y=4.3, family=chosenFont,
              label = paste0(sprintf("%.1f", MeanLoss_exp_W*100), "%"), size=3, colour=vCol[2], angle=90) +       
     annotate("label", x=0.7, y=3 , label = stats_text,
              hjust=0, vjust =1, family = chosenFont,
@@ -165,7 +154,7 @@ ggsave(g_WOFFs, file=paste0(genFigPath,"ActvsExp_twostage_LossSeverities.png"),
 
 # --- 3.1 Prepare data for plotting
 # - Aggregate data at default start
-datPlot <- datCredit_Last_WOFFs[, .(Empirical=mean(LossRate_Real, na.rm=T),
+datPlot <- datLGD_WOFFs[, .(Empirical=mean(LossRate_Real, na.rm=T),
                                     Expected=mean(LossSeverity, na.rm=T)),
                                 by=list(Date)]
 
