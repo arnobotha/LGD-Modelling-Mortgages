@@ -733,7 +733,7 @@ vars <- c("-1", "Time_Binned", "log(TimeInDefSpell)*DefSpell_Num_binned",
           "DefaultStatus1_Aggr_Prop_Lag_12",
           "g0_Delinq_Ave", "M_Inflation_Growth_12",
           "g0_Delinq_Lag_1", "InterestRate_Margin_Aggr_Med_2",
-          "M_RealIncome_Growth_9", "Balance_Real_1"
+          "M_RealIncome_Growth_9"
 )
 
 # - Fit model
