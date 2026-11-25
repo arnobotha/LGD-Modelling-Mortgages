@@ -33,19 +33,15 @@
 
 # --- 1.1 Load data
 # - Confirm prepared datasets are loaded into memory
-# Training set
-if (!exists('datCredit_train_CDH')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH"), tempPath)
-# Validation set
-if (!exists('datCredit_valid_CDH')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH"), tempPath)
-
-# Sampling window start for model fitting purposes
-sDateStr <- as.Date("2008-01-31")
-sDateStp <- as.Date("2019-12-31")
+if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_train_CDH_sub"), tempPath)
+if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath,"creditdata_valid_CDH_sub"), tempPath)
 
 # - Filter data for default spells and date selections
-datCredit_train <- subset(datCredit_train_CDH, Date >= sDateStr & Date <= sDateStp)
-datCredit_valid <- subset(datCredit_valid_CDH, Date >= sDateStr & Date <= sDateStp)
-rm(datCredit_train_CDH, datCredit_valid_CDH); gc()
+datCredit_train <- subset(datCredit_train_CDH_sub, !is.na(DefSpell_Key))
+datCredit_valid <- subset(datCredit_valid_CDH_sub, !is.na(DefSpell_Key))
+
+# - Cleanup
+rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub); gc()
 
 
 # --- 1.2 Create a super-subsample to facilitate rapid model development
@@ -63,10 +59,6 @@ datKeys_valid_smp <- datKeys_valid %>% slice_sample(prop=smp_frac_trees) %>% as.
 # - Subset training data
 datCredit_train_smp <- subset(datCredit_train, LoanID %in% datKeys_train_smp$V1)
 datCredit_valid_smp <- subset(datCredit_valid, LoanID %in% datKeys_valid_smp$V1)
-
-# - Subset only default spells
-datCredit_train_smp <- subset(datCredit_train_smp, !is.na(DefSpell_Key))
-datCredit_valid_smp <- subset(datCredit_valid_smp, !is.na(DefSpell_Key))
 
 
 # --- 1.3 Final data preparations
