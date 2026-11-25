@@ -581,6 +581,7 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "g_MultSurvTree"=bquote(italic(G[t])~": MCI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24)
 date_forecast_start <- max(datCredit[Sample=="Train",Date])
+date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g2_ResolRate <- ggplot(data=datPlot, aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -604,7 +605,8 @@ date_forecast_start <- max(datCredit[Sample=="Train",Date])
   scale_shape_manual(name="Model", values=vShape, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
   scale_linetype_discrete(name="Model", labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
   scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
-  scale_y_continuous(breaks=pretty_breaks(), labels=percent))
+  scale_y_continuous(breaks=pretty_breaks(), labels=percent) +
+  coord_cartesian(xlim=date_xlim))
 ### MM: - This view aligns with the resolution rate that we have in the ROT-aritcle, i.e., we look at the
 ###       probability of write-off over the entire spell.
 ###     - Very weird result that the basic model is the best.
@@ -683,7 +685,7 @@ date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(3)
 date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(3))
 
 # - Plot
-(g3_ResolRate <- ggplot(data=datPlot[Model!="d_Classic" & Date<=max(datPlot$Date) %m-% months(3)], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
+(g3_ResolRate <- ggplot(data=datPlot[Model!="d_Classic"], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
     labs(y=bquote("3-month write-off resolution rate (%) "), x=bquote("Reporting time")) + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
@@ -781,7 +783,7 @@ date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(6)
 date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(6))
 
 # - Plot
-(g4_ResolRate <- ggplot(data=datPlot[Model!="d_Classic" & Date<=max(datPlot$Date) %m-% months(6)], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
+(g4_ResolRate <- ggplot(data=datPlot[Model!="d_Classic"], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
     labs(y=bquote("6-month write-off resolution rate (%) "), x=bquote("Reporting time")) + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
@@ -879,7 +881,7 @@ date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(12)
 date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
-(g5_ResolRate <- ggplot(data=datPlot[Model!="d_Classic" & Date<=max(datPlot$Date) %m-% months(12)], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
+(g5_ResolRate <- ggplot(data=datPlot[Model!="d_Classic"], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
     labs(y=bquote("12-month write-off resolution rate (%) "), x=bquote("Reporting time")) + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
@@ -911,11 +913,11 @@ ggsave(g5_ResolRate, file=paste0(genFigPath, "12Month-WriteOff_ResolRate_Reporti
 
 
 
-# ============ 8. Write-off resolution rate | Alternative formulation ============
+# ============ 8. Write-off resolution rate | Reversed formulation & write-off observations only ============
 ### NOTE: - This resolution rate diagnostic is retrospective in that it aggregates
 ###         all realised probabilities over the entire spell life.
 ###       - The cumulative probability then tells us what is the probability that the
-###         spell will have been written-off.
+###         spell will have been written-off at each period
 ###       - We can compare this against the spell resolution outcome at the end of its life.
 
 # --- 8.1 Prepare data
@@ -948,11 +950,15 @@ datCredit[CIF_res_survtree_alt>1, CIF_res_survtree_alt:=1]
 sum(datCredit[CIF_res_survtree_alt>1,.N])
 ### RESULTS: Safe, all non sensical values are capped to one
 
+# - [SANITY CHECK] lookup
+lookup <- datCredit[LoanID==datCredit[WOff_Ind==1 & Counter>50 & Date>"2022-01-01", LoanID][1000],
+                    c("LoanID", "Date", "Counter", "EventRate_adv", "CIF_res_adv", "CIF_res_adv_alt", "WOff_Ind")]
+
 
 # --- 8.2 Create data for plotting
 # -- 8.1.1 Plotting data
 # - Aggregate data at default start
-datPlot <- datCredit[TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist!="Censored",
+datPlot <- datCredit[TimeInDefSpell==DefSpell_Age,
                      .(Empirical=mean(WOff_Ind==1, na.rm=T),
                        Basic_DtH=mean(CIF_res_bas_alt, na.rm=T),
                        Advanced_DtH=mean(CIF_res_adv_alt, na.rm=T),
@@ -1010,7 +1016,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g2_ResolRate <- ggplot(data=datPlot, aes(x=Date, y=WOff_Rate)) + theme_minimal() +
-    labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Reporting time")) + 
+    labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Resolution cohort")) + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -1041,8 +1047,106 @@ ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_DefaultCoho
 
 
 
+# ============ 9. Write-off resolution rate | Reversed formulation & all observations ============
+### NOTE: - This resolution rate diagnostic is retrospective in that it aggregates
+###         all realised probabilities over the entire spell life.
+###       - The cumulative probability then tells us what is the probability that the
+###         spell will have been written-off at each period
+###       - We can compare this against the spell resolution outcome at the end of its life.
 
-# ============ 9. Housekeeping ============
+
+# --- 9.1 Create data for plotting
+# -- 9.1.1 Plotting data
+# - Aggregate data at default start
+datPlot <- datCredit[,.(Empirical=mean(WOff_Ind==1, na.rm=T),
+                        Basic_DtH=mean(CIF_res_bas_alt, na.rm=T),
+                        Advanced_DtH=mean(CIF_res_adv_alt, na.rm=T),
+                        SurvTree=mean(CIF_res_survtree_alt, na.rm=T),
+                        Mult=mean(CIF_res_mult_alt, na.rm=T),
+                        MultSurvTree=mean(CIF_res_mult_survtree_alt, na.rm=T)),
+                     by=list(Date)]
+
+# - Pivot data to facilitate grapging
+datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "SurvTree", "Mult", "MultSurvTree"),
+                                    values_to="WOff_Rate", names_to="Model") %>% data.table() %>% setorder(Date)
+
+
+# -- 9.1.2 Annotation data
+# - Location of annotations
+start_y <- 0.1; space <- 0.01
+y_vals <- c(start_y,start_y-space*1:4)
+
+# - Creating an annotation dataset for easier annotations
+datAnno <- data.table(MeanAUC=NULL, Dataset=c("A-B","A-C", "A-D", "A-E", "A-F"),
+                      x=rep(as.Date("2015-01-31"),5), # Text x coordinates
+                      y=y_vals)
+
+# - Estimate MAEs
+vEventRates_MAE <- c(mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="Basic_DtH", WOff_Rate]), na.rm=T),
+                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="Advanced_DtH", WOff_Rate]), na.rm=T),
+                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="SurvTree", WOff_Rate]), na.rm=T),
+                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="Mult", WOff_Rate]), na.rm=T),
+                     mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="MultSurvTree", WOff_Rate]), na.rm=T))
+
+# - Create and assign labels
+series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F(t)")
+vLabel_MAE <- sapply(seq_along(series_labels_mae), function(i) {
+  paste0("'MAE between '*italic(", series_labels_mae[i], ")*' and '*italic(A[t])*' : ",
+         sprintf('%.2f', vEventRates_MAE[i] * 100), "%'")
+})
+datAnno[, Label:=vLabel_MAE]
+
+
+# --- 9.2 Create plot
+# - Refactor levels
+datPlot[,Model:=case_when(Model=="Empirical"~"a_Empirical", Model=="Basic_DtH"~"b_Basic_DtH",
+                          Model=="Advanced_DtH"~"c_Advanced_DtH", Model=="SurvTree"~"d_SurvTree",
+                          Model=="Mult"~"e_Mult", Model=="MultSurvTree"~"f_MultSurvTree")]
+
+# - Graphing parameters
+chosenFont <- "Cambria"; dpi <- 180
+vCol <- brewer.pal(8, "Dark2")[c(2, 1, 3, 5, 7, 4)]
+vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquote(italic(B[t])~": DtH-Basic"),
+            "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_SurvTree"=bquote(italic(D[t])~": CI-tree"),
+            "e_Mult"=bquote(italic(E[t])~": MLR"), "f_MultSurvTree"=bquote(italic(F[t])~": MCI-tree"))
+vShape <- c(17, 20, 4, 7, 12, 14)
+date_forecast_start <- max(datCredit[Sample=="Train",Date])
+date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
+
+# - Plot
+(g2_ResolRate <- ggplot(data=datPlot[!(Model %in% c("b_Basic_DtH", "d_SurvTree"))], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
+    labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Reporting time")) + 
+    theme(text=element_text(family=chosenFont), legend.position="bottom",
+          axis.text.x=element_text(angle=90), 
+          strip.background=element_rect(fill="snow2", colour="snow2"),
+          strip.text=element_text(size=11, colour="gray50"), strip.text.y.right=element_text(angle=90)) + 
+    # Main graph
+    geom_line(aes(colour=Model, linetype=Model)) +
+    geom_point(aes(colour=Model, shape=Model)) +
+    # Annotations
+    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T) +
+    # Forecasting period
+    geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
+    annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
+             size=3, alpha=0.5) +
+    # Facets & scale options
+    scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
+    scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
+    scale_shape_manual(name="Model", values=vShape, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
+    scale_linetype_discrete(name="Model", labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
+    scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
+    scale_y_continuous(breaks=pretty_breaks(), labels=percent) +
+    coord_cartesian(xlim=date_xlim, ylim=c(0,0.55)))
+
+# - Save graph
+dpi <-180
+ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_DefaultCohort_ReprotingTime.png"),
+       width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
+
+
+
+
+# ============ 10. Housekeeping ============
 
 cleanEnviron()
 
