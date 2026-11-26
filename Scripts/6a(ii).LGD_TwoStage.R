@@ -213,8 +213,8 @@ datCredit[, Cumul_EventRate_WriteOff_tree := cumsum(EventRate_WriteOff_tree), by
 
 # - Calculate conditional future write-off probability
 ### NOTE: This hazard-type quantity represents the future write-off probability given survival up 
-# to the randomly chosen selected point (SelPoint), u. THe spell age T_{ij} is taken as the maximum
-# observed time window, whereafter we express the conditional future write-off probabiltiy as:
+# to the randomly chosen selected point (SelPoint), u. The spell age T_{ij} is taken as the maximum
+# observed time window, whereafter we express the conditional future write-off probability as:
 # ( F(T_{ij}) - F(u) ) / S(u)
 datCredit[, q_SelPoint_bas := condFutureProb(SelPoint[1], Survival_bas, Cumul_EventRate_bas), 
           by = .(DefSpell_Key)]
