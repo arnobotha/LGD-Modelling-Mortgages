@@ -585,7 +585,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g2_ResolRate <- ggplot(data=datPlot, aes(x=Date, y=WOff_Rate)) + theme_minimal() +
-  labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Reporting time")) + 
+  labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Reporting date (mmmccyy)")) + 
   theme(text=element_text(family=chosenFont), legend.position="bottom",
         axis.text.x=element_text(angle=90), 
         strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -967,7 +967,7 @@ datPlot <- datCredit[TimeInDefSpell==DefSpell_Age,
                        MultSurvTree=mean(CIF_res_mult_survtree_alt, na.rm=T)),
                      by=.(Date)]
 
-# - Pivot data to facilitate grapging
+# - Pivot data to facilitate graphing
 datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "SurvTree", "Mult", "MultSurvTree"),
                                     values_to="WOff_Rate", names_to="Model") %>% data.table() %>% setorder(Date)
 
@@ -1057,7 +1057,7 @@ ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_ResolDate.p
 
 # --- 9.1 Create data for plotting
 # -- 9.1.1 Plotting data
-# - Aggregate data at default start
+# - Aggregate data by reporting date
 datPlot <- datCredit[,.(Empirical=mean(WOff_Ind==1, na.rm=T),
                         Basic_DtH=mean(CIF_res_bas_alt, na.rm=T),
                         Advanced_DtH=mean(CIF_res_adv_alt, na.rm=T),
@@ -1115,7 +1115,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g2_ResolRate <- ggplot(data=datPlot[!(Model %in% c("b_Basic_DtH", "d_SurvTree"))], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
-    labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Reporting time (mmmccyy)")) + 
+    labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Reporting date (mmmccyy)")) + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -1135,8 +1135,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
     scale_shape_manual(name="Model", values=vShape, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_linetype_discrete(name="Model", labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
-    scale_y_continuous(breaks=pretty_breaks(), labels=percent) +
-    coord_cartesian(xlim=date_xlim, ylim=c(0,0.55)))
+    scale_y_continuous(breaks=pretty_breaks(), labels=percent))
 
 # - Save graph
 dpi <-180
