@@ -269,6 +269,8 @@ table(datCredit$WOff_Ind_12_max) %>% prop.table() * 100
 ###          12-month: 13.68955 %
 
 
+
+
 # ============ 2. Coefficient of determination (Pseudo R^2-measures) ============
 
 # --- 2.1 Determine R^2-measures
@@ -521,8 +523,11 @@ ggsave(g2_AUC, file=paste0(genFigPath, "AUC_DefaultCohort_StopTime.png"), width=
 
 # --- 4.1 Prepare data for plotting
 # -- 4.1.1 Plotting data
+# - Set plotting date range
+date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(18))
+
 # - Aggregate data at default start
-datPlot <- datCredit[TimeInDefSpell==1,
+datPlot <- datCredit[TimeInDefSpell==1 & DefSpellResol_Type_Hist!="Censored" & Date>=date_xlim[1] & Date<=date_xlim[2],
                      .(Empirical=mean(DefSpell_Event==1, na.rm=T),
                        Basic_DtH=mean(CIF_res_bas, na.rm=T),
                        Advanced_DtH=mean(CIF_res_adv, na.rm=T),
@@ -581,7 +586,6 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "g_MultSurvTree"=bquote(italic(G[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24)
 date_forecast_start <- max(datCredit[Sample=="Train",Date])
-date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g2_ResolRate <- ggplot(data=datPlot, aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -606,14 +610,11 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
   scale_linetype_discrete(name="Model", labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
   scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
   scale_y_continuous(breaks=pretty_breaks(), labels=percent) +
-  coord_cartesian(xlim=date_xlim))
-### MM: - This view aligns with the resolution rate that we have in the ROT-aritcle, i.e., we look at the
-###       probability of write-off over the entire spell.
-###     - Very weird result that the basic model is the best.
+  coord_cartesian(xlim=date_xlim, ylim=c(0,0.45)))
 
 # - Save graph
 dpi <-180
-ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_ReportingDate.png"),
+ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_ReportingDate_ExCensored.png"),
        width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
@@ -623,19 +624,23 @@ ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_ReportingDate.p
 
 # --- 5.1 Prepare data for plotting
 # -- 5.1.1 Plotting data
+# - Set plotting date range
+date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(21))
+
 # - Aggregate data at default start
-datPlot <- datCredit[, .(Empirical=mean(WOff_Ind_3_max, na.rm=T),
-                         Basic_DtH=mean(CIF_res_bas_3, na.rm=T),
-                         Advanced_DtH=mean(CIF_res_adv_3, na.rm=T),
-                         Classic=mean(CIF_res_classic, na.rm=T),
-                         SurvTree=mean(CIF_res_survtree_3, na.rm=T),
-                         Mult=mean(CIF_res_mult_3, na.rm=T),
-                         MultSurvTree=mean(CIF_res_mult_survtree_3, na.rm=T)),
+datPlot <- datCredit[DefSpellResol_Type_Hist!="Censored",
+                     .(Empirical=mean(WOff_Ind_3_max, na.rm=T),
+                       Basic_DtH=mean(CIF_res_bas_3, na.rm=T),
+                       Advanced_DtH=mean(CIF_res_adv_3, na.rm=T),
+                       Classic=mean(CIF_res_classic, na.rm=T),
+                       SurvTree=mean(CIF_res_survtree_3, na.rm=T),
+                       Mult=mean(CIF_res_mult_3, na.rm=T),
+                       MultSurvTree=mean(CIF_res_mult_survtree_3, na.rm=T)),
                      by=.(Date)]
 
 # - Pivot data to facilitate graphing
-datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "Classic", "SurvTree",
-                                           "Mult", "MultSurvTree"),
+datPlot <- datPlot[Date>=date_xlim[1] & Date<=date_xlim[2]] %>%
+  pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "Classic", "SurvTree", "Mult", "MultSurvTree"),
                                     values_to="WOff_Rate", names_to="Model") %>% data.table() %>% setorder(Date)
 
 
@@ -682,7 +687,6 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "g_MultSurvTree"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24) 
 date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(3)
-date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(3))
 
 # - Plot
 (g3_ResolRate <- ggplot(data=datPlot[Model!="d_Classic"], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -695,7 +699,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(3))
     geom_line(aes(colour=Model, linetype=Model)) +
     geom_point(aes(colour=Model, shape=Model)) +
     # Forecasting period
-    geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
+    geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date] %m-% months(3))), linetype="dashed", colour="black") +
     annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
              size=3, alpha=0.5, family=chosenFont) +
     # Annotations
@@ -711,7 +715,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(3))
 
 # - Save graph
 dpi <-180
-ggsave(g3_ResolRate, file=paste0(genFigPath, "3Month-WriteOff_ResolRate_ReportingTime.png"),
+ggsave(g3_ResolRate, file=paste0(genFigPath, "3Month-WriteOff_ResolRate_ReportingTime_ExCensored.png"),
        width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
@@ -721,6 +725,9 @@ ggsave(g3_ResolRate, file=paste0(genFigPath, "3Month-WriteOff_ResolRate_Reportin
 
 # --- 6.1 Prepare data for plotting
 # -- 6.1.1 Plotting data
+# - Set plotting date range
+date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(24))
+
 # - Aggregate data at default start
 datPlot <- datCredit[, .(Empirical=mean(WOff_Ind_6_max, na.rm=T),
                          Basic_DtH=mean(CIF_res_bas_6, na.rm=T),
@@ -732,8 +739,8 @@ datPlot <- datCredit[, .(Empirical=mean(WOff_Ind_6_max, na.rm=T),
                      by=.(Date)]
 
 # - Pivot data to facilitate graphing
-datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "Classic", "SurvTree",
-                                           "Mult", "MultSurvTree"),
+datPlot <- datPlot[Date>=date_xlim[1] & Date<=date_xlim[2]] %>%
+  pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "Classic", "SurvTree", "Mult", "MultSurvTree"),
                                     values_to="WOff_Rate", names_to="Model") %>% data.table() %>% setorder(Date)
 
 
@@ -780,7 +787,6 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "g_MultSurvTree"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24) 
 date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(6)
-date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(6))
 
 # - Plot
 (g4_ResolRate <- ggplot(data=datPlot[Model!="d_Classic"], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -793,7 +799,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(6))
     geom_line(aes(colour=Model, linetype=Model)) +
     geom_point(aes(colour=Model, shape=Model)) +
     # Forecasting period
-    geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
+    geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date] %m-% months(6))), linetype="dashed", colour="black") +
     annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
              size=3, alpha=0.5, family=chosenFont) +
     # Annotations
@@ -809,7 +815,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(6))
 
 # - Save graph
 dpi <-180
-ggsave(g4_ResolRate, file=paste0(genFigPath, "6Month-WriteOff_ResolRate_ReportingTime.png"),
+ggsave(g4_ResolRate, file=paste0(genFigPath, "6Month-WriteOff_ResolRate_ReportingTime_ExCensored.png"),
        width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
@@ -819,6 +825,9 @@ ggsave(g4_ResolRate, file=paste0(genFigPath, "6Month-WriteOff_ResolRate_Reportin
 
 # --- 7.1 Prepare data for plotting
 # -- 7.1.1 Plotting data
+# - Set plotting date range
+date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(30))
+
 # - Aggregate data at default start
 datPlot <- datCredit[, .(Empirical=mean(WOff_Ind_12_max, na.rm=T),
                          Basic_DtH=mean(CIF_res_bas_12, na.rm=T),
@@ -830,8 +839,8 @@ datPlot <- datCredit[, .(Empirical=mean(WOff_Ind_12_max, na.rm=T),
                      by=.(Date)]
 
 # - Pivot data to facilitate graphing
-datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "Classic", "SurvTree",
-                                           "Mult", "MultSurvTree"),
+datPlot <- datPlot[Date>=date_xlim[1] & Date<=date_xlim[2]] %>%
+  pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "Classic", "SurvTree", "Mult", "MultSurvTree"),
                                     values_to="WOff_Rate", names_to="Model") %>% data.table() %>% setorder(Date)
 
 
@@ -878,7 +887,6 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "g_MultSurvTree"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24) 
 date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(12)
-date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g5_ResolRate <- ggplot(data=datPlot[Model!="d_Classic"], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -891,7 +899,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
     geom_line(aes(colour=Model, linetype=Model)) +
     geom_point(aes(colour=Model, shape=Model)) +
     # Forecasting period
-    geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
+    geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date]) %m-% months(12)), linetype="dashed", colour="black") +
     annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
              size=3, alpha=0.5, family=chosenFont) +
     # Annotations
@@ -903,11 +911,11 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
     scale_linetype_discrete(name="Model", labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_x_date(date_breaks="12 month", date_labels="%b %Y") +
     scale_y_continuous(breaks=pretty_breaks(), labels=percent) +
-    coord_cartesian(xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))))
+    coord_cartesian(xlim=date_xlim))
 
 # - Save graph
 dpi <-180
-ggsave(g5_ResolRate, file=paste0(genFigPath, "12Month-WriteOff_ResolRate_ReportingTime.png"),
+ggsave(g5_ResolRate, file=paste0(genFigPath, "12Month-WriteOff_ResolRate_ReportingTime_ExCensored.png"),
        width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
@@ -957,8 +965,11 @@ lookup <- datCredit[LoanID==datCredit[WOff_Ind==1 & Counter>50 & Date>"2022-01-0
 
 # --- 8.2 Create data for plotting
 # -- 8.1.1 Plotting data
+# - Set plotting data date window
+date_xlim <- c(min(datPlot$Date), max(datCredit$Date))
+
 # - Aggregate data at default start
-datPlot <- datCredit[TimeInDefSpell==DefSpell_Age,
+datPlot <- datCredit[TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist!="Censored",
                      .(Empirical=mean(WOff_Ind==1, na.rm=T),
                        Basic_DtH=mean(CIF_res_bas_alt, na.rm=T),
                        Advanced_DtH=mean(CIF_res_adv_alt, na.rm=T),
@@ -968,7 +979,8 @@ datPlot <- datCredit[TimeInDefSpell==DefSpell_Age,
                      by=.(Date)]
 
 # - Pivot data to facilitate graphing
-datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "SurvTree", "Mult", "MultSurvTree"),
+datPlot <- datPlot[Date>=date_xlim[1] & Date<=date_xlim[2]] %>%
+  pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "SurvTree", "Mult", "MultSurvTree"),
                                     values_to="WOff_Rate", names_to="Model") %>% data.table() %>% setorder(Date)
 
 
@@ -1012,7 +1024,6 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "e_Mult"=bquote(italic(E[t])~": DtH-Multinomial"), "f_MultSurvTree"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14)
 date_forecast_start <- max(datCredit[Sample=="Train",Date])
-date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g2_ResolRate <- ggplot(data=datPlot, aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -1041,7 +1052,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Save graph
 dpi <-180
-ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_ResolDate.png"),
+ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_ResolDate_ExCensored.png"),
        width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
@@ -1057,6 +1068,9 @@ ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_ResolDate.p
 
 # --- 9.1 Create data for plotting
 # -- 9.1.1 Plotting data
+# - Set plotting date range
+date_xlim=c(min(datPlot$Date), max(datCredit$Date))
+
 # - Aggregate data by reporting date
 datPlot <- datCredit[,.(Empirical=mean(WOff_Ind==1, na.rm=T),
                         Basic_DtH=mean(CIF_res_bas_alt, na.rm=T),
@@ -1067,8 +1081,9 @@ datPlot <- datCredit[,.(Empirical=mean(WOff_Ind==1, na.rm=T),
                      by=.(Date)]
 
 # - Pivot data to facilitate grapging
-datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "SurvTree", "Mult", "MultSurvTree"),
-                                    values_to="WOff_Rate", names_to="Model") %>% data.table() %>% setorder(Date)
+datPlot <- datPlot[Date>=date_xlim[1] & Date<=date_xlim[2]] %>%
+  pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "SurvTree", "Mult", "MultSurvTree"),
+               values_to="WOff_Rate", names_to="Model") %>% data.table() %>% setorder(Date)
 
 
 # -- 9.1.2 Annotation data
@@ -1111,7 +1126,6 @@ vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquo
             "e_Mult"=bquote(italic(E[t])~": DtH-Multinomial"), "f_MultSurvTree"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14)
 date_forecast_start <- max(datCredit[Sample=="Train",Date])
-date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g2_ResolRate <- ggplot(data=datPlot[!(Model %in% c("b_Basic_DtH", "d_SurvTree"))], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
@@ -1139,7 +1153,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Save graph
 dpi <-180
-ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_DefaultCohort_ReportingTime.png"),
+ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_DefaultCohort_ReportingTime_ExCensored.png"),
        width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
