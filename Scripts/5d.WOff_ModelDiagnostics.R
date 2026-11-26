@@ -19,12 +19,15 @@
 #   - 4e.SurvivalTrees.R
 #
 # -- Inputs:
-#   - datCredit_train_CDH | Prepared from script 2g
-#   - datCredit_valid_CDH | Prepared from script 2g
-#   - modLR_Bas | Basic discrete time model as fitted in script 4b(ii)
-#   - modLR_Adv | Advanced discrete time model as fitted in script 4b(i)
-#   - modLR_Classic | Classical cross-sectional (CS) logistic regression (LR) model as fitted in script 4c
-#   - SurvTree_CTree | Survival tree as fitted in script 4e
+#   - datCredit_train_CDH | Prepared dataset from script 2g
+#   - datCredit_valid_CDH | Prepared dataset from script 2g
+#   - datCredit_valid_OOT | Prepared dataset from script 2g
+#   - modLR_Bas | Basic discrete time model, as fitted in script 4b(ii)
+#   - modLR_Adv | Advanced discrete time model, as fitted in script 4b(i)
+#   - modLR_Classic | Cross-sectional logistic regression (CS-LR) model, as fitted in script 4c
+#   - SurvTree_CTree | Survival tree, as fitted in script 4e
+#   - modMLR | Multinomial discrete-time hazard model, as fitted in script 4f
+#   - modMultiSurvTree | Multinomial conditional inference (CI) tree, as fitted in script 4g
 #
 # -- Outputs:
 #   - <Analytics> | Graphs
@@ -37,7 +40,6 @@
 # --- 1.1 Load and prepare data
 # - Confirm prepared datasets are loaded into memory
 if (!exists('datCredit_train_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_train_CDH_sub"), tempPath); gc()
-if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_valid_CDH_sub"), tempPath); gc()
 if (!exists('datCredit_valid_CDH_sub')) unpack.ffdf(paste0(genPath, "creditdata_valid_CDH_sub"), tempPath); gc()
 if (!exists('datCredit_CDH_OOT')) unpack.ffdf(paste0(genPath, "creditdata_CDH_OOT"), tempPath); gc()
 
@@ -54,21 +56,6 @@ datCredit_OOT <- datCredit_CDH_OOT[!is.na(DefSpell_Key)]
 # - Remove redundant objects
 rm(datCredit_train_CDH_sub, datCredit_valid_CDH_sub, datCredit_CDH_OOT); gc()
 
-# - Create a spell-level target variable for write-off instance
-datCredit_train[, DefSpell_Event2:=DefSpell_Event]; datCredit_valid[, DefSpell_Event2:=DefSpell_Event]; datCredit_OOT[, DefSpell_Event2:=DefSpell_Event]
-datCredit_train[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]; datCredit_valid[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
-datCredit_OOT[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
-
-# - Transform categorical variables to factor
-# Payment method
-datCredit_train[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
-datCredit_valid[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
-datCredit_OOT[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
-# Previous defaults
-datCredit_train[,PrevDefaults_fac:=as.factor(PrevDefaults)]
-datCredit_valid[,PrevDefaults_fac:=as.factor(PrevDefaults)]
-datCredit_OOT[,PrevDefaults_fac:=as.factor(PrevDefaults)]
-
 # - Combine training and validation datasets to facilitate "better" (smooth) graphs
 datCredit <- rbind(data.table(datCredit_train, Sample="Train"), 
                    data.table(datCredit_valid, Sample="Validation"),
@@ -78,11 +65,9 @@ datCredit <- rbind(data.table(datCredit_train, Sample="Train"),
 datCredit[, DefSpell_Event2:=DefSpell_Event]
 datCredit[, DefSpell_Event:=DefSpellResol_Type_Hist=="WOFF"]
 
-# - Transform categorical variables to factor
-# Payment method
-datCredit[, pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
-# Previous defaults
-datCredit[, PrevDefaults_fac:=as.factor(PrevDefaults)]
+# - Transform categorical variables to factor variables
+datCredit[,pmnt_method_grp_fac:=as.factor(pmnt_method_grp)]
+datCredit[,PrevDefaults_fac:=as.factor(PrevDefaults)]
 
 # - Recalculate counter variable with respect to new sampling window
 datCredit[, Counter_Artificial:= 1:.N, by=.(LoanID)]
@@ -185,7 +170,7 @@ datCredit[, `:=`(CIF_res_adv=calc_residual_CIF(EventRate_adv, Survival_adv, M=De
                  CIF_res_survtree=calc_residual_CIF(EventRate_survtree, Survival_survtree, M=DefSpell_Age),
                  CIF_res_mult=calc_residual_CIF(EventRate_WriteOff, Survival_overall, M=DefSpell_Age),
                  CIF_res_mult_survtree=calc_residual_CIF(EventRate_WriteOff_tree, Survival_overall_tree, M=DefSpell_Age)),
-          by=list(DefSpell_Key)]
+          by=.(DefSpell_Key)]
 
 # - Use leading 3-month observations
 ### NOTE: We sum 3 month residual event rates and condition them on an account having survived to t-1
@@ -194,7 +179,7 @@ datCredit[, `:=`(CIF_res_adv_3=calc_residual_CIF(EventRate_adv, Survival_adv, M=
                  CIF_res_survtree_3=calc_residual_CIF(EventRate_survtree, Survival_survtree, M=3),
                  CIF_res_mult_3=calc_residual_CIF(EventRate_WriteOff, Survival_overall, M=3),
                  CIF_res_mult_survtree_3=calc_residual_CIF(EventRate_WriteOff_tree, Survival_overall_tree, M=3)),
-          by=list(DefSpell_Key)]
+          by=.(DefSpell_Key)]
 
 # - Use leading 6-month observations
 ### NOTE: We sum 6 month residual event rates and condition them on an account having survived to t-1
@@ -203,7 +188,7 @@ datCredit[, `:=`(CIF_res_adv_6=calc_residual_CIF(EventRate_adv, Survival_adv, M=
                  CIF_res_survtree_6=calc_residual_CIF(EventRate_survtree, Survival_survtree, M=6),
                  CIF_res_mult_6=calc_residual_CIF(EventRate_WriteOff, Survival_overall, M=6),
                  CIF_res_mult_survtree_6=calc_residual_CIF(EventRate_WriteOff_tree, Survival_overall_tree, M=6)),
-          by=list(DefSpell_Key)]
+          by=.(DefSpell_Key)]
 
 # - Use leading 12-month observations
 ### NOTE: We sum 12 month residual event rates and condition them on an account having survived to t-1
@@ -212,7 +197,7 @@ datCredit[, `:=`(CIF_res_adv_12=calc_residual_CIF(EventRate_adv, Survival_adv, M
                  CIF_res_survtree_12=calc_residual_CIF(EventRate_survtree, Survival_survtree, M=12),
                  CIF_res_mult_12=calc_residual_CIF(EventRate_WriteOff, Survival_overall, M=12),
                  CIF_res_mult_survtree_12=calc_residual_CIF(EventRate_WriteOff_tree, Survival_overall_tree, M=12)),
-          by=list(DefSpell_Key)]
+          by=.(DefSpell_Key)]
 
 # - Classical model
 ### NOTE: The prediction from the classical model is inherently the residual CIF since it
@@ -220,8 +205,7 @@ datCredit[, `:=`(CIF_res_adv_12=calc_residual_CIF(EventRate_adv, Survival_adv, M
 datCredit[, CIF_res_classic:=predict(modLR_Classic, newdata=.SD[], type="response")]
 
 
-# --- 1.6 Sanity checks
-# - [SANITY CHECK] Lookup of survival quantities
+# --- 1.6 [SANITY CHECKS] Lookups of survival quantities
 lookup_bas <- datCredit[DefSpell_Key==datCredit[DefSpellResol_Type_Hist=="WOFF" & TimeInDefSpell==50, DefSpell_Key][1000],
                         c("DefSpell_Key", "Date", "Hazard_bas", "Survival_bas", "EventRate_bas", "CIF_res_bas", "WOff_Ind")]
 lookup_adv <- datCredit[DefSpell_Key==datCredit[DefSpellResol_Type_Hist=="WOFF" & TimeInDefSpell==50, DefSpell_Key][1000],
@@ -267,6 +251,22 @@ hist(datCredit$CIF_res_survtree); describe2(datCredit$CIF_res_survtree)
 ### RESULTS: Probabilities corrected successfully
 
 
+# --- 1.7 Create empirical event indicators over windows of various fixed lengths
+
+# - Write-off indicators
+datCredit[, `:=`(WOff_Ind_3_max=imputeLastKnown(frollapply(x=WOff_Ind, n=4, align="left", FUN=max)),
+                      WOff_Ind_6_max=imputeLastKnown(frollapply(x=WOff_Ind, n=7, align="left", FUN=max)),
+                      WOff_Ind_12_max=imputeLastKnown(frollapply(x=WOff_Ind, n=13, align="left", FUN=max))), by=list(LoanID)]
+
+# [SANITY CHECK]
+table(datCredit$WOff_Ind) %>% prop.table() * 100
+table(datCredit$WOff_Ind_3_max) %>% prop.table() * 100
+table(datCredit$WOff_Ind_6_max) %>% prop.table() * 100
+table(datCredit$WOff_Ind_12_max) %>% prop.table() * 100
+### RESULTS: Prevalence: 1.215071 %
+###          3-month: 4.675825 %
+###          6-month: 7.89855 %%
+###          12-month: 13.68955 %
 
 
 # ============ 2. Coefficient of determination (Pseudo R^2-measures) ============
@@ -314,7 +314,7 @@ suppressWarnings(rm(coefDeter_LR, coefDeter_Adv, coefDeter_LR, PseudoR2_Table));
 
 # - Create a variable for last date in each default spell
 datCredit[, `:=`(DefSpell_Min_Date=min(Date),
-                 DefSpell_Max_Date=max(Date)),by=list(DefSpell_Key)]
+                 DefSpell_Max_Date=max(Date)),by=.(DefSpell_Key)]
 
 # - Create a numeric version of the target
 datCredit[, DefSpell_Event2_Num:=as.numeric(DefSpell_Event2)]
@@ -411,12 +411,12 @@ chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2,1,3,5,4,8)]
 vLabel <- c("A"=bquote(italic(A[t])~": DtH-Basic"), "B"=bquote(italic(B[t])~": DtH-Advanced"),
             "C"=bquote(italic(C[t])~": CS-LR"), "D"=bquote(italic(D[t])~": CI-tree"),
-            "E"=bquote(italic(E[t])~": MLR"), "F"=bquote(italic(F[t])~": MCI-tree"))
+            "E"=bquote(italic(E[t])~": DtH-Multinomial"), "F"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 14, 24) 
 
 # - Create graph
 (g1_AUC <- ggplot(datPlot, aes(x=Date, y=AUC_Val)) + theme_minimal() + 
-    labs(y=bquote("Discriminatory Accuracy: AUC (%) "), x=bquote("Default spell cohorts (mmmccyy): start time "*italic(t[e]))) + 
+    labs(y=bquote("Discriminatory Power: AUC (%) "), x="Default date (mmmccyy)") + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -486,12 +486,12 @@ chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2, 1, 3, 5, 4, 8)]
 vLabel <- c("A"=bquote(italic(A[t])~": DtH-Basic"), "B"=bquote(italic(B[t])~": DtH-Advanced"),
             "C"=bquote(italic(C[t])~": CS-LR"), "D"=bquote(italic(D[t])~": ST"),
-            "E"=bquote(italic(E[t])~": MLR"), "F"=bquote(italic(F[t])~": MCI-tree"))
+            "E"=bquote(italic(E[t])~": DtH-Mulinomial"), "F"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 14, 24) 
 
 # - Create graph
 (g2_AUC <- ggplot(datPlot, aes(x=Date, y=AUC_Val)) + theme_minimal() + 
-    labs(y=bquote("Discriminatory Accuracy: AUC (%) "), x=bquote("Default spell cohorts (mmmccyy): stop time "*italic(t[s]))) + 
+    labs(y=bquote("Discriminatory Power: AUC (%) "), x="Resolution date (mmmccyy)") + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -530,9 +530,9 @@ datPlot <- datCredit[TimeInDefSpell==1,
                        SurvTree=mean(CIF_res_survtree, na.rm=T),
                        Mult=mean(CIF_res_mult, na.rm=T),
                        MultSurvTree=mean(CIF_res_mult_survtree, na.rm=T)),
-                     by=list(Date)]
+                     by=.(Date)]
 
-# - Pivot data to facilitate grapging
+# - Pivot data to facilitate graphing
 datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "Classic", "SurvTree",
                                            "Mult", "MultSurvTree"),
                                     values_to="WOff_Rate", names_to="Model") %>% data.table() %>% setorder(Date)
@@ -594,11 +594,11 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
   geom_line(aes(colour=Model, linetype=Model)) +
   geom_point(aes(colour=Model, shape=Model)) +
   # Annotations
-  geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T) +
+  geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T, family=chosenFont) +
     # Forecasting period
     geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
     annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
-             size=3, alpha=0.5) +
+             size=3, alpha=0.5, family=chosenFont) +
   # Facets & scale options
   scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
   scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
@@ -613,7 +613,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Save graph
 dpi <-180
-ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_DefaultCohort_StartTime.png"),
+ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_ReportingDate.png"),
        width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
@@ -631,7 +631,7 @@ datPlot <- datCredit[, .(Empirical=mean(WOff_Ind_3_max, na.rm=T),
                          SurvTree=mean(CIF_res_survtree_3, na.rm=T),
                          Mult=mean(CIF_res_mult_3, na.rm=T),
                          MultSurvTree=mean(CIF_res_mult_survtree_3, na.rm=T)),
-                     by=list(Date)]
+                     by=.(Date)]
 
 # - Pivot data to facilitate graphing
 datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "Classic", "SurvTree",
@@ -658,7 +658,7 @@ vEventRates_MAE <- c(mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Mod
                      mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="MultSurvTree", WOff_Rate]), na.rm=T))
 
 # - Create and assign labels
-series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F(t)", "G(t)")
+series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F[t]", "G[t]")
 vLabel_MAE <- sapply(seq_along(series_labels_mae), function(i) {
   paste0("'MAE between '*italic(", series_labels_mae[i], ")*' and '*italic(A[t])*' : ",
          sprintf('%.2f', vEventRates_MAE[i] * 100), "%'")
@@ -678,15 +678,15 @@ chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2, 1, 3, 5, 7, 4, 8)]
 vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquote(italic(B[t])~": DtH-Basic"),
             "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_Classic"=bquote(italic(D[t])~": CS-LR"),
-            "e_SurvTree"=bquote(italic(D[t])~": CI-tree"), "f_Mult"=bquote(italic(E[t])~": MLR"),
-            "g_MultSurvTree"=bquote(italic(F[t])~": MCI-tree"))
+            "e_SurvTree"=bquote(italic(D[t])~": CI-tree"), "f_Mult"=bquote(italic(E[t])~": DtH-Multinomial"),
+            "g_MultSurvTree"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24) 
 date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(3)
 date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(3))
 
 # - Plot
 (g3_ResolRate <- ggplot(data=datPlot[Model!="d_Classic"], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
-    labs(y=bquote("3-month write-off resolution rate (%) "), x=bquote("Reporting time")) + 
+    labs(y=bquote("3-month write-off resolution rate (%) "), x=bquote("Reporting date (mmmccyy)")) + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -697,9 +697,9 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(3))
     # Forecasting period
     geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
     annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
-             size=3, alpha=0.5) +
+             size=3, alpha=0.5, family=chosenFont) +
     # Annotations
-    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T, size=3) +
+    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T, size=3, family=chosenFont) +
     # Facets & scale options
     scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
@@ -729,7 +729,7 @@ datPlot <- datCredit[, .(Empirical=mean(WOff_Ind_6_max, na.rm=T),
                          SurvTree=mean(CIF_res_survtree_6, na.rm=T),
                          Mult=mean(CIF_res_mult_6, na.rm=T),
                          MultSurvTree=mean(CIF_res_mult_survtree_6, na.rm=T)),
-                     by=list(Date)]
+                     by=.(Date)]
 
 # - Pivot data to facilitate graphing
 datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "Classic", "SurvTree",
@@ -756,7 +756,7 @@ vEventRates_MAE <- c(mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Mod
                      mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="MultSurvTree", WOff_Rate]), na.rm=T))
 
 # - Create and assign labels
-series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F(t)", "G(t)")
+series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F[t]", "G[t]")
 vLabel_MAE <- sapply(seq_along(series_labels_mae), function(i) {
   paste0("'MAE between '*italic(", series_labels_mae[i], ")*' and '*italic(A[t])*' : ",
          sprintf('%.2f', vEventRates_MAE[i] * 100), "%'")
@@ -776,15 +776,15 @@ chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2, 1, 3, 5, 7, 4, 8)]
 vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquote(italic(B[t])~": DtH-Basic"),
             "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_Classic"=bquote(italic(D[t])~": CS-LR"),
-            "e_SurvTree"=bquote(italic(D[t])~": CI-tree"), "f_Mult"=bquote(italic(E[t])~": MLR"),
-            "g_MultSurvTree"=bquote(italic(F[t])~": MCI-tree"))
+            "e_SurvTree"=bquote(italic(D[t])~": CI-tree"), "f_Mult"=bquote(italic(E[t])~": DtH-Multinomial"),
+            "g_MultSurvTree"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24) 
 date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(6)
 date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(6))
 
 # - Plot
 (g4_ResolRate <- ggplot(data=datPlot[Model!="d_Classic"], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
-    labs(y=bquote("6-month write-off resolution rate (%) "), x=bquote("Reporting time")) + 
+    labs(y=bquote("6-month write-off resolution rate (%) "), x=bquote("Reporting date (mmmccyy)")) + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -795,9 +795,9 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(6))
     # Forecasting period
     geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
     annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
-             size=3, alpha=0.5) +
+             size=3, alpha=0.5, family=chosenFont) +
     # Annotations
-    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T, size=3) +
+    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T, size=3, family=chosenFont) +
     # Facets & scale options
     scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
@@ -827,7 +827,7 @@ datPlot <- datCredit[, .(Empirical=mean(WOff_Ind_12_max, na.rm=T),
                          SurvTree=mean(CIF_res_survtree_12, na.rm=T),
                          Mult=mean(CIF_res_mult_12, na.rm=T),
                          MultSurvTree=mean(CIF_res_mult_survtree_6, na.rm=T)),
-                     by=list(Date)]
+                     by=.(Date)]
 
 # - Pivot data to facilitate graphing
 datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "Classic", "SurvTree",
@@ -854,7 +854,7 @@ vEventRates_MAE <- c(mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Mod
                      mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="MultSurvTree", WOff_Rate]), na.rm=T))
 
 # - Create and assign labels
-series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F(t)", "G(t)")
+series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F[t]", "G[t]")
 vLabel_MAE <- sapply(seq_along(series_labels_mae), function(i) {
   paste0("'MAE between '*italic(", series_labels_mae[i], ")*' and '*italic(A[t])*' : ",
          sprintf('%.2f', vEventRates_MAE[i] * 100), "%'")
@@ -874,15 +874,15 @@ chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2, 1, 3, 5, 7, 4, 8)]
 vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquote(italic(B[t])~": DtH-Basic"),
             "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_Classic"=bquote(italic(D[t])~": CS-LR"),
-            "e_SurvTree"=bquote(italic(D[t])~": CI-tree"), "f_Mult"=bquote(italic(E[t])~": MLR"),
-            "g_MultSurvTree"=bquote(italic(F[t])~": MCI-tree"))
+            "e_SurvTree"=bquote(italic(D[t])~": CI-tree"), "f_Mult"=bquote(italic(E[t])~": DtH-Multinomial"),
+            "g_MultSurvTree"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24) 
 date_forecast_start <- max(datCredit[Sample=="Train",Date]) %m-% months(12)
 date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g5_ResolRate <- ggplot(data=datPlot[Model!="d_Classic"], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
-    labs(y=bquote("12-month write-off resolution rate (%) "), x=bquote("Reporting time")) + 
+    labs(y=bquote("12-month write-off resolution rate (%) "), x=bquote("Reporting date (mmmccyy)")) + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -893,9 +893,9 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
     # Forecasting period
     geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
     annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
-             size=3, alpha=0.5) +
+             size=3, alpha=0.5, family=chosenFont) +
     # Annotations
-    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T, size=3) +
+    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T, size=3, family=chosenFont) +
     # Facets & scale options
     scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
@@ -927,7 +927,7 @@ datCredit[, `:=`(CIF_res_bas_alt=cumsum(EventRate_bas),
                  CIF_res_survtree_alt=cumsum(EventRate_survtree),
                  CIF_res_mult_alt=cumsum(EventRate_WriteOff),
                  CIF_res_mult_survtree_alt=cumsum(EventRate_WriteOff_tree)),
-          by=list(DefSpell_Key)]
+          by=.(DefSpell_Key)]
 
 # - [SANITY CHECK] Validity of predictions
 hist(datCredit$CIF_res_bas_alt); describe2(datCredit$CIF_res_bas_alt)
@@ -965,7 +965,7 @@ datPlot <- datCredit[TimeInDefSpell==DefSpell_Age,
                        SurvTree=mean(CIF_res_survtree_alt, na.rm=T),
                        Mult=mean(CIF_res_mult_alt, na.rm=T),
                        MultSurvTree=mean(CIF_res_mult_survtree_alt, na.rm=T)),
-                     by=list(Date)]
+                     by=.(Date)]
 
 # - Pivot data to facilitate grapging
 datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "SurvTree", "Mult", "MultSurvTree"),
@@ -990,7 +990,7 @@ vEventRates_MAE <- c(mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Mod
                      mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="MultSurvTree", WOff_Rate]), na.rm=T))
 
 # - Create and assign labels
-series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F(t)")
+series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F[t]")
 vLabel_MAE <- sapply(seq_along(series_labels_mae), function(i) {
   paste0("'MAE between '*italic(", series_labels_mae[i], ")*' and '*italic(A[t])*' : ",
          sprintf('%.2f', vEventRates_MAE[i] * 100), "%'")
@@ -1009,14 +1009,14 @@ chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2, 1, 3, 5, 7, 4)]
 vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquote(italic(B[t])~": DtH-Basic"),
             "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_SurvTree"=bquote(italic(D[t])~": CI-tree"),
-            "e_Mult"=bquote(italic(E[t])~": MLR"), "f_MultSurvTree"=bquote(italic(F[t])~": MCI-tree"))
+            "e_Mult"=bquote(italic(E[t])~": DtH-Multinomial"), "f_MultSurvTree"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14)
 date_forecast_start <- max(datCredit[Sample=="Train",Date])
 date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g2_ResolRate <- ggplot(data=datPlot, aes(x=Date, y=WOff_Rate)) + theme_minimal() +
-    labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Resolution cohort")) + 
+    labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Resolution date (mmmccyy)")) + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -1025,11 +1025,11 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
     geom_line(aes(colour=Model, linetype=Model)) +
     geom_point(aes(colour=Model, shape=Model)) +
     # Annotations
-    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T) +
+    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T, family=chosenFont) +
     # Forecasting period
     geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
     annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
-             size=3, alpha=0.5) +
+             size=3, alpha=0.5, family=chosenFont) +
     # Facets & scale options
     scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
@@ -1041,7 +1041,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Save graph
 dpi <-180
-ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_DefaultCohort_EndTime.png"),
+ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_ResolDate.png"),
        width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
@@ -1064,7 +1064,7 @@ datPlot <- datCredit[,.(Empirical=mean(WOff_Ind==1, na.rm=T),
                         SurvTree=mean(CIF_res_survtree_alt, na.rm=T),
                         Mult=mean(CIF_res_mult_alt, na.rm=T),
                         MultSurvTree=mean(CIF_res_mult_survtree_alt, na.rm=T)),
-                     by=list(Date)]
+                     by=.(Date)]
 
 # - Pivot data to facilitate grapging
 datPlot <- datPlot %>% pivot_longer(cols=c("Empirical", "Basic_DtH", "Advanced_DtH", "SurvTree", "Mult", "MultSurvTree"),
@@ -1108,14 +1108,14 @@ chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2, 1, 3, 5, 7, 4)]
 vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquote(italic(B[t])~": DtH-Basic"),
             "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_SurvTree"=bquote(italic(D[t])~": CI-tree"),
-            "e_Mult"=bquote(italic(E[t])~": MLR"), "f_MultSurvTree"=bquote(italic(F[t])~": MCI-tree"))
+            "e_Mult"=bquote(italic(E[t])~": DtH-Multinomial"), "f_MultSurvTree"=bquote(italic(F[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14)
 date_forecast_start <- max(datCredit[Sample=="Train",Date])
 date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Plot
 (g2_ResolRate <- ggplot(data=datPlot[!(Model %in% c("b_Basic_DtH", "d_SurvTree"))], aes(x=Date, y=WOff_Rate)) + theme_minimal() +
-    labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Reporting time")) + 
+    labs(y=bquote("Write-off resolution rate (%) "), x=bquote("Reporting time (mmmccyy)")) + 
     theme(text=element_text(family=chosenFont), legend.position="bottom",
           axis.text.x=element_text(angle=90), 
           strip.background=element_rect(fill="snow2", colour="snow2"),
@@ -1124,11 +1124,11 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
     geom_line(aes(colour=Model, linetype=Model)) +
     geom_point(aes(colour=Model, shape=Model)) +
     # Annotations
-    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T) +
+    geom_text(data=datAnno, aes(x=x, y=y, label=Label), parse=T, family=chosenFont) +
     # Forecasting period
     geom_vline(aes(xintercept=max(datCredit[Sample=="Train",Date])), linetype="dashed", colour="black") +
     annotate(geom="text", x=date_forecast_start, y=Inf, label="Forecast start", angle=90, vjust=-0.5, hjust=1,
-             size=3, alpha=0.5) +
+             size=3, alpha=0.5, family=chosenFont) +
     # Facets & scale options
     scale_colour_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
     scale_fill_manual(name="Model", values=vCol, labels=vLabel, guide=guide_legend(nrow=2, byrow=T)) +
@@ -1140,7 +1140,7 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
 
 # - Save graph
 dpi <-180
-ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_DefaultCohort_ReprotingTime.png"),
+ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_DefaultCohort_ReportingTime.png"),
        width=1600/dpi, height=1000/dpi, dpi=dpi, bg="white")
 
 
@@ -1149,6 +1149,3 @@ ggsave(g2_ResolRate, file=paste0(genFigPath, "WriteOff_ResolRate_Alt_DefaultCoho
 # ============ 10. Housekeeping ============
 
 cleanEnviron()
-
-
-
