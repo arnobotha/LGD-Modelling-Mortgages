@@ -557,7 +557,7 @@ vEventRates_MAE <- c(mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Mod
                      mean(abs(datPlot[Model=="Empirical", WOff_Rate]-datPlot[Model=="MultSurvTree", WOff_Rate]), na.rm=T))
 
 # - Create and assign labels
-series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F(t)", "G(t)")
+series_labels_mae <- c("B[t]", "C[t]", "D[t]", "E[t]", "F[t]", "G[t]")
 vLabel_MAE <- sapply(seq_along(series_labels_mae), function(i) {
   paste0("'MAE between '*italic(", series_labels_mae[i], ")*' and '*italic(A[t])*' : ",
          sprintf('%.2f', vEventRates_MAE[i] * 100), "%'")
