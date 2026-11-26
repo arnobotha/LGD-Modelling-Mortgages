@@ -577,8 +577,8 @@ chosenFont <- "Cambria"; dpi <- 180
 vCol <- brewer.pal(8, "Dark2")[c(2, 1, 3, 5, 7, 4, 8)]
 vLabel <- c("a_Empirical"=bquote(italic(A[t])~": Empirical"), "b_Basic_DtH"=bquote(italic(B[t])~": DtH-Basic"),
             "c_Advanced_DtH"=bquote(italic(C[t])~": DtH-Advanced"), "d_Classic"=bquote(italic(D[t])~": CS-LR"),
-            "e_SurvTree"=bquote(italic(E[t])~": CI-tree"), "f_Mult"=bquote(italic(F[t])~": MLR"),
-            "g_MultSurvTree"=bquote(italic(G[t])~": MCI-tree"))
+            "e_SurvTree"=bquote(italic(E[t])~": CI-tree"), "f_Mult"=bquote(italic(F[t])~": DtH-Multinomial"),
+            "g_MultSurvTree"=bquote(italic(G[t])~": Multinomial CI-tree"))
 vShape <- c(17, 20, 4, 7, 12, 14, 24)
 date_forecast_start <- max(datCredit[Sample=="Train",Date])
 date_xlim=c(min(datPlot$Date), max(datCredit$Date)%m-%months(12))
