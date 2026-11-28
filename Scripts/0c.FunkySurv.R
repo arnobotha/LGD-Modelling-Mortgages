@@ -311,13 +311,15 @@ condFutureProb <- function(u, surv, CIF, n=NA) {
     } else result <- NA_real_ 
   } else {
     # In this case, a vector of starting points has been provided, and so
-    # we calculate a variety of write-off probabilities starting from the different
+    # we calculate a variety of event probabilities starting from the different
     # starting points in the vector u
     
     # First, test if there is sufficient history in the current spell to cover a window of size n
     if (length(u)-n < n) result <- rep(NA_real_, times=length(u)) else {
-      # Calculate the window over which we'd like to calcualte future writeoff probabilities at each point
+      
+      # Create the window over which we'd like to calculate future event probabilities at each point
       u2 <- u[1:(length(u)-n)]
+      
       # Now calculate the n-month forward/future probability
       result <- sapply(u2, function(i) {
         (CIF[i+n] - CIF[i])/ surv[i]
