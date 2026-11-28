@@ -298,13 +298,37 @@ calc_residual_CIF <- function(event, surv, M) {
 
 
 # - Calculate the conditional future cause-specific / single-risk probability
-### NOTE: This quantity is calculated over u up to the observed vector length,
-# which is assumed to be the spell age.
-condFutureProb <- function(u, surv, CIF) {
+### NOTE: This quantity is calculated from u up to an end point
+# which is assumed to be the spell age in the default setting.
+condFutureProb <- function(u, surv, CIF, n=NA) {
   # Testing conditions
-  # u <- lookup$SelPoint[1]; surv <- lookup$Survival_bas; CIF <- lookup$Cumul_EventRate_bas
-  n <- length(surv)
-  if (!is.na(u) && u <= n && surv[u] > 0) {
-    (CIF[n] - CIF[u]) / surv[u] 
-  } else NA_real_
+  # u <- lookup$SelPoint[1]; surv <- lookup$Survival_adv; CIF <- lookup$CIF_adv
+  # u <- lookup$DefSpell_Counter; n <- 3
+  if (is.na(n)) n <- length(surv)
+  if (length(u) ==1 ) {
+    if (!is.na(u) && u <= n && surv[u] > 0) {
+      result <- (CIF[n] - CIF[u]) / surv[u] 
+    } else result <- NA_real_ 
+  } else {
+    # In this case, a vector of starting points has been provided, and so
+    # we calculate a variety of write-off probabilities starting from the different
+    # starting points in the vector u
+    
+    # First, test if there is sufficient history in the current spell to cover a window of size n
+    if (length(u)-n < n) result <- rep(NA_real_, times=length(u)) else {
+      # Calculate the window over which we'd like to calcualte future writeoff probabilities at each point
+      u2 <- u[1:(length(u)-n)]
+      # Now calculate the n-month forward/future probability
+      result <- sapply(u2, function(i) {
+        (CIF[i+n] - CIF[i])/ surv[i]
+      }) 
+      
+      result <- c(result, rep(NA_real_, times=n))
+    }
+  }
+  
+  return(result)
+  
+  # Housekeeping when running parts of the function interactively
+  rm(u, surv, CIF, n)
 }

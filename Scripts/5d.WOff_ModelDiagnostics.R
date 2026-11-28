@@ -251,7 +251,44 @@ hist(datCredit$CIF_res_survtree); describe2(datCredit$CIF_res_survtree)
 ### RESULTS: Probabilities corrected successfully
 
 
-# --- 1.7 Create empirical event indicators over windows of various fixed lengths
+# --- 1.7 Create Cumulative incidence functions (CIFs) by aggregating the event rates over spell periods
+
+# - Aggregate predictions
+datCredit[, `:=`(CIF_bas=cumsum(EventRate_bas),
+                 CIF_adv=cumsum(EventRate_adv),
+                 CIF_survtree=cumsum(EventRate_survtree),
+                 CIF_mult=cumsum(EventRate_WriteOff),
+                 CIF_mult_survtree=cumsum(EventRate_WriteOff_tree)),
+          by=.(DefSpell_Key)]
+
+# - [SANITY CHECK] Validity of predictions
+hist(datCredit$CIF_bas); describe2(datCredit$CIF_bas)
+hist(datCredit$CIF_adv); describe2(datCredit$CIF_adv)
+hist(datCredit$CIF_survtree); describe2(datCredit$CIF_survtree)
+hist(datCredit$CIF_mult); describe2(datCredit$CIF_mult)
+hist(datCredit$CIF_mult_survtree); describe2(datCredit$CIF_mult_survtree)
+sum(is.na(datCredit$CIF_survtree)); sum(is.nan(datCredit$CIF_survtree)); sum(is.infinite(datCredit$CIF_survtree))
+lookup_check <-datCredit[DefSpell_Key==datCredit[CIF_survtree>1, DefSpell_Key][1],
+                         c("DefSpell_Key", "Date", "Node",
+                           "EventRate_survtree", "CIF_survtree", "WOff_Ind")]
+### RESULTS: - Basic DtH model, advanced DtH model, cross-sectional logistic regression model, multinomial model, and mutinomial survival tree
+###            produce probabilities bounded by [0,1]
+###          - Survival tree has a few missing and infinite values, this happens at the end of certain spells when both
+###            the event rates and survival probabilities are zero
+### CONCLUSION: Correct these rates by applying ceilings of 1
+
+# - Apply ceiling of one to survival tree predictions
+datCredit[CIF_survtree>1, CIF_survtree:=1]
+sum(datCredit[CIF_survtree>1,.N])
+### RESULTS: Safe, all non sensical values are capped to one
+
+# - [SANITY CHECK] lookup
+lookup <- datCredit[LoanID==datCredit[WOff_Ind==1 & Counter>50 & Date>"2022-01-01", LoanID][1000],
+                    c("LoanID", "Date", "Counter", "EventRate_adv", "CIF_res_adv", "CIF_adv", "WOff_Ind")]
+
+
+
+# --- 1.8 Create empirical event indicators over windows of various fixed lengths
 
 # - Write-off indicators
 datCredit[, `:=`(WOff_Ind_3_max=imputeLastKnown(frollapply(x=WOff_Ind, n=4, align="left", FUN=max)),
@@ -928,40 +965,6 @@ ggsave(g5_ResolRate, file=paste0(genFigPath, "12Month-WriteOff_ResolRate_Reporti
 ###         spell will have been written-off at each period
 ###       - We can compare this against the spell resolution outcome at the end of its life.
 
-# --- 8.1 Prepare data
-# - Aggregate predictions
-datCredit[, `:=`(CIF_res_bas_alt=cumsum(EventRate_bas),
-                 CIF_res_adv_alt=cumsum(EventRate_adv),
-                 CIF_res_survtree_alt=cumsum(EventRate_survtree),
-                 CIF_res_mult_alt=cumsum(EventRate_WriteOff),
-                 CIF_res_mult_survtree_alt=cumsum(EventRate_WriteOff_tree)),
-          by=.(DefSpell_Key)]
-
-# - [SANITY CHECK] Validity of predictions
-hist(datCredit$CIF_res_bas_alt); describe2(datCredit$CIF_res_bas_alt)
-hist(datCredit$CIF_res_adv_alt); describe2(datCredit$CIF_res_adv_alt)
-hist(datCredit$CIF_res_survtree_alt); describe2(datCredit$CIF_res_survtree_alt)
-hist(datCredit$CIF_res_mult_alt); describe2(datCredit$CIF_res_mult_alt)
-hist(datCredit$CIF_res_mult_survtree_alt); describe2(datCredit$CIF_res_mult_survtree_alt)
-sum(is.na(datCredit$CIF_res_survtree_alt)); sum(is.nan(datCredit$CIF_res_survtree_alt)); sum(is.infinite(datCredit$CIF_res_survtree_alt))
-lookup_check <-datCredit[DefSpell_Key==datCredit[CIF_res_survtree_alt>1, DefSpell_Key][1],
-                         c("DefSpell_Key", "Date", "Node",
-                           "EventRate_survtree", "CIF_res_survtree_alt", "WOff_Ind")]
-### RESULTS: - Basic DtH model, advanced DtH model, cross-sectional logistic regression model, multinomial model, and mutinomial survival tree
-###            produce probabilities bounded by [0,1]
-###          - Survival tree has a few missing and infinite values, this happens at the end of certain spells when both
-###            the event rates and survival probabilities are zero
-### CONCLUSION: Correct these rates by applying ceilings of 1
-
-# - Apply ceiling of one to survival tree predictions
-datCredit[CIF_res_survtree_alt>1, CIF_res_survtree_alt:=1]
-sum(datCredit[CIF_res_survtree_alt>1,.N])
-### RESULTS: Safe, all non sensical values are capped to one
-
-# - [SANITY CHECK] lookup
-lookup <- datCredit[LoanID==datCredit[WOff_Ind==1 & Counter>50 & Date>"2022-01-01", LoanID][1000],
-                    c("LoanID", "Date", "Counter", "EventRate_adv", "CIF_res_adv", "CIF_res_adv_alt", "WOff_Ind")]
-
 
 # --- 8.2 Create data for plotting
 # -- 8.1.1 Plotting data
@@ -971,11 +974,11 @@ date_xlim <- c(min(datPlot$Date), max(datCredit$Date))
 # - Aggregate data at default start
 datPlot <- datCredit[TimeInDefSpell==DefSpell_Age & DefSpellResol_Type_Hist!="Censored",
                      .(Empirical=mean(WOff_Ind==1, na.rm=T),
-                       Basic_DtH=mean(CIF_res_bas_alt, na.rm=T),
-                       Advanced_DtH=mean(CIF_res_adv_alt, na.rm=T),
-                       SurvTree=mean(CIF_res_survtree_alt, na.rm=T),
-                       Mult=mean(CIF_res_mult_alt, na.rm=T),
-                       MultSurvTree=mean(CIF_res_mult_survtree_alt, na.rm=T)),
+                       Basic_DtH=mean(CIF_bas, na.rm=T),
+                       Advanced_DtH=mean(CIF_adv, na.rm=T),
+                       SurvTree=mean(CIF_survtree, na.rm=T),
+                       Mult=mean(CIF_mult, na.rm=T),
+                       MultSurvTree=mean(CIF_mult_survtree, na.rm=T)),
                      by=.(Date)]
 
 # - Pivot data to facilitate graphing
@@ -1073,11 +1076,11 @@ date_xlim=c(min(datPlot$Date), max(datCredit$Date))
 
 # - Aggregate data by reporting date
 datPlot <- datCredit[,.(Empirical=mean(WOff_Ind==1, na.rm=T),
-                        Basic_DtH=mean(CIF_res_bas_alt, na.rm=T),
-                        Advanced_DtH=mean(CIF_res_adv_alt, na.rm=T),
-                        SurvTree=mean(CIF_res_survtree_alt, na.rm=T),
-                        Mult=mean(CIF_res_mult_alt, na.rm=T),
-                        MultSurvTree=mean(CIF_res_mult_survtree_alt, na.rm=T)),
+                        Basic_DtH=mean(CIF_bas, na.rm=T),
+                        Advanced_DtH=mean(CIF_adv, na.rm=T),
+                        SurvTree=mean(CIF_survtree, na.rm=T),
+                        Mult=mean(CIF_mult, na.rm=T),
+                        MultSurvTree=mean(CIF_mult_survtree, na.rm=T)),
                      by=.(Date)]
 
 # - Pivot data to facilitate grapging
